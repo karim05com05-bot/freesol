@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comment ça marche - FreeSol</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .logo {
+            font-size: 2.5rem;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 30px;
+            background: linear-gradient(45deg, #00ff88, #00ccff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .back-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            color: white;
+            cursor: pointer;
+            margin-bottom: 20px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            margin: 20px 0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        h2 {
+            margin-bottom: 20px;
+            color: #00ff88;
+        }
+
+        .step {
+            margin: 30px 0;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+        }
+
+        .fee-explanation {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 25px;
+            border-radius: 15px;
+            margin: 25px 0;
+            border-left: 4px solid #00ff88;
+        }
+
+        .example {
+            background: rgba(0, 255, 136, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+
+        ul {
+            margin: 15px 0;
+            padding-left: 25px;
+        }
+
+        li {
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-btn">← Retour à l'accueil</a>
+        
+        <div class="logo">FreeSol</div>
+
+        <div class="card">
+            <h2>🔧 Comment ça marche ?</h2>
+            
+            <div class="step">
+                <h3>1️⃣ Le Problème</h3>
+                <p>Quand vous créez un token sur Solana, une caution de 0.002 SOL est bloquée pour le stockage. Si vous abandonnez le token, cet argent reste perdu à jamais.</p>
+            </div>
+
+            <div class="step">
+                <h3>2️⃣ Notre Solution</h3>
+                <p>FreeSol scanne votre portefeuille et identifie automatiquement tous les tokens abandonnés avec des SOL bloqués.</p>
+            </div>
+
+            <div class="step">
+                <h3>3️⃣ La Récupération</h3>
+                <p>Nous utilisons la fonction officielle "Close Account" de Solana pour fermer ces comptes et libérer vos SOL.</p>
+            </div>
+
+            <div class="fee-explanation">
+                <h3>💰 Notre Rémunération (20%)</h3>
+                <p>Pour maintenir et améliorer le service, nous prélevons <strong>20%</strong> sur les SOL récupérés.</p>
+                
+                <div class="example">
+                    <h4>📊 Exemple concret :</h4>
+                    <p><strong>SOL récupéré :</strong> 0.002 SOL</p>
+                    <p><strong>Notre commission (20%) :</strong> 0.0004 SOL</p>
+                    <p><strong>Vous recevez :</strong> 0.0016 SOL</p>
+                    <p><em>→ Sans FreeSol, vous auriez reçu 0 SOL !</em></p>
+                </div>
+
+                <ul>
+                    <li>✅ <strong>Gagnant-gagnant</strong> : Vous récupérez 80% de SOL qui étaient perdus</li>
+                    <li>✅ <strong>Transparent</strong> : Les frais sont affichés avant chaque transaction</li>
+                    <li>✅ <strong>Justifié</strong> : Ces frais couvrent le développement, l'hébergement et la maintenance</li>
+                </ul>
+            </div>
+
+            <div class="step">
+                <h3>4️⃣ Sécurité Garantie</h3>
+                <ul>
+                    <li>🔒 Nous n'avons jamais accès à vos fonds</li>
+                    <li>🔒 Nous ne pouvons pas signer de transactions à votre place</li>
+                    <li>🔒 Vous gardez le contrôle total de votre portefeuille</li>
+                    <li>🔒 Code open-source et vérifiable</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>❓ Questions Fréquentes</h2>
+            
+            <div class="step">
+                <h3>Est-ce que c'est sécurisé ?</h3>
+                <p>Absolument ! Nous utilisons uniquement des fonctions officielles de Solana. Vous signez chaque transaction et nous ne touchons jamais à vos autres fonds.</p>
+            </div>
+
+            <div class="step">
+                <h3>Pourquoi 20% de frais ?</h3>
+                <p>Ces frais nous permettent de maintenir le service, payer les serveurs, et continuer à développer de nouvelles fonctionnalités. Sans cela, le service ne serait pas viable.</p>
+            </div>
+
+            <div class="step">
+                <h3>Combien de SOL puis-je récupérer ?</h3>
+                <p>Cela dépend du nombre de tokens abandonnés dans votre portefeuille. Certains utilisateurs récupèrent 0.002 SOL, d'autres plus de 1 SOL !</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
