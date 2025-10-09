@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FreeSol - Récupérez vos SOL perdus</title>
+    <title>FreeSol - Recover Your Lost SOL</title>
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
     <script src="https://unpkg.com/@solana/wallet-adapter-phantom/lib/index.iife.js"></script>
     <style>
@@ -74,12 +74,15 @@
             margin-bottom: 15px;
         }
 
-        .theme-toggle {
-            text-align: center;
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
             margin: 15px 0;
+            flex-wrap: wrap;
         }
 
-        .theme-btn {
+        .theme-btn, .lang-btn {
             background: transparent;
             border: 1px solid #00ff88;
             color: #00ff88;
@@ -89,8 +92,13 @@
             transition: all 0.3s;
         }
 
-        .theme-btn:hover {
+        .theme-btn:hover, .lang-btn:hover {
             background: rgba(0, 255, 136, 0.1);
+        }
+
+        .lang-btn.active {
+            background: #00ff88;
+            color: black;
         }
 
         .main-card {
@@ -241,18 +249,20 @@
     <div class="container">
         <header>
             <div class="logo">FreeSol <span class="maunte-badge">MAUNTE MODE</span></div>
-            <div class="tagline">Récupérez vos SOL perdus dans les tokens abandonnés</div>
-            <div class="theme-toggle">
+            <div class="tagline" id="tagline">Récupérez vos SOL perdus dans les tokens abandonnés</div>
+            <div class="controls">
                 <button class="theme-btn" onclick="toggleDarkMode()" id="themeToggle">
                     🌙 Mode Sombre
                 </button>
+                <button class="lang-btn active" onclick="changeLanguage('fr')">🇫🇷 FR</button>
+                <button class="lang-btn" onclick="changeLanguage('en')">🇺🇸 EN</button>
             </div>
         </header>
 
         <div class="main-card">
             <div class="wallet-section">
-                <h3>Connectez votre portefeuille</h3>
-                <button class="connect-btn" onclick="connectWallet()">
+                <h3 id="connectTitle">Connectez votre portefeuille</h3>
+                <button class="connect-btn" onclick="connectWallet()" id="connectBtn">
                     🦊 Connecter Phantom
                 </button>
                 <div class="wallet-status" id="walletStatus" style="display: none;">
@@ -261,14 +271,14 @@
             </div>
 
             <div class="tokens-list">
-                <h3>Tokens récupérables</h3>
+                <h3 id="tokensTitle">Tokens récupérables</h3>
                 <div id="tokensContainer">
                     <!-- Les tokens apparaîtront ici -->
                 </div>
             </div>
 
             <div class="tx-history" id="txHistory" style="display: none;">
-                <h3>📜 Historique des transactions</h3>
+                <h3 id="txHistoryTitle">📜 Historique des transactions</h3>
                 <div id="transactionsList">
                     <!-- Les transactions apparaîtront ici -->
                 </div>
@@ -277,23 +287,23 @@
 
         <div class="stats">
             <div class="stat-card">
-                <h3>SOL récupérés</h3>
+                <h3 id="statsSol">SOL récupérés</h3>
                 <p id="totalSol">0.000 SOL</p>
             </div>
             <div class="stat-card">
-                <h3>Utilisateurs</h3>
+                <h3 id="statsUsers">Utilisateurs</h3>
                 <p id="totalUsers">1</p>
             </div>
             <div class="stat-card">
-                <h3>Tokens fermés</h3>
+                <h3 id="statsTokens">Tokens fermés</h3>
                 <p id="totalTokens">0</p>
             </div>
         </div>
 
         <footer>
             <p>
-                FreeSol - Version Maunte Mode 
-                <a href="comment-ca-marche.html" style="color: #00ff88; margin-left: 20px; text-decoration: none;">
+                <span id="footerText">FreeSol - Version Maunte Mode</span>
+                <a href="comment-ca-marche.html" style="color: #00ff88; margin-left: 20px; text-decoration: none;" id="howItWorksLink">
                     Comment ça marche ?
                 </a>
             </p>
@@ -301,6 +311,74 @@
     </div>
 
     <script>
+        // ===== TRADUCTIONS =====
+        const translations = {
+            fr: {
+                tagline: "Récupérez vos SOL perdus dans les tokens abandonnés",
+                connectTitle: "Connectez votre portefeuille",
+                connectBtn: "🦊 Connecter Phantom",
+                tokensTitle: "Tokens récupérables",
+                txHistoryTitle: "📜 Historique des transactions",
+                statsSol: "SOL récupérés",
+                statsUsers: "Utilisateurs",
+                statsTokens: "Tokens fermés",
+                footerText: "FreeSol - Version Maunte Mode",
+                howItWorksLink: "Comment ça marche ?",
+                themeBtnDark: "🌙 Mode Sombre",
+                themeBtnLight: "☀️ Mode Clair",
+                noTokens: "Aucun token récupérable trouvé",
+                scanning: "Scan en cours...",
+                connectError: "Erreur de connexion",
+                claimSuccess: "🎉 SUCCÈS!",
+                viewTransaction: "🔗 Voir",
+                noTransactions: "Aucune transaction encore"
+            },
+            en: {
+                tagline: "Recover your lost SOL from abandoned tokens",
+                connectTitle: "Connect your wallet",
+                connectBtn: "🦊 Connect Phantom",
+                tokensTitle: "Recoverable tokens",
+                txHistoryTitle: "📜 Transaction History",
+                statsSol: "SOL Recovered",
+                statsUsers: "Users",
+                statsTokens: "Tokens Closed",
+                footerText: "FreeSol - Maunte Mode",
+                howItWorksLink: "How it works?",
+                themeBtnDark: "🌙 Dark Mode",
+                themeBtnLight: "☀️ Light Mode",
+                noTokens: "No recoverable tokens found",
+                scanning: "Scanning...",
+                connectError: "Connection error",
+                claimSuccess: "🎉 SUCCESS!",
+                viewTransaction: "🔗 View",
+                noTransactions: "No transactions yet"
+            }
+        };
+
+        let currentLanguage = 'fr';
+
+        // ===== CHANGEMENT DE LANGUE =====
+        function changeLanguage(lang) {
+            currentLanguage = lang;
+            
+            // Met à jour les boutons de langue
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Met à jour tous les textes
+            Object.keys(translations[lang]).forEach(key => {
+                const element = document.getElementById(key);
+                if (element) {
+                    element.textContent = translations[lang][key];
+                }
+            });
+            
+            // Sauvegarde la langue
+            localStorage.setItem('preferredLanguage', lang);
+        }
+
         // ===== CONFIGURATION SOLANA =====
         const connection = new solanaWeb3.Connection(
             solanaWeb3.clusterApiUrl('devnet'),
@@ -314,14 +392,24 @@
             localStorage.setItem('darkMode', isDarkMode);
             
             const themeBtn = document.getElementById('themeToggle');
-            themeBtn.innerHTML = isDarkMode ? '☀️ Mode Clair' : '🌙 Mode Sombre';
+            themeBtn.innerHTML = isDarkMode ? translations[currentLanguage].themeBtnLight : translations[currentLanguage].themeBtnDark;
         }
 
-        // Charge le mode sauvegardé au chargement
+        // ===== CHARGEMENT DES PRÉFÉRENCES =====
         window.addEventListener('load', function() {
+            // Charge le mode sombre
             if (localStorage.getItem('darkMode') === 'true') {
                 document.body.classList.add('dark-mode');
-                document.getElementById('themeToggle').innerHTML = '☀️ Mode Clair';
+                document.getElementById('themeToggle').innerHTML = translations[currentLanguage].themeBtnLight;
+            }
+            
+            // Charge la langue
+            const savedLang = localStorage.getItem('preferredLanguage') || 'fr';
+            changeLanguage(savedLang);
+            
+            // Connexion auto si déjà connecté
+            if (window.solana && window.solana.isConnected) {
+                document.querySelector('.connect-btn').click();
             }
         });
 
@@ -336,44 +424,36 @@
             const txHistory = document.getElementById('txHistory');
             
             try {
-                btn.innerHTML = '<span class="loading"></span> Connexion...';
+                btn.innerHTML = '<span class="loading"></span> ' + (currentLanguage === 'fr' ? 'Connexion...' : 'Connecting...');
                 
-                // Vérifie si Phantom est installé
                 if (!window.solana || !window.solana.isPhantom) {
-                    throw new Error('Phantom wallet non détecté!');
+                    throw new Error(currentLanguage === 'fr' ? 'Phantom wallet non détecté!' : 'Phantom wallet not detected!');
                 }
 
-                // Demande la connexion
                 const response = await window.solana.connect();
                 userWalletAddress = response.publicKey.toString();
                 
-                // Met à jour l'interface
                 btn.style.display = 'none';
                 status.style.display = 'block';
                 txHistory.style.display = 'block';
                 
-                // Récupère le solde
                 const balance = await connection.getBalance(response.publicKey);
                 const solBalance = balance / 1000000000;
                 
                 walletInfo.innerHTML = `
-                    ✅ Portefeuille connecté<br>
-                    <small>Adresse: ${userWalletAddress.substring(0, 12)}...${userWalletAddress.substring(userWalletAddress.length - 6)}</small><br>
+                    ✅ ${currentLanguage === 'fr' ? 'Portefeuille connecté' : 'Wallet connected'}<br>
+                    <small>${currentLanguage === 'fr' ? 'Adresse' : 'Address'}: ${userWalletAddress.substring(0, 12)}...${userWalletAddress.substring(userWalletAddress.length - 6)}</small><br>
                     <small>SOL: ${solBalance.toFixed(4)}</small>
                 `;
                 
                 walletConnected = true;
-                
-                // Scan les tokens
                 scanTokens();
-                
-                // Affiche l'historique des transactions
                 loadTransactionHistory();
                 
             } catch (error) {
                 console.error('Erreur connexion:', error);
-                btn.innerHTML = '🦊 Connecter Phantom';
-                alert('Erreur: ' + error.message);
+                btn.innerHTML = translations[currentLanguage].connectBtn;
+                alert(translations[currentLanguage].connectError + ': ' + error.message);
             }
         }
 
@@ -382,10 +462,9 @@
             if (!walletConnected) return;
             
             const tokensContainer = document.getElementById('tokensContainer');
-            tokensContainer.innerHTML = '<div style="text-align: center;"><span class="loading"></span> Scan en cours...</div>';
+            tokensContainer.innerHTML = '<div style="text-align: center;"><span class="loading"></span> ' + translations[currentLanguage].scanning + '</div>';
             
             try {
-                // Simulation de scan (à remplacer par vrai scan plus tard)
                 setTimeout(() => {
                     const mockTokens = [
                         { mint: 'TokenABC123...', recoverable: 0.002 },
@@ -398,7 +477,7 @@
                 
             } catch (error) {
                 console.error('Erreur scan:', error);
-                tokensContainer.innerHTML = '<div style="color: #ff6b6b; text-align: center;">Erreur lors du scan</div>';
+                tokensContainer.innerHTML = '<div style="color: #ff6b6b; text-align: center;">' + translations[currentLanguage].connectError + '</div>';
             }
         }
 
@@ -407,7 +486,7 @@
             const tokensContainer = document.getElementById('tokensContainer');
             
             if (tokens.length === 0) {
-                tokensContainer.innerHTML = '<div style="text-align: center;">Aucun token récupérable trouvé</div>';
+                tokensContainer.innerHTML = '<div style="text-align: center;">' + translations[currentLanguage].noTokens + '</div>';
                 return;
             }
             
@@ -415,51 +494,47 @@
                 <div class="token-item">
                     <span>${token.mint}</span>
                     <button class="claim-btn" onclick="claimToken('${token.mint}', ${token.recoverable})">
-                        Récupérer ${token.recoverable} SOL
+                        ${currentLanguage === 'fr' ? 'Récupérer' : 'Recover'} ${token.recoverable} SOL
                     </button>
                 </div>
             `).join('');
         }
 
-        // ===== FONCTION DE RÉCLAMATION (MAUNTE MODE) =====
+        // ===== FONCTION DE RÉCLAMATION =====
         async function claimToken(mintAddress, amount) {
             if (!walletConnected) {
-                alert('Veuillez d\'abord connecter votre wallet!');
+                alert(currentLanguage === 'fr' ? 'Veuillez d\'abord connecter votre wallet!' : 'Please connect your wallet first!');
                 return;
             }
             
             try {
-                // Calcul des 20% de frais
                 const fee = amount * 0.20;
                 const userAmount = amount * 0.80;
                 
-                // Simulation de transaction (MAUNTE MODE)
                 const transactionResult = await simulateTransaction(mintAddress, amount, fee, userAmount);
                 
                 if (transactionResult.success) {
-                    alert(`🎉 SUCCÈS!\n\nToken: ${mintAddress}\nSOL récupéré: ${userAmount.toFixed(4)} SOL (80%)\nFrais service: ${fee.toFixed(4)} SOL (20%)\n\nMode Maunte: Transaction simulée - Vrai transaction quand SOL disponible`);
+                    const message = currentLanguage === 'fr' 
+                        ? `🎉 SUCCÈS!\n\nToken: ${mintAddress}\nSOL récupéré: ${userAmount.toFixed(4)} SOL (80%)\nFrais service: ${fee.toFixed(4)} SOL (20%)\n\nMode Maunte: Transaction simulée`
+                        : `🎉 SUCCESS!\n\nToken: ${mintAddress}\nSOL recovered: ${userAmount.toFixed(4)} SOL (80%)\nService fee: ${fee.toFixed(4)} SOL (20%)\n\nMaunte Mode: Simulated transaction`;
                     
-                    // Met à jour les stats
+                    alert(message);
                     updateStats(userAmount);
-                    
-                    // Recharge l'historique
                     loadTransactionHistory();
                 }
                 
             } catch (error) {
                 console.error('Erreur réclamation:', error);
-                alert('Erreur lors de la réclamation: ' + error.message);
+                alert((currentLanguage === 'fr' ? 'Erreur lors de la réclamation: ' : 'Claim error: ') + error.message);
             }
         }
 
-        // ===== SIMULATION DE TRANSACTION (MAUNTE MODE) =====
+        // ===== SIMULATION DE TRANSACTION =====
         async function simulateTransaction(mintAddress, totalAmount, fee, userAmount) {
             return new Promise((resolve) => {
                 setTimeout(() => {
-                    // Génère un TXID simulé réaliste
                     const simulatedTxId = 'sim_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
                     
-                    // Sauvegarde en local storage pour tracking
                     const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
                     const newTransaction = {
                         txId: simulatedTxId,
@@ -472,7 +547,7 @@
                         status: 'confirmed'
                     };
                     
-                    transactions.unshift(newTransaction); // Ajoute au début
+                    transactions.unshift(newTransaction);
                     localStorage.setItem('freesol_transactions', JSON.stringify(transactions));
                     
                     resolve({ success: true, txId: simulatedTxId });
@@ -486,7 +561,7 @@
             const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
             
             if (transactions.length === 0) {
-                transactionsList.innerHTML = '<div style="text-align: center; opacity: 0.7;">Aucune transaction encore</div>';
+                transactionsList.innerHTML = '<div style="text-align: center; opacity: 0.7;">' + translations[currentLanguage].noTransactions + '</div>';
                 return;
             }
             
@@ -494,12 +569,12 @@
                 <div class="tx-item">
                     <div>
                         <strong>${tx.mint}</strong><br>
-                        <small>Reçu: ${tx.userReceived.toFixed(4)} SOL | Frais: ${tx.fee.toFixed(4)} SOL</small>
+                        <small>${currentLanguage === 'fr' ? 'Reçu' : 'Received'}: ${tx.userReceived.toFixed(4)} SOL | ${currentLanguage === 'fr' ? 'Frais' : 'Fee'}: ${tx.fee.toFixed(4)} SOL</small>
                     </div>
                     <div>
                         <small>${new Date(tx.timestamp).toLocaleDateString()}</small><br>
                         <a href="#" class="tx-link" onclick="viewTransaction('${tx.txId}')">
-                            🔗 Voir
+                            ${translations[currentLanguage].viewTransaction}
                         </a>
                     </div>
                 </div>
@@ -509,7 +584,7 @@
         // ===== AFFICHAGE D'UNE TRANSACTION =====
         function viewTransaction(txId) {
             if (txId.startsWith('sim_')) {
-                alert('🔍 Transaction simulée (Mode Maunte)\nTXID: ' + txId + '\n\nEn mode réel, ce lien ouvrirait Solscan.io');
+                alert((currentLanguage === 'fr' ? '🔍 Transaction simulée (Mode Maunte)\nTXID: ' : '🔍 Simulated transaction (Maunte Mode)\nTXID: ') + txId);
             } else {
                 window.open(`https://solscan.io/tx/${txId}`, '_blank');
             }
@@ -526,13 +601,6 @@
             totalSolElement.textContent = (currentSol + amount).toFixed(3) + ' SOL';
             totalTokensElement.textContent = (currentTokens + 1) + '';
         }
-
-        // ===== VÉRIFICATION AUTO SI DÉJÀ CONNECTÉ =====
-        window.addEventListener('load', function() {
-            if (window.solana && window.solana.isConnected) {
-                document.querySelector('.connect-btn').click();
-            }
-        });
     </script>
 </body>
 </html>
