@@ -67,11 +67,19 @@
             -webkit-text-fill-color: transparent;
         }
 
-        .header-controls {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
+     <div class="header-controls">
+    <div class="controls-group">
+        <button class="lang-btn active" onclick="changeLanguage('fr')">FR</button>
+        <button class="lang-btn" onclick="changeLanguage('en')">EN</button>
+        <button class="theme-btn" onclick="toggleDarkMode()" id="themeToggle" title="Mode Sombre/Clair">
+            🌙
+        </button>
+    </div>
+    <a href="dashboard.html" class="nav-btn" style="margin-right: 10px;">📊 Dashboard</a>
+    <button class="connect-header-btn" onclick="showWalletSelector()" id="connectHeaderBtn">
+        Connect Wallet
+    </button>
+</div>
 
         .controls-group {
             display: flex;
