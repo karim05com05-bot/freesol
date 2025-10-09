@@ -32,7 +32,6 @@
             transition: all 0.3s ease;
         }
 
-        /* === MODE SOMBRE === */
         body.dark-mode {
             background: var(--dark-background);
         }
@@ -42,13 +41,12 @@
         body.dark-mode .token-item,
         body.dark-mode .wallet-status,
         body.dark-mode .tx-history,
-        body.dark-mode .wallet-selector {
+        body.dark-mode .wallet-selector,
+        body.dark-mode .affiliation-card {
             background: var(--dark-card-bg);
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
-        /* === FIN MODE SOMBRE === */
 
-        /* === HEADER PRO === */
         .header {
             display: flex;
             justify-content: space-between;
@@ -135,7 +133,6 @@
         .connect-header-btn:hover {
             transform: translateY(-2px);
         }
-        /* === FIN HEADER PRO === */
 
         .container {
             max-width: 1200px;
@@ -187,12 +184,6 @@
             transform: translateY(-2px);
         }
 
-        .wallet-btn.connected {
-            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
-            color: black;
-            border-color: var(--primary-color);
-        }
-
         .main-card {
             background: var(--card-bg);
             backdrop-filter: blur(10px);
@@ -202,6 +193,63 @@
             max-width: 500px;
             border: 1px solid rgba(255, 255, 255, 0.2);
             transition: all 0.3s ease;
+        }
+
+        .affiliation-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin: 20px auto;
+            max-width: 500px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: center;
+        }
+
+        .affiliation-badge {
+            background: linear-gradient(45deg, #ff0080, #ff8c00);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+            display: inline-block;
+        }
+
+        .referral-code {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 1.1rem;
+            border: 1px dashed var(--primary-color);
+        }
+
+        .copy-btn {
+            background: var(--primary-color);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            color: black;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 10px 5px;
+            transition: transform 0.3s;
+        }
+
+        .copy-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .referral-input {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--primary-color);
+            padding: 12px;
+            border-radius: 10px;
+            color: white;
+            width: 100%;
+            margin: 10px 0;
+            font-size: 1rem;
         }
 
         .wallet-section {
@@ -260,6 +308,69 @@
             border-radius: 10px;
             text-align: center;
             transition: all 0.3s ease;
+        }
+
+        .leaderboard {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 15px;
+            margin: 30px 0;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .leaderboard-title {
+            text-align: center;
+            margin-bottom: 20px;
+            color: var(--primary-color);
+            font-size: 1.5rem;
+        }
+
+        .leader-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .leader-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .leader-item:last-child {
+            border-bottom: none;
+        }
+
+        .leader-rank {
+            font-weight: bold;
+            background: var(--primary-color);
+            color: black;
+            padding: 8px 12px;
+            border-radius: 50%;
+            min-width: 35px;
+            text-align: center;
+        }
+
+        .leader-address {
+            flex-grow: 1;
+            margin: 0 15px;
+            font-family: monospace;
+        }
+
+        .leader-stats {
+            text-align: right;
+        }
+
+        .leader-referrals {
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .leader-earnings {
+            font-size: 0.9rem;
+            opacity: 0.8;
         }
 
         .tx-history {
@@ -334,7 +445,6 @@
             background: rgba(255, 107, 107, 0.1);
         }
 
-        /* === RESPONSIVE === */
         @media (max-width: 768px) {
             .header {
                 padding: 15px 20px;
@@ -358,13 +468,22 @@
             .stats {
                 grid-template-columns: 1fr;
             }
+
+            .leader-item {
+                flex-direction: column;
+                text-align: center;
+                gap: 10px;
+            }
+
+            .leader-address {
+                margin: 0;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- HEADER PROFESSIONNEL -->
     <div class="header">
-        <div class="logo">FreeSol <span class="maunte-badge">PRO</span></div>
+        <div class="logo">FreeSol <span class="maunte-badge">AFFILIATION</span></div>
         <div class="header-controls">
             <div class="controls-group">
                 <button class="lang-btn active" onclick="changeLanguage('fr')">FR</button>
@@ -403,6 +522,40 @@
                 <button class="wallet-btn" onclick="connectWallet('metamask')">
                     <span>🦊</span> MetaMask
                 </button>
+            </div>
+        </div>
+
+        <!-- CARTE AFFILIATION -->
+        <div class="affiliation-card" id="affiliationCard" style="display: none;">
+            <div class="affiliation-badge">🎯 PROGRAMME DE PARRAINAGE</div>
+            <h3 id="affiliationTitle">Gagnez 3% à vie sur chaque transaction de vos filleuls !</h3>
+            
+            <div class="referral-code" id="referralCode">
+                Chargement...
+            </div>
+            <button class="copy-btn" onclick="copyReferralCode()" id="copyBtn">📋 Copier le code</button>
+            
+            <div style="margin: 20px 0; padding: 15px; background: rgba(0, 255, 136, 0.1); border-radius: 10px;">
+                <h4>📊 Vos statistiques de parrainage</h4>
+                <p>👥 Filleuls: <span id="referralCount">0</span></p>
+                <p>💰 Gains: <span id="referralEarnings">0.000 SOL</span></p>
+            </div>
+
+            <div style="margin-top: 20px;">
+                <h4>👋 Invitez un ami</h4>
+                <input type="text" class="referral-input" id="friendReferralInput" placeholder="Code parrain de votre ami (optionnel)">
+                <button class="copy-btn" onclick="applyReferralCode()">✅ Appliquer le code</button>
+            </div>
+        </div>
+
+        <!-- CLASSEMENT DES PARRAINS -->
+        <div class="leaderboard">
+            <h3 class="leaderboard-title" id="leaderboardTitle">🏆 Classement des Top Parrains</h3>
+            <div id="leaderboardList">
+                <div style="text-align: center; padding: 40px;">
+                    <span class="loading"></span>
+                    <div>Chargement du classement...</div>
+                </div>
             </div>
         </div>
 
@@ -445,7 +598,7 @@
 
         <footer>
             <p>
-                <span id="footerText">FreeSol - Version Professionnelle</span>
+                <span id="footerText">FreeSol - Système d'Affiliation Actif</span>
                 <a href="comment-ca-marche.html" style="color: var(--primary-color); margin-left: 20px; text-decoration: none;" id="howItWorksLink">
                     Comment ça marche ?
                 </a>
@@ -465,8 +618,10 @@
                 statsSol: "SOL récupérés",
                 statsUsers: "Utilisateurs",
                 statsTokens: "Tokens fermés",
-                footerText: "FreeSol - Version Professionnelle",
+                footerText: "FreeSol - Système d'Affiliation Actif",
                 howItWorksLink: "Comment ça marche ?",
+                affiliationTitle: "Gagnez 3% à vie sur chaque transaction de vos filleuls !",
+                leaderboardTitle: "🏆 Classement des Top Parrains",
                 themeBtnDark: "🌙",
                 themeBtnLight: "☀️",
                 noTokens: "Aucun token récupérable trouvé",
@@ -477,7 +632,9 @@
                 noTransactions: "Aucune transaction encore",
                 connected: "Connecté",
                 disconnect: "Déconnecter",
-                chooseWallet: "Choisir un wallet"
+                chooseWallet: "Choisir un wallet",
+                copyBtn: "📋 Copier le code",
+                applyReferral: "✅ Appliquer le code"
             },
             en: {
                 tagline: "Recover your lost SOL from abandoned tokens",
@@ -488,8 +645,10 @@
                 statsSol: "SOL Recovered",
                 statsUsers: "Users",
                 statsTokens: "Tokens Closed",
-                footerText: "FreeSol - Professional Version",
+                footerText: "FreeSol - Active Affiliation System",
                 howItWorksLink: "How it works?",
+                affiliationTitle: "Earn 3% for life on every transaction from your referrals!",
+                leaderboardTitle: "🏆 Top Referrers Ranking",
                 themeBtnDark: "🌙",
                 themeBtnLight: "☀️",
                 noTokens: "No recoverable tokens found",
@@ -500,13 +659,112 @@
                 noTransactions: "No transactions yet",
                 connected: "Connected",
                 disconnect: "Disconnect",
-                chooseWallet: "Choose wallet"
+                chooseWallet: "Choose wallet",
+                copyBtn: "📋 Copy code",
+                applyReferral: "✅ Apply code"
             }
         };
 
         let currentLanguage = 'fr';
         let currentWallet = null;
         let userWalletAddress = null;
+        let userReferralCode = null;
+
+        // ===== SYSTÈME D'AFFILIATION =====
+        function generateReferralCode(walletAddress) {
+            return "FREESOL_" + walletAddress.substring(0, 8).toUpperCase();
+        }
+
+        function getReferralData() {
+            return JSON.parse(localStorage.getItem('freesol_referrals') || '{}');
+        }
+
+        function saveReferralData(data) {
+            localStorage.setItem('freesol_referrals', JSON.stringify(data));
+        }
+
+        function updateAffiliationStats() {
+            const referralData = getReferralData();
+            const userData = referralData[userWalletAddress] || { referrals: [], earnings: 0, code: userReferralCode };
+            
+            document.getElementById('referralCount').textContent = userData.referrals.length;
+            document.getElementById('referralEarnings').textContent = userData.earnings.toFixed(6) + ' SOL';
+            document.getElementById('referralCode').textContent = userReferralCode;
+        }
+
+        function copyReferralCode() {
+            navigator.clipboard.writeText(userReferralCode).then(() => {
+                const btn = document.getElementById('copyBtn');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '✅ Copié !';
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                }, 2000);
+            });
+        }
+
+        function applyReferralCode() {
+            const code = document.getElementById('friendReferralInput').value.trim();
+            if (!code) return;
+
+            const referralData = getReferralData();
+            
+            // Trouver le parrain par son code
+            let referrerAddress = null;
+            for (const [address, data] of Object.entries(referralData)) {
+                if (data.code === code) {
+                    referrerAddress = address;
+                    break;
+                }
+            }
+
+            if (referrerAddress && referrerAddress !== userWalletAddress) {
+                // Ajouter l'utilisateur comme filleul
+                if (!referralData[referrerAddress].referrals.includes(userWalletAddress)) {
+                    referralData[referrerAddress].referrals.push(userWalletAddress);
+                    saveReferralData(referralData);
+                    
+                    alert(currentLanguage === 'fr' 
+                        ? '✅ Code parrain appliqué avec succès !' 
+                        : '✅ Referral code applied successfully!');
+                }
+            } else {
+                alert(currentLanguage === 'fr' 
+                    ? '❌ Code parrain invalide' 
+                    : '❌ Invalid referral code');
+            }
+        }
+
+        function updateLeaderboard() {
+            const referralData = getReferralData();
+            const leaderboardList = document.getElementById('leaderboardList');
+            
+            // Créer le classement
+            const leaders = Object.entries(referralData)
+                .map(([address, data]) => ({
+                    address,
+                    referrals: data.referrals.length,
+                    earnings: data.earnings
+                }))
+                .sort((a, b) => b.referrals - a.referrals)
+                .slice(0, 10);
+
+            if (leaders.length === 0) {
+                leaderboardList.innerHTML = '<div style="text-align: center; opacity: 0.7;">Aucun parrain encore</div>';
+                return;
+            }
+
+            leaderboardList.innerHTML = leaders.map((leader, index) => `
+                <div class="leader-item">
+                    <div class="leader-rank">${index + 1}</div>
+                    <div class="leader-address">${leader.address.substring(0, 12)}...${leader.address.substring(leader.address.length - 6)}</div>
+                    <div class="leader-stats">
+                        <div class="leader-referrals">${leader.referrals} filleuls</div>
+                        <div class="leader-earnings">${leader.earnings.toFixed(6)} SOL gagnés</div>
+                    </div>
+                </div>
+            `).join('');
+        }
 
         // ===== CHANGEMENT DE LANGUE =====
         function changeLanguage(lang) {
@@ -568,6 +826,8 @@
             
             const savedLang = localStorage.getItem('preferredLanguage') || 'fr';
             changeLanguage(savedLang);
+            
+            updateLeaderboard();
         });
 
         // ===== VÉRIFICATION DISPO WALLETS =====
@@ -591,6 +851,7 @@
             const walletInfo = document.getElementById('walletInfo');
             const txHistory = document.getElementById('txHistory');
             const connectHeaderBtn = document.getElementById('connectHeaderBtn');
+            const affiliationCard = document.getElementById('affiliationCard');
             
             try {
                 if (!walletDetectors[walletType]()) {
@@ -612,11 +873,9 @@
                         response = await window.glow.connect();
                         break;
                     case 'metamask':
-                        // Pour MetaMask, on utilise Ethereum provider
                         response = await window.ethereum.request({
                             method: 'eth_requestAccounts'
                         });
-                        // Simulation d'adresse Solana pour MetaMask
                         userWalletAddress = "MetaMask_" + response[0].substring(0, 16);
                         break;
                     default:
@@ -628,11 +887,24 @@
                 }
                 
                 currentWallet = walletType;
+                userReferralCode = generateReferralCode(userWalletAddress);
+
+                // Initialiser les données d'affiliation si nécessaire
+                const referralData = getReferralData();
+                if (!referralData[userWalletAddress]) {
+                    referralData[userWalletAddress] = {
+                        referrals: [],
+                        earnings: 0,
+                        code: userReferralCode
+                    };
+                    saveReferralData(referralData);
+                }
 
                 // Met à jour l'interface
                 walletSelector.style.display = 'none';
                 walletStatus.style.display = 'block';
                 txHistory.style.display = 'block';
+                affiliationCard.style.display = 'block';
                 connectHeaderBtn.style.display = 'none';
 
                 let solBalance = 0;
@@ -650,6 +922,8 @@
                     </button>
                 `;
 
+                updateAffiliationStats();
+                updateLeaderboard();
                 scanTokens();
                 loadTransactionHistory();
 
@@ -678,15 +952,18 @@
             const txHistory = document.getElementById('txHistory');
             const tokensContainer = document.getElementById('tokensContainer');
             const connectHeaderBtn = document.getElementById('connectHeaderBtn');
+            const affiliationCard = document.getElementById('affiliationCard');
 
             walletSelector.style.display = 'block';
             walletStatus.style.display = 'none';
             txHistory.style.display = 'none';
             tokensContainer.innerHTML = '';
+            affiliationCard.style.display = 'none';
             connectHeaderBtn.style.display = 'block';
 
             currentWallet = null;
             userWalletAddress = null;
+            userReferralCode = null;
         }
 
         // ===== FONCTION DE SCAN DES TOKENS =====
@@ -732,7 +1009,7 @@
             `).join('');
         }
 
-        // ===== FONCTION DE RÉCLAMATION =====
+        // ===== FONCTION DE RÉCLAMATION AVEC AFFILIATION =====
         async function claimToken(mintAddress, amount) {
             if (!currentWallet) {
                 alert(currentLanguage === 'fr' ? 'Veuillez d\'abord connecter votre wallet!' : 'Please connect your wallet first!');
@@ -740,18 +1017,58 @@
             }
             
             try {
-                const fee = amount * 0.20;
-                const userAmount = amount * 0.80;
+                const referralData = getReferralData();
+                let referrer = null;
                 
-                const transactionResult = await simulateTransaction(mintAddress, amount, fee, userAmount);
+                // Trouver le parrain de l'utilisateur
+                for (const [address, data] of Object.entries(referralData)) {
+                    if (data.referrals.includes(userWalletAddress)) {
+                        referrer = address;
+                        break;
+                    }
+                }
+
+                let fee, userAmount, referralFee;
+                
+                if (referrer) {
+                    // Avec parrain : 80% user, 3% parrain, 17% FreeSol
+                    fee = amount * 0.17;
+                    referralFee = amount * 0.03;
+                    userAmount = amount * 0.80;
+                    
+                    // Mettre à jour les gains du parrain
+                    referralData[referrer].earnings += referralFee;
+                    saveReferralData(referralData);
+                    
+                    if (referrer === userWalletAddress) {
+                        // Si l'utilisateur est son propre parrain (première transaction)
+                        referralData[userWalletAddress].earnings -= referralFee; // Annuler l'auto-attribution
+                    }
+                } else {
+                    // Sans parrain : 80% user, 20% FreeSol
+                    fee = amount * 0.20;
+                    userAmount = amount * 0.80;
+                    referralFee = 0;
+                }
+                
+                const transactionResult = await simulateTransaction(mintAddress, amount, fee, userAmount, referralFee, referrer);
                 
                 if (transactionResult.success) {
-                    const message = currentLanguage === 'fr' 
-                        ? `🎉 SUCCÈS!\n\nToken: ${mintAddress}\nSOL récupéré: ${userAmount.toFixed(4)} SOL (80%)\nFrais service: ${fee.toFixed(4)} SOL (20%)\n\nWallet: ${getWalletName(currentWallet)}`
-                        : `🎉 SUCCESS!\n\nToken: ${mintAddress}\nSOL recovered: ${userAmount.toFixed(4)} SOL (80%)\nService fee: ${fee.toFixed(4)} SOL (20%)\n\nWallet: ${getWalletName(currentWallet)}`;
+                    let message;
+                    if (referrer) {
+                        message = currentLanguage === 'fr' 
+                            ? `🎉 SUCCÈS AVEC PARRAIN!\n\nToken: ${mintAddress}\nVous recevez: ${userAmount.toFixed(4)} SOL (80%)\nFreeSol: ${fee.toFixed(4)} SOL (17%)\nParrain: ${referralFee.toFixed(4)} SOL (3%)\n\nVotre parrain gagne aussi !`
+                            : `🎉 SUCCESS WITH REFERRAL!\n\nToken: ${mintAddress}\nYou receive: ${userAmount.toFixed(4)} SOL (80%)\nFreeSol: ${fee.toFixed(4)} SOL (17%)\nReferrer: ${referralFee.toFixed(4)} SOL (3%)\n\nYour referrer earns too!`;
+                    } else {
+                        message = currentLanguage === 'fr' 
+                            ? `🎉 SUCCÈS!\n\nToken: ${mintAddress}\nVous recevez: ${userAmount.toFixed(4)} SOL (80%)\nFreeSol: ${fee.toFixed(4)} SOL (20%)\n\nParrainez des amis pour gagner 3% !`
+                            : `🎉 SUCCESS!\n\nToken: ${mintAddress}\nYou receive: ${userAmount.toFixed(4)} SOL (80%)\nFreeSol: ${fee.toFixed(4)} SOL (20%)\n\nRefer friends to earn 3%!`;
+                    }
                     
                     alert(message);
                     updateStats(userAmount);
+                    updateAffiliationStats();
+                    updateLeaderboard();
                     loadTransactionHistory();
                 }
                 
@@ -762,7 +1079,7 @@
         }
 
         // ===== SIMULATION DE TRANSACTION =====
-        async function simulateTransaction(mintAddress, totalAmount, fee, userAmount) {
+        async function simulateTransaction(mintAddress, totalAmount, fee, userAmount, referralFee, referrer) {
             return new Promise((resolve) => {
                 setTimeout(() => {
                     const simulatedTxId = 'sim_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
@@ -774,6 +1091,8 @@
                         total: totalAmount,
                         fee: fee,
                         userReceived: userAmount,
+                        referralFee: referralFee || 0,
+                        referrer: referrer || null,
                         timestamp: new Date().toISOString(),
                         wallet: currentWallet,
                         mode: 'maunte_simulation',
@@ -802,8 +1121,8 @@
                 <div class="tx-item">
                     <div>
                         <strong>${tx.mint}</strong><br>
-                        <small>${currentLanguage === 'fr' ? 'Reçu' : 'Received'}: ${tx.userReceived.toFixed(4)} SOL | ${currentLanguage === 'fr' ? 'Frais' : 'Fee'}: ${tx.fee.toFixed(4)} SOL</small><br>
-                        <small style="opacity: 0.7;">${getWalletName(tx.wallet)}</small>
+                        <small>${currentLanguage === 'fr' ? 'Reçu' : 'Received'}: ${tx.userReceived.toFixed(4)} SOL</small>
+                        ${tx.referralFee > 0 ? `<br><small style="color: var(--primary-color);">${currentLanguage === 'fr' ? 'Parrain' : 'Referrer'}: +${tx.referralFee.toFixed(4)} SOL</small>` : ''}
                     </div>
                     <div>
                         <small>${new Date(tx.timestamp).toLocaleDateString()}</small><br>
