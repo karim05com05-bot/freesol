@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FreeSol - Récupérez vos SOL perdus</title>
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
+    <script src="https://unpkg.com/@solana/wallet-adapter-phantom/lib/index.iife.js"></script>
     <style>
         * {
             margin: 0;
@@ -80,7 +82,6 @@
             padding: 15px;
             background: rgba(255, 255, 255, 0.1);
             border-radius: 10px;
-            display: none;
         }
 
         .tokens-list {
@@ -126,7 +127,6 @@
             opacity: 0.7;
         }
 
-        /* Animation de chargement */
         .loading {
             display: inline-block;
             width: 20px;
@@ -140,12 +140,20 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+
+        .maunte-badge {
+            background: linear-gradient(45deg, #ff0080, #ff8c00);
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            margin-left: 10px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <div class="logo">FreeSol</div>
+            <div class="logo">FreeSol <span class="maunte-badge">MAUNTE MODE</span></div>
             <div class="tagline">Récupérez vos SOL perdus dans les tokens abandonnés</div>
         </header>
 
@@ -155,7 +163,7 @@
                 <button class="connect-btn" onclick="connectWallet()">
                     🦊 Connecter Phantom
                 </button>
-                <div class="wallet-status" id="walletStatus">
+                <div class="wallet-status" id="walletStatus" style="display: none;">
                     <div id="walletInfo"></div>
                 </div>
             </div>
@@ -163,12 +171,7 @@
             <div class="tokens-list">
                 <h3>Tokens récupérables</h3>
                 <div id="tokensContainer">
-                    <div class="token-item">
-                        <span>Token XYZ...</span>
-                        <button class="claim-btn" onclick="claimToken('XYZ')">
-                            Récupérer 0.002 SOL
-                        </button>
-                    </div>
+                    <!-- Les tokens apparaîtront ici -->
                 </div>
             </div>
         </div>
@@ -176,73 +179,192 @@
         <div class="stats">
             <div class="stat-card">
                 <h3>SOL récupérés</h3>
-                <p>0.000 SOL</p>
+                <p id="totalSol">0.000 SOL</p>
             </div>
             <div class="stat-card">
                 <h3>Utilisateurs</h3>
-                <p>1</p>
+                <p id="totalUsers">1</p>
             </div>
             <div class="stat-card">
                 <h3>Tokens fermés</h3>
-                <p>0</p>
+                <p id="totalTokens">0</p>
             </div>
         </div>
 
         <footer>
-    <p>
-        FreeSol - Version de démonstration 
-        <a href="comment-ca-marche.html" style="color: #00ff88; margin-left: 20px; text-decoration: none;">
-            Comment ça marche ?
-        </a>
-    </p>
-</footer>
+            <p>
+                FreeSol - Version Maunte Mode 
+                <a href="comment-ca-marche.html" style="color: #00ff88; margin-left: 20px; text-decoration: none;">
+                    Comment ça marche ?
+                </a>
+            </p>
+        </footer>
+    </div>
+
     <script>
-        // Simulation de connexion wallet
+        // CONFIGURATION SOLANA
+        const connection = new solanaWeb3.Connection(
+            solanaWeb3.clusterApiUrl('devnet'),
+            'confirmed'
+        );
+
+        let walletConnected = false;
+        let userWalletAddress = null;
+
+        // FONCTION DE CONNEXION PHANTOM
         async function connectWallet() {
             const btn = document.querySelector('.connect-btn');
             const status = document.getElementById('walletStatus');
             const walletInfo = document.getElementById('walletInfo');
             
-            btn.innerHTML = '<span class="loading"></span> Connexion...';
-            
-            // Simulation d'un délai de connexion
-            setTimeout(() => {
+            try {
+                btn.innerHTML = '<span class="loading"></span> Connexion...';
+                
+                // Vérifie si Phantom est installé
+                if (!window.solana || !window.solana.isPhantom) {
+                    throw new Error('Phantom wallet non détecté!');
+                }
+
+                // Demande la connexion
+                const response = await window.solana.connect();
+                userWalletAddress = response.publicKey.toString();
+                
+                // Met à jour l'interface
                 btn.style.display = 'none';
                 status.style.display = 'block';
+                
+                // Récupère le solde
+                const balance = await connection.getBalance(response.publicKey);
+                const solBalance = balance / 1000000000; // Conversion en SOL
+                
                 walletInfo.innerHTML = `
                     ✅ Portefeuille connecté<br>
-                    <small>Adresse: Freesol...Demo123</small><br>
-                    <small>SOL: 12.45</small>
+                    <small>Adresse: ${userWalletAddress.substring(0, 12)}...${userWalletAddress.substring(userWalletAddress.length - 6)}</small><br>
+                    <small>SOL: ${solBalance.toFixed(4)}</small>
                 `;
                 
-                // Simulation de tokens trouvés
-                simulateTokensFound();
-            }, 2000);
+                walletConnected = true;
+                
+                // Scan les tokens
+                scanTokens();
+                
+            } catch (error) {
+                console.error('Erreur connexion:', error);
+                btn.innerHTML = '🦊 Connecter Phantom';
+                alert('Erreur: ' + error.message);
+            }
         }
 
-        // Simulation de tokens récupérables
-        function simulateTokensFound() {
+        // FONCTION DE SCAN DES TOKENS
+        async function scanTokens() {
+            if (!walletConnected) return;
+            
             const tokensContainer = document.getElementById('tokensContainer');
-            tokensContainer.innerHTML = `
-                <div class="token-item">
-                    <span>TOKEN_ABC123...</span>
-                    <button class="claim-btn" onclick="claimToken('ABC123')">
-                        Récupérer 0.002 SOL
-                    </button>
-                </div>
-                <div class="token-item">
-                    <span>TOKEN_DEF456...</span>
-                    <button class="claim-btn" onclick="claimToken('DEF456')">
-                        Récupérer 0.002 SOL
-                    </button>
-                </div>
-            `;
+            tokensContainer.innerHTML = '<div style="text-align: center;"><span class="loading"></span> Scan en cours...</div>';
+            
+            try {
+                // Simulation de scan (à remplacer par vrai scan plus tard)
+                setTimeout(() => {
+                    const mockTokens = [
+                        { mint: 'TokenABC123...', recoverable: 0.002 },
+                        { mint: 'TokenXYZ789...', recoverable: 0.002 }
+                    ];
+                    
+                    displayTokens(mockTokens);
+                }, 2000);
+                
+            } catch (error) {
+                console.error('Erreur scan:', error);
+                tokensContainer.innerHTML = '<div style="color: #ff6b6b; text-align: center;">Erreur lors du scan</div>';
+            }
         }
 
-        // Simulation de réclamation
-        function claimToken(tokenId) {
-            alert(`🎉 Simulation: Token ${tokenId} réclamé!\n0.002 SOL ajoutés à votre portefeuille.`);
+        // AFFICHAGE DES TOKENS
+        function displayTokens(tokens) {
+            const tokensContainer = document.getElementById('tokensContainer');
+            
+            if (tokens.length === 0) {
+                tokensContainer.innerHTML = '<div style="text-align: center;">Aucun token récupérable trouvé</div>';
+                return;
+            }
+            
+            tokensContainer.innerHTML = tokens.map(token => `
+                <div class="token-item">
+                    <span>${token.mint}</span>
+                    <button class="claim-btn" onclick="claimToken('${token.mint}', ${token.recoverable})">
+                        Récupérer ${token.recoverable} SOL
+                    </button>
+                </div>
+            `).join('');
         }
+
+        // FONCTION DE RÉCLAMATION (MAUNTE MODE)
+        async function claimToken(mintAddress, amount) {
+            if (!walletConnected) {
+                alert('Veuillez d\'abord connecter votre wallet!');
+                return;
+            }
+            
+            try {
+                // Calcul des 20% de frais
+                const fee = amount * 0.20;
+                const userAmount = amount * 0.80;
+                
+                // Simulation de transaction (MAUNTE MODE)
+                const transactionResult = await simulateTransaction(mintAddress, amount, fee, userAmount);
+                
+                if (transactionResult.success) {
+                    alert(`🎉 SUCCÈS!\n\nToken: ${mintAddress}\nSOL récupéré: ${userAmount.toFixed(4)} SOL (80%)\nFrais service: ${fee.toFixed(4)} SOL (20%)\n\nMode Maunte: Transaction simulée - Vrai transaction quand SOL disponible`);
+                    
+                    // Met à jour les stats
+                    updateStats(userAmount);
+                }
+                
+            } catch (error) {
+                console.error('Erreur réclamation:', error);
+                alert('Erreur lors de la réclamation: ' + error.message);
+            }
+        }
+
+        // SIMULATION DE TRANSACTION (MAUNTE MODE)
+        async function simulateTransaction(mintAddress, totalAmount, fee, userAmount) {
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    // Sauvegarde en local storage pour tracking
+                    const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
+                    transactions.push({
+                        mint: mintAddress,
+                        total: totalAmount,
+                        fee: fee,
+                        userReceived: userAmount,
+                        timestamp: new Date().toISOString(),
+                        mode: 'maunte_simulation'
+                    });
+                    localStorage.setItem('freesol_transactions', JSON.stringify(transactions));
+                    
+                    resolve({ success: true, txId: 'maunte_sim_' + Date.now() });
+                }, 1500);
+            });
+        }
+
+        // MISE À JOUR DES STATISTIQUES
+        function updateStats(amount) {
+            const totalSolElement = document.getElementById('totalSol');
+            const totalTokensElement = document.getElementById('totalTokens');
+            
+            const currentSol = parseFloat(totalSolElement.textContent) || 0;
+            const currentTokens = parseInt(totalTokensElement.textContent) || 0;
+            
+            totalSolElement.textContent = (currentSol + amount).toFixed(3) + ' SOL';
+            totalTokensElement.textContent = (currentTokens + 1) + '';
+        }
+
+        // VÉRIFICATION AUTO SI DÉJÀ CONNECTÉ
+        window.addEventListener('load', function() {
+            if (window.solana && window.solana.isConnected) {
+                document.querySelector('.connect-btn').click();
+            }
+        });
     </script>
 </body>
 </html>
