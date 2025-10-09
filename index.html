@@ -15,86 +15,83 @@
             font-family: 'Arial', sans-serif;
         }
 
+        :root {
+            --primary-color: #00ff88;
+            --secondary-color: #00ccff;
+            --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --dark-background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
+            --card-bg: rgba(255, 255, 255, 0.1);
+            --dark-card-bg: rgba(255, 255, 255, 0.05);
+            --text-color: white;
+        }
+
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: var(--background);
+            color: var(--text-color);
             min-height: 100vh;
             transition: all 0.3s ease;
         }
 
         /* === MODE SOMBRE === */
         body.dark-mode {
-            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
+            background: var(--dark-background);
         }
 
-        body.dark-mode .main-card {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        body.dark-mode .stat-card {
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        body.dark-mode .token-item {
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        body.dark-mode .wallet-status {
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        body.dark-mode .tx-history {
-            background: rgba(255, 255, 255, 0.05);
-        }
-
+        body.dark-mode .main-card,
+        body.dark-mode .stat-card,
+        body.dark-mode .token-item,
+        body.dark-mode .wallet-status,
+        body.dark-mode .tx-history,
         body.dark-mode .wallet-selector {
-            background: rgba(255, 255, 255, 0.05);
+            background: var(--dark-card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
         /* === FIN MODE SOMBRE === */
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        header {
-            text-align: center;
-            padding: 40px 0;
+        /* === HEADER PRO === */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 40px;
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .logo {
-            font-size: 3rem;
+            font-size: 2rem;
             font-weight: bold;
-            margin-bottom: 10px;
-            background: linear-gradient(45deg, #00ff88, #00ccff);
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
-        .tagline {
-            font-size: 1.2rem;
-            opacity: 0.9;
-            margin-bottom: 15px;
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
         }
 
-        .controls {
+        .controls-group {
             display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin: 15px 0;
-            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
         .theme-btn, .lang-btn {
             background: transparent;
-            border: 1px solid #00ff88;
-            color: #00ff88;
-            padding: 8px 15px;
-            border-radius: 20px;
+            border: none;
+            color: var(--primary-color);
+            padding: 8px 12px;
+            border-radius: 15px;
             cursor: pointer;
             transition: all 0.3s;
+            font-size: 0.9rem;
         }
 
         .theme-btn:hover, .lang-btn:hover {
@@ -102,17 +99,48 @@
         }
 
         .lang-btn.active {
-            background: #00ff88;
+            background: var(--primary-color);
             color: black;
         }
 
+        .connect-header-btn {
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            color: black;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+
+        .connect-header-btn:hover {
+            transform: translateY(-2px);
+        }
+        /* === FIN HEADER PRO === */
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .tagline {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
         .wallet-selector {
-            background: rgba(255, 255, 255, 0.1);
+            background: var(--card-bg);
             padding: 20px;
             border-radius: 15px;
             margin: 20px auto;
             max-width: 400px;
             text-align: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
         .wallet-buttons {
@@ -142,13 +170,13 @@
         }
 
         .wallet-btn.connected {
-            background: linear-gradient(45deg, #00ff88, #00ccff);
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
             color: black;
-            border-color: #00ff88;
+            border-color: var(--primary-color);
         }
 
         .main-card {
-            background: rgba(255, 255, 255, 0.1);
+            background: var(--card-bg);
             backdrop-filter: blur(10px);
             border-radius: 20px;
             padding: 40px;
@@ -166,7 +194,7 @@
         .wallet-status {
             margin: 20px 0;
             padding: 15px;
-            background: rgba(255, 255, 255, 0.1);
+            background: var(--card-bg);
             border-radius: 10px;
             transition: all 0.3s ease;
         }
@@ -176,7 +204,7 @@
         }
 
         .token-item {
-            background: rgba(255, 255, 255, 0.1);
+            background: var(--card-bg);
             padding: 15px;
             border-radius: 10px;
             margin: 10px 0;
@@ -209,7 +237,7 @@
         }
 
         .stat-card {
-            background: rgba(255, 255, 255, 0.1);
+            background: var(--card-bg);
             padding: 20px;
             border-radius: 10px;
             text-align: center;
@@ -217,7 +245,7 @@
         }
 
         .tx-history {
-            background: rgba(255, 255, 255, 0.1);
+            background: var(--card-bg);
             padding: 20px;
             border-radius: 10px;
             margin: 20px 0;
@@ -237,7 +265,7 @@
         }
 
         .tx-link {
-            color: #00ff88;
+            color: var(--primary-color);
             text-decoration: none;
         }
 
@@ -287,20 +315,55 @@
         .disconnect-btn:hover {
             background: rgba(255, 107, 107, 0.1);
         }
+
+        /* === RESPONSIVE === */
+        @media (max-width: 768px) {
+            .header {
+                padding: 15px 20px;
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .header-controls {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .controls-group {
+                order: -1;
+            }
+
+            .wallet-buttons {
+                grid-template-columns: 1fr;
+            }
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
+    <!-- HEADER PROFESSIONNEL -->
+    <div class="header">
+        <div class="logo">FreeSol <span class="maunte-badge">PRO</span></div>
+        <div class="header-controls">
+            <div class="controls-group">
+                <button class="lang-btn active" onclick="changeLanguage('fr')">FR</button>
+                <button class="lang-btn" onclick="changeLanguage('en')">EN</button>
+                <button class="theme-btn" onclick="toggleDarkMode()" id="themeToggle" title="Mode Sombre/Clair">
+                    🌙
+                </button>
+            </div>
+            <button class="connect-header-btn" onclick="showWalletSelector()" id="connectHeaderBtn">
+                Connect Wallet
+            </button>
+        </div>
+    </div>
+
     <div class="container">
         <header>
-            <div class="logo">FreeSol <span class="maunte-badge">MULTI-WALLET</span></div>
             <div class="tagline" id="tagline">Récupérez vos SOL perdus dans les tokens abandonnés</div>
-            <div class="controls">
-                <button class="theme-btn" onclick="toggleDarkMode()" id="themeToggle">
-                    🌙 Mode Sombre
-                </button>
-                <button class="lang-btn active" onclick="changeLanguage('fr')">🇫🇷 FR</button>
-                <button class="lang-btn" onclick="changeLanguage('en')">🇺🇸 EN</button>
-            </div>
         </header>
 
         <div class="wallet-selector" id="walletSelector">
@@ -317,6 +380,9 @@
                 </button>
                 <button class="wallet-btn" onclick="connectWallet('glow')">
                     <span>✨</span> Glow
+                </button>
+                <button class="wallet-btn" onclick="connectWallet('metamask')">
+                    <span>🦊</span> MetaMask
                 </button>
             </div>
         </div>
@@ -360,8 +426,8 @@
 
         <footer>
             <p>
-                <span id="footerText">FreeSol - Version Multi-Wallet</span>
-                <a href="comment-ca-marche.html" style="color: #00ff88; margin-left: 20px; text-decoration: none;" id="howItWorksLink">
+                <span id="footerText">FreeSol - Version Professionnelle</span>
+                <a href="comment-ca-marche.html" style="color: var(--primary-color); margin-left: 20px; text-decoration: none;" id="howItWorksLink">
                     Comment ça marche ?
                 </a>
             </p>
@@ -374,16 +440,16 @@
             fr: {
                 tagline: "Récupérez vos SOL perdus dans les tokens abandonnés",
                 walletTitle: "Choisissez votre wallet",
-                walletSelect: "Sélectionner un wallet",
+                connectHeaderBtn: "Connecter Wallet",
                 tokensTitle: "Tokens récupérables",
                 txHistoryTitle: "📜 Historique des transactions",
                 statsSol: "SOL récupérés",
                 statsUsers: "Utilisateurs",
                 statsTokens: "Tokens fermés",
-                footerText: "FreeSol - Version Multi-Wallet",
+                footerText: "FreeSol - Version Professionnelle",
                 howItWorksLink: "Comment ça marche ?",
-                themeBtnDark: "🌙 Mode Sombre",
-                themeBtnLight: "☀️ Mode Clair",
+                themeBtnDark: "🌙",
+                themeBtnLight: "☀️",
                 noTokens: "Aucun token récupérable trouvé",
                 scanning: "Scan en cours...",
                 connectError: "Erreur de connexion",
@@ -397,16 +463,16 @@
             en: {
                 tagline: "Recover your lost SOL from abandoned tokens",
                 walletTitle: "Choose your wallet",
-                walletSelect: "Select a wallet",
+                connectHeaderBtn: "Connect Wallet",
                 tokensTitle: "Recoverable tokens",
                 txHistoryTitle: "📜 Transaction History",
                 statsSol: "SOL Recovered",
                 statsUsers: "Users",
                 statsTokens: "Tokens Closed",
-                footerText: "FreeSol - Multi-Wallet Version",
+                footerText: "FreeSol - Professional Version",
                 howItWorksLink: "How it works?",
-                themeBtnDark: "🌙 Dark Mode",
-                themeBtnLight: "☀️ Light Mode",
+                themeBtnDark: "🌙",
+                themeBtnLight: "☀️",
                 noTokens: "No recoverable tokens found",
                 scanning: "Scanning...",
                 connectError: "Connection error",
@@ -453,8 +519,16 @@
             phantom: () => window.solana && window.solana.isPhantom,
             solflare: () => window.solflare && window.solflare.isSolflare,
             backpack: () => window.backpack && window.backpack.isBackpack,
-            glow: () => window.glow && window.glow.isGlow
+            glow: () => window.glow && window.glow.isGlow,
+            metamask: () => window.ethereum && window.ethereum.isMetaMask
         };
+
+        // ===== AFFICHAGE SELECTEUR WALLET =====
+        function showWalletSelector() {
+            const walletSelector = document.getElementById('walletSelector');
+            walletSelector.style.display = 'block';
+            checkWalletsAvailability();
+        }
 
         // ===== FONCTION MODE SOMBRE =====
         function toggleDarkMode() {
@@ -475,8 +549,6 @@
             
             const savedLang = localStorage.getItem('preferredLanguage') || 'fr';
             changeLanguage(savedLang);
-            
-            checkWalletsAvailability();
         });
 
         // ===== VÉRIFICATION DISPO WALLETS =====
@@ -499,9 +571,9 @@
             const walletStatus = document.getElementById('walletStatus');
             const walletInfo = document.getElementById('walletInfo');
             const txHistory = document.getElementById('txHistory');
+            const connectHeaderBtn = document.getElementById('connectHeaderBtn');
             
             try {
-                // Vérifie si le wallet est disponible
                 if (!walletDetectors[walletType]()) {
                     throw new Error(translations[currentLanguage].connectError + ': ' + walletType + ' non installé');
                 }
@@ -520,20 +592,35 @@
                     case 'glow':
                         response = await window.glow.connect();
                         break;
+                    case 'metamask':
+                        // Pour MetaMask, on utilise Ethereum provider
+                        response = await window.ethereum.request({
+                            method: 'eth_requestAccounts'
+                        });
+                        // Simulation d'adresse Solana pour MetaMask
+                        userWalletAddress = "MetaMask_" + response[0].substring(0, 16);
+                        break;
                     default:
                         throw new Error('Wallet non supporté');
                 }
 
-                userWalletAddress = response.publicKey.toString();
+                if (walletType !== 'metamask') {
+                    userWalletAddress = response.publicKey.toString();
+                }
+                
                 currentWallet = walletType;
 
                 // Met à jour l'interface
                 walletSelector.style.display = 'none';
                 walletStatus.style.display = 'block';
                 txHistory.style.display = 'block';
+                connectHeaderBtn.style.display = 'none';
 
-                const balance = await connection.getBalance(response.publicKey);
-                const solBalance = balance / 1000000000;
+                let solBalance = 0;
+                if (walletType !== 'metamask') {
+                    const balance = await connection.getBalance(response.publicKey);
+                    solBalance = balance / 1000000000;
+                }
 
                 walletInfo.innerHTML = `
                     ✅ ${translations[currentLanguage].connected} (${getWalletName(walletType)})<br>
@@ -559,7 +646,8 @@
                 phantom: 'Phantom',
                 solflare: 'Solflare',
                 backpack: 'Backpack',
-                glow: 'Glow'
+                glow: 'Glow',
+                metamask: 'MetaMask'
             };
             return names[walletType] || walletType;
         }
@@ -570,11 +658,13 @@
             const walletStatus = document.getElementById('walletStatus');
             const txHistory = document.getElementById('txHistory');
             const tokensContainer = document.getElementById('tokensContainer');
+            const connectHeaderBtn = document.getElementById('connectHeaderBtn');
 
             walletSelector.style.display = 'block';
             walletStatus.style.display = 'none';
             txHistory.style.display = 'none';
             tokensContainer.innerHTML = '';
+            connectHeaderBtn.style.display = 'block';
 
             currentWallet = null;
             userWalletAddress = null;
