@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FreeSol - Recover Your Lost SOL</title>
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
-    <script src="https://unpkg.com/@solana/wallet-adapter-phantom/lib/index.iife.js"></script>
+    <script src="https://unpkg.com/@solana/wallet-adapter-wallets/lib/index.iife.js"></script>
+    <script src="https://unpkg.com/@solana/wallet-adapter-base/lib/index.iife.js"></script>
     <style>
         * {
             margin: 0;
@@ -44,6 +45,10 @@
         }
 
         body.dark-mode .tx-history {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        body.dark-mode .wallet-selector {
             background: rgba(255, 255, 255, 0.05);
         }
         /* === FIN MODE SOMBRE === */
@@ -101,6 +106,47 @@
             color: black;
         }
 
+        .wallet-selector {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px auto;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .wallet-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .wallet-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .wallet-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .wallet-btn.connected {
+            background: linear-gradient(45deg, #00ff88, #00ccff);
+            color: black;
+            border-color: #00ff88;
+        }
+
         .main-card {
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
@@ -115,23 +161,6 @@
         .wallet-section {
             text-align: center;
             margin-bottom: 30px;
-        }
-
-        .connect-btn {
-            background: linear-gradient(45deg, #00ff88, #00ccff);
-            border: none;
-            padding: 15px 30px;
-            font-size: 1.1rem;
-            border-radius: 50px;
-            color: black;
-            font-weight: bold;
-            cursor: pointer;
-            transition: transform 0.3s;
-            margin: 10px 0;
-        }
-
-        .connect-btn:hover {
-            transform: translateY(-2px);
         }
 
         .wallet-status {
@@ -243,12 +272,27 @@
             font-size: 0.8rem;
             margin-left: 10px;
         }
+
+        .disconnect-btn {
+            background: transparent;
+            border: 1px solid #ff6b6b;
+            color: #ff6b6b;
+            padding: 5px 10px;
+            border-radius: 15px;
+            cursor: pointer;
+            margin-left: 10px;
+            font-size: 0.8rem;
+        }
+
+        .disconnect-btn:hover {
+            background: rgba(255, 107, 107, 0.1);
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <div class="logo">FreeSol <span class="maunte-badge">MAUNTE MODE</span></div>
+            <div class="logo">FreeSol <span class="maunte-badge">MULTI-WALLET</span></div>
             <div class="tagline" id="tagline">Récupérez vos SOL perdus dans les tokens abandonnés</div>
             <div class="controls">
                 <button class="theme-btn" onclick="toggleDarkMode()" id="themeToggle">
@@ -259,12 +303,26 @@
             </div>
         </header>
 
+        <div class="wallet-selector" id="walletSelector">
+            <h3 id="walletTitle">Choisissez votre wallet</h3>
+            <div class="wallet-buttons">
+                <button class="wallet-btn" onclick="connectWallet('phantom')">
+                    <span>🦊</span> Phantom
+                </button>
+                <button class="wallet-btn" onclick="connectWallet('solflare')">
+                    <span>🔥</span> Solflare
+                </button>
+                <button class="wallet-btn" onclick="connectWallet('backpack')">
+                    <span>🎒</span> Backpack
+                </button>
+                <button class="wallet-btn" onclick="connectWallet('glow')">
+                    <span>✨</span> Glow
+                </button>
+            </div>
+        </div>
+
         <div class="main-card">
             <div class="wallet-section">
-                <h3 id="connectTitle">Connectez votre portefeuille</h3>
-                <button class="connect-btn" onclick="connectWallet()" id="connectBtn">
-                    🦊 Connecter Phantom
-                </button>
                 <div class="wallet-status" id="walletStatus" style="display: none;">
                     <div id="walletInfo"></div>
                 </div>
@@ -302,7 +360,7 @@
 
         <footer>
             <p>
-                <span id="footerText">FreeSol - Version Maunte Mode</span>
+                <span id="footerText">FreeSol - Version Multi-Wallet</span>
                 <a href="comment-ca-marche.html" style="color: #00ff88; margin-left: 20px; text-decoration: none;" id="howItWorksLink">
                     Comment ça marche ?
                 </a>
@@ -315,14 +373,14 @@
         const translations = {
             fr: {
                 tagline: "Récupérez vos SOL perdus dans les tokens abandonnés",
-                connectTitle: "Connectez votre portefeuille",
-                connectBtn: "🦊 Connecter Phantom",
+                walletTitle: "Choisissez votre wallet",
+                walletSelect: "Sélectionner un wallet",
                 tokensTitle: "Tokens récupérables",
                 txHistoryTitle: "📜 Historique des transactions",
                 statsSol: "SOL récupérés",
                 statsUsers: "Utilisateurs",
                 statsTokens: "Tokens fermés",
-                footerText: "FreeSol - Version Maunte Mode",
+                footerText: "FreeSol - Version Multi-Wallet",
                 howItWorksLink: "Comment ça marche ?",
                 themeBtnDark: "🌙 Mode Sombre",
                 themeBtnLight: "☀️ Mode Clair",
@@ -331,18 +389,21 @@
                 connectError: "Erreur de connexion",
                 claimSuccess: "🎉 SUCCÈS!",
                 viewTransaction: "🔗 Voir",
-                noTransactions: "Aucune transaction encore"
+                noTransactions: "Aucune transaction encore",
+                connected: "Connecté",
+                disconnect: "Déconnecter",
+                chooseWallet: "Choisir un wallet"
             },
             en: {
                 tagline: "Recover your lost SOL from abandoned tokens",
-                connectTitle: "Connect your wallet",
-                connectBtn: "🦊 Connect Phantom",
+                walletTitle: "Choose your wallet",
+                walletSelect: "Select a wallet",
                 tokensTitle: "Recoverable tokens",
                 txHistoryTitle: "📜 Transaction History",
                 statsSol: "SOL Recovered",
                 statsUsers: "Users",
                 statsTokens: "Tokens Closed",
-                footerText: "FreeSol - Maunte Mode",
+                footerText: "FreeSol - Multi-Wallet Version",
                 howItWorksLink: "How it works?",
                 themeBtnDark: "🌙 Dark Mode",
                 themeBtnLight: "☀️ Light Mode",
@@ -351,23 +412,26 @@
                 connectError: "Connection error",
                 claimSuccess: "🎉 SUCCESS!",
                 viewTransaction: "🔗 View",
-                noTransactions: "No transactions yet"
+                noTransactions: "No transactions yet",
+                connected: "Connected",
+                disconnect: "Disconnect",
+                chooseWallet: "Choose wallet"
             }
         };
 
         let currentLanguage = 'fr';
+        let currentWallet = null;
+        let userWalletAddress = null;
 
         // ===== CHANGEMENT DE LANGUE =====
         function changeLanguage(lang) {
             currentLanguage = lang;
             
-            // Met à jour les boutons de langue
             document.querySelectorAll('.lang-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
             event.target.classList.add('active');
             
-            // Met à jour tous les textes
             Object.keys(translations[lang]).forEach(key => {
                 const element = document.getElementById(key);
                 if (element) {
@@ -375,7 +439,6 @@
                 }
             });
             
-            // Sauvegarde la langue
             localStorage.setItem('preferredLanguage', lang);
         }
 
@@ -384,6 +447,14 @@
             solanaWeb3.clusterApiUrl('devnet'),
             'confirmed'
         );
+
+        // ===== DÉTECTION DES WALLETS =====
+        const walletDetectors = {
+            phantom: () => window.solana && window.solana.isPhantom,
+            solflare: () => window.solflare && window.solflare.isSolflare,
+            backpack: () => window.backpack && window.backpack.isBackpack,
+            glow: () => window.glow && window.glow.isGlow
+        };
 
         // ===== FONCTION MODE SOMBRE =====
         function toggleDarkMode() {
@@ -397,69 +468,121 @@
 
         // ===== CHARGEMENT DES PRÉFÉRENCES =====
         window.addEventListener('load', function() {
-            // Charge le mode sombre
             if (localStorage.getItem('darkMode') === 'true') {
                 document.body.classList.add('dark-mode');
                 document.getElementById('themeToggle').innerHTML = translations[currentLanguage].themeBtnLight;
             }
             
-            // Charge la langue
             const savedLang = localStorage.getItem('preferredLanguage') || 'fr';
             changeLanguage(savedLang);
             
-            // Connexion auto si déjà connecté
-            if (window.solana && window.solana.isConnected) {
-                document.querySelector('.connect-btn').click();
-            }
+            checkWalletsAvailability();
         });
 
-        let walletConnected = false;
-        let userWalletAddress = null;
+        // ===== VÉRIFICATION DISPO WALLETS =====
+        function checkWalletsAvailability() {
+            const walletButtons = document.querySelectorAll('.wallet-btn');
+            walletButtons.forEach(btn => {
+                const walletType = btn.onclick.toString().match(/connectWallet\('(.+)'\)/)[1];
+                if (!walletDetectors[walletType]()) {
+                    btn.style.opacity = '0.5';
+                    btn.style.cursor = 'not-allowed';
+                    btn.onclick = null;
+                    btn.title = translations[currentLanguage].connectError + ': Wallet non installé';
+                }
+            });
+        }
 
-        // ===== FONCTION DE CONNEXION PHANTOM =====
-        async function connectWallet() {
-            const btn = document.querySelector('.connect-btn');
-            const status = document.getElementById('walletStatus');
+        // ===== CONNEXION WALLET =====
+        async function connectWallet(walletType) {
+            const walletSelector = document.getElementById('walletSelector');
+            const walletStatus = document.getElementById('walletStatus');
             const walletInfo = document.getElementById('walletInfo');
             const txHistory = document.getElementById('txHistory');
             
             try {
-                btn.innerHTML = '<span class="loading"></span> ' + (currentLanguage === 'fr' ? 'Connexion...' : 'Connecting...');
-                
-                if (!window.solana || !window.solana.isPhantom) {
-                    throw new Error(currentLanguage === 'fr' ? 'Phantom wallet non détecté!' : 'Phantom wallet not detected!');
+                // Vérifie si le wallet est disponible
+                if (!walletDetectors[walletType]()) {
+                    throw new Error(translations[currentLanguage].connectError + ': ' + walletType + ' non installé');
                 }
 
-                const response = await window.solana.connect();
+                let response;
+                switch (walletType) {
+                    case 'phantom':
+                        response = await window.solana.connect();
+                        break;
+                    case 'solflare':
+                        response = await window.solflare.connect();
+                        break;
+                    case 'backpack':
+                        response = await window.backpack.connect();
+                        break;
+                    case 'glow':
+                        response = await window.glow.connect();
+                        break;
+                    default:
+                        throw new Error('Wallet non supporté');
+                }
+
                 userWalletAddress = response.publicKey.toString();
-                
-                btn.style.display = 'none';
-                status.style.display = 'block';
+                currentWallet = walletType;
+
+                // Met à jour l'interface
+                walletSelector.style.display = 'none';
+                walletStatus.style.display = 'block';
                 txHistory.style.display = 'block';
-                
+
                 const balance = await connection.getBalance(response.publicKey);
                 const solBalance = balance / 1000000000;
-                
+
                 walletInfo.innerHTML = `
-                    ✅ ${currentLanguage === 'fr' ? 'Portefeuille connecté' : 'Wallet connected'}<br>
+                    ✅ ${translations[currentLanguage].connected} (${getWalletName(walletType)})<br>
                     <small>${currentLanguage === 'fr' ? 'Adresse' : 'Address'}: ${userWalletAddress.substring(0, 12)}...${userWalletAddress.substring(userWalletAddress.length - 6)}</small><br>
                     <small>SOL: ${solBalance.toFixed(4)}</small>
+                    <button class="disconnect-btn" onclick="disconnectWallet()">
+                        ${translations[currentLanguage].disconnect}
+                    </button>
                 `;
-                
-                walletConnected = true;
+
                 scanTokens();
                 loadTransactionHistory();
-                
+
             } catch (error) {
                 console.error('Erreur connexion:', error);
-                btn.innerHTML = translations[currentLanguage].connectBtn;
                 alert(translations[currentLanguage].connectError + ': ' + error.message);
             }
         }
 
+        // ===== NOM DU WALLET =====
+        function getWalletName(walletType) {
+            const names = {
+                phantom: 'Phantom',
+                solflare: 'Solflare',
+                backpack: 'Backpack',
+                glow: 'Glow'
+            };
+            return names[walletType] || walletType;
+        }
+
+        // ===== DÉCONNEXION =====
+        function disconnectWallet() {
+            const walletSelector = document.getElementById('walletSelector');
+            const walletStatus = document.getElementById('walletStatus');
+            const txHistory = document.getElementById('txHistory');
+            const tokensContainer = document.getElementById('tokensContainer');
+
+            walletSelector.style.display = 'block';
+            walletStatus.style.display = 'none';
+            txHistory.style.display = 'none';
+            tokensContainer.innerHTML = '';
+
+            currentWallet = null;
+            userWalletAddress = null;
+        }
+
         // ===== FONCTION DE SCAN DES TOKENS =====
         async function scanTokens() {
-            if (!walletConnected) return;
+            if (!currentWallet) return;
             
             const tokensContainer = document.getElementById('tokensContainer');
             tokensContainer.innerHTML = '<div style="text-align: center;"><span class="loading"></span> ' + translations[currentLanguage].scanning + '</div>';
@@ -502,7 +625,7 @@
 
         // ===== FONCTION DE RÉCLAMATION =====
         async function claimToken(mintAddress, amount) {
-            if (!walletConnected) {
+            if (!currentWallet) {
                 alert(currentLanguage === 'fr' ? 'Veuillez d\'abord connecter votre wallet!' : 'Please connect your wallet first!');
                 return;
             }
@@ -515,8 +638,8 @@
                 
                 if (transactionResult.success) {
                     const message = currentLanguage === 'fr' 
-                        ? `🎉 SUCCÈS!\n\nToken: ${mintAddress}\nSOL récupéré: ${userAmount.toFixed(4)} SOL (80%)\nFrais service: ${fee.toFixed(4)} SOL (20%)\n\nMode Maunte: Transaction simulée`
-                        : `🎉 SUCCESS!\n\nToken: ${mintAddress}\nSOL recovered: ${userAmount.toFixed(4)} SOL (80%)\nService fee: ${fee.toFixed(4)} SOL (20%)\n\nMaunte Mode: Simulated transaction`;
+                        ? `🎉 SUCCÈS!\n\nToken: ${mintAddress}\nSOL récupéré: ${userAmount.toFixed(4)} SOL (80%)\nFrais service: ${fee.toFixed(4)} SOL (20%)\n\nWallet: ${getWalletName(currentWallet)}`
+                        : `🎉 SUCCESS!\n\nToken: ${mintAddress}\nSOL recovered: ${userAmount.toFixed(4)} SOL (80%)\nService fee: ${fee.toFixed(4)} SOL (20%)\n\nWallet: ${getWalletName(currentWallet)}`;
                     
                     alert(message);
                     updateStats(userAmount);
@@ -543,6 +666,7 @@
                         fee: fee,
                         userReceived: userAmount,
                         timestamp: new Date().toISOString(),
+                        wallet: currentWallet,
                         mode: 'maunte_simulation',
                         status: 'confirmed'
                     };
@@ -569,7 +693,8 @@
                 <div class="tx-item">
                     <div>
                         <strong>${tx.mint}</strong><br>
-                        <small>${currentLanguage === 'fr' ? 'Reçu' : 'Received'}: ${tx.userReceived.toFixed(4)} SOL | ${currentLanguage === 'fr' ? 'Frais' : 'Fee'}: ${tx.fee.toFixed(4)} SOL</small>
+                        <small>${currentLanguage === 'fr' ? 'Reçu' : 'Received'}: ${tx.userReceived.toFixed(4)} SOL | ${currentLanguage === 'fr' ? 'Frais' : 'Fee'}: ${tx.fee.toFixed(4)} SOL</small><br>
+                        <small style="opacity: 0.7;">${getWalletName(tx.wallet)}</small>
                     </div>
                     <div>
                         <small>${new Date(tx.timestamp).toLocaleDateString()}</small><br>
