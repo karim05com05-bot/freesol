@@ -185,17 +185,7 @@
             transform: translateY(-2px);
         }
 
-        .main-card {
-            background: var(--card-bg);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 40px;
-            margin: 20px auto;
-            max-width: 500px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            transition: all 0.3s ease;
-        }
-
+        /* CARTE AFFILIATION - MAINTENANT EN HAUT */
         .affiliation-card {
             background: var(--card-bg);
             backdrop-filter: blur(10px);
@@ -252,6 +242,85 @@
             width: 100%;
             margin: 8px 0;
             font-size: 0.9rem;
+        }
+
+        /* CLASSEMENT - APRÈS L'AFFILIATION */
+        .leaderboard {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 15px;
+            margin: 20px auto;
+            max-width: 600px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .leaderboard-title {
+            text-align: center;
+            margin-bottom: 20px;
+            color: var(--primary-color);
+            font-size: 1.3rem;
+        }
+
+        .leader-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .leader-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .leader-item:last-child {
+            border-bottom: none;
+        }
+
+        .leader-rank {
+            font-weight: bold;
+            background: var(--primary-color);
+            color: black;
+            padding: 6px 10px;
+            border-radius: 50%;
+            min-width: 30px;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
+        .leader-address {
+            flex-grow: 1;
+            margin: 0 12px;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+
+        .leader-stats {
+            text-align: right;
+        }
+
+        .leader-referrals {
+            font-weight: bold;
+            color: var(--primary-color);
+            font-size: 0.9rem;
+        }
+
+        .leader-earnings {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+
+        .main-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            margin: 20px auto;
+            max-width: 500px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
         }
 
         .wallet-section {
@@ -341,73 +410,6 @@
             border-radius: 10px;
             text-align: center;
             transition: all 0.3s ease;
-        }
-
-        .leaderboard {
-            background: var(--card-bg);
-            padding: 25px;
-            border-radius: 15px;
-            margin: 30px auto;
-            max-width: 600px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .leaderboard-title {
-            text-align: center;
-            margin-bottom: 20px;
-            color: var(--primary-color);
-            font-size: 1.3rem;
-        }
-
-        .leader-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            transition: all 0.3s ease;
-        }
-
-        .leader-item:hover {
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .leader-item:last-child {
-            border-bottom: none;
-        }
-
-        .leader-rank {
-            font-weight: bold;
-            background: var(--primary-color);
-            color: black;
-            padding: 6px 10px;
-            border-radius: 50%;
-            min-width: 30px;
-            text-align: center;
-            font-size: 0.9rem;
-        }
-
-        .leader-address {
-            flex-grow: 1;
-            margin: 0 12px;
-            font-family: monospace;
-            font-size: 0.9rem;
-        }
-
-        .leader-stats {
-            text-align: right;
-        }
-
-        .leader-referrals {
-            font-weight: bold;
-            color: var(--primary-color);
-            font-size: 0.9rem;
-        }
-
-        .leader-earnings {
-            font-size: 0.8rem;
-            opacity: 0.8;
         }
 
         .tx-history {
@@ -562,7 +564,7 @@
             </div>
         </div>
 
-        <!-- CARTE AFFILIATION COMPACTE -->
+        <!-- ✅ CARTE AFFILIATION MAINTENANT EN PREMIER -->
         <div class="affiliation-card" id="affiliationCard" style="display: none;">
             <div class="affiliation-badge">🎯 PROGRAMME DE PARRAINAGE</div>
             <h4 id="affiliationTitle">Gagnez 3% sur vos filleuls !</h4>
@@ -584,6 +586,18 @@
             </div>
         </div>
 
+        <!-- ✅ CLASSEMENT APRÈS L'AFFILIATION -->
+        <div class="leaderboard">
+            <h3 class="leaderboard-title" id="leaderboardTitle">🏆 Classement des Top Parrains</h3>
+            <div id="leaderboardList">
+                <div style="text-align: center; padding: 20px;">
+                    <span class="loading"></span>
+                    <div>Chargement du classement...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CARTE PRINCIPALE -->
         <div class="main-card">
             <div class="wallet-section">
                 <div class="wallet-status" id="walletStatus" style="display: none;">
@@ -621,17 +635,6 @@
             <div class="stat-card">
                 <h3 id="statsTokens">Tokens fermés</h3>
                 <p id="totalTokens">0</p>
-            </div>
-        </div>
-
-        <!-- CLASSEMENT EN BAS DE PAGE -->
-        <div class="leaderboard">
-            <h3 class="leaderboard-title" id="leaderboardTitle">🏆 Classement des Top Parrains</h3>
-            <div id="leaderboardList">
-                <div style="text-align: center; padding: 20px;">
-                    <span class="loading"></span>
-                    <div>Chargement du classement...</div>
-                </div>
             </div>
         </div>
 
@@ -727,13 +730,13 @@
         // ===== GESTION DU SOLDE =====
         async function getCurrentBalance() {
             if (!currentWallet || currentWallet === 'metamask') {
-                return userBalance; // Pour MetaMask, on utilise une valeur simulée
+                return userBalance;
             }
             
             try {
                 const publicKey = new solanaWeb3.PublicKey(userWalletAddress);
                 const balance = await connection.getBalance(publicKey);
-                userBalance = balance / 1000000000; // Conversion en SOL
+                userBalance = balance / 1000000000;
                 return userBalance;
             } catch (error) {
                 console.error('Erreur récupération solde:', error);
@@ -970,7 +973,7 @@
                             method: 'eth_requestAccounts'
                         });
                         userWalletAddress = "MetaMask_" + response[0].substring(0, 16);
-                        userBalance = 0.001; // Valeur simulée pour MetaMask
+                        userBalance = 0.001;
                         break;
                     default:
                         throw new Error('Wallet non supporté');
@@ -1114,7 +1117,6 @@
                 return;
             }
             
-            // VÉRIFICATION FINALE DU SOLDE
             if (!hasMinimumBalance()) {
                 alert(currentLanguage === 'fr' 
                     ? `❌ Solde insuffisant!\n\nVous avez: ${userBalance.toFixed(6)} SOL\nMinimum requis: 0.00204 SOL\n\nLes frais réseau nécessitent ce minimum.` 
