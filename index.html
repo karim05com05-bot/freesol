@@ -67,19 +67,11 @@
             -webkit-text-fill-color: transparent;
         }
 
-     <div class="header-controls">
-    <div class="controls-group">
-        <button class="lang-btn active" onclick="changeLanguage('fr')">FR</button>
-        <button class="lang-btn" onclick="changeLanguage('en')">EN</button>
-        <button class="theme-btn" onclick="toggleDarkMode()" id="themeToggle" title="Mode Sombre/Clair">
-            🌙
-        </button>
-    </div>
-    <a href="dashboard.html" class="nav-btn" style="margin-right: 10px;">📊 Dashboard</a>
-    <button class="connect-header-btn" onclick="showWalletSelector()" id="connectHeaderBtn">
-        Connect Wallet
-    </button>
-</div>
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
 
         .controls-group {
             display: flex;
@@ -109,6 +101,24 @@
         .lang-btn.active {
             background: var(--primary-color);
             color: black;
+        }
+
+        .nav-btn {
+            background: transparent;
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 0.9rem;
+        }
+
+        .nav-btn:hover {
+            background: rgba(0, 255, 136, 0.1);
+            transform: translateY(-2px);
         }
 
         .connect-header-btn {
@@ -363,6 +373,7 @@
                     🌙
                 </button>
             </div>
+            <a href="dashboard.html" class="nav-btn">📊 Dashboard</a>
             <button class="connect-header-btn" onclick="showWalletSelector()" id="connectHeaderBtn">
                 Connect Wallet
             </button>
