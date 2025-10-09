@@ -18,7 +18,35 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             min-height: 100vh;
+            transition: all 0.3s ease;
         }
+
+        /* === MODE SOMBRE === */
+        body.dark-mode {
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
+        }
+
+        body.dark-mode .main-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        body.dark-mode .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        body.dark-mode .token-item {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        body.dark-mode .wallet-status {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        body.dark-mode .tx-history {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        /* === FIN MODE SOMBRE === */
 
         .container {
             max-width: 1200px;
@@ -26,26 +54,10 @@
             padding: 20px;
         }
 
-        <header>
-    <div class="logo">FreeSol <span class="maunte-badge">MAUNTE MODE</span></div>
-    <div class="tagline">Récupérez vos SOL perdus dans les tokens abandonnés</div>
-    <!-- DÉBUT BOUTON MODE SOMBRE -->
-    <div style="text-align: center; margin: 10px 0;">
-        <button onclick="toggleDarkMode()" style="
-            background: transparent;
-            border: 1px solid #00ff88;
-            color: #00ff88;
-            padding: 8px 15px;
-            border-radius: 20px;
-            cursor: pointer;
-        ">
-            🌙 Mode Sombre
-        </button>
-    </div>
-    <!-- FIN BOUTON MODE SOMBRE -->
-</header>
-            
-        
+        header {
+            text-align: center;
+            padding: 40px 0;
+        }
 
         .logo {
             font-size: 3rem;
@@ -59,6 +71,26 @@
         .tagline {
             font-size: 1.2rem;
             opacity: 0.9;
+            margin-bottom: 15px;
+        }
+
+        .theme-toggle {
+            text-align: center;
+            margin: 15px 0;
+        }
+
+        .theme-btn {
+            background: transparent;
+            border: 1px solid #00ff88;
+            color: #00ff88;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .theme-btn:hover {
+            background: rgba(0, 255, 136, 0.1);
         }
 
         .main-card {
@@ -69,6 +101,7 @@
             margin: 20px auto;
             max-width: 500px;
             border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
         }
 
         .wallet-section {
@@ -98,6 +131,7 @@
             padding: 15px;
             background: rgba(255, 255, 255, 0.1);
             border-radius: 10px;
+            transition: all 0.3s ease;
         }
 
         .tokens-list {
@@ -112,6 +146,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            transition: all 0.3s ease;
         }
 
         .claim-btn {
@@ -121,6 +156,12 @@
             border-radius: 20px;
             color: white;
             cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .claim-btn:hover {
+            background: #ff5252;
+            transform: translateY(-2px);
         }
 
         .stats {
@@ -135,6 +176,36 @@
             padding: 20px;
             border-radius: 10px;
             text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .tx-history {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            transition: all 0.3s ease;
+        }
+
+        .tx-item {
+            padding: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .tx-item:last-child {
+            border-bottom: none;
+        }
+
+        .tx-link {
+            color: #00ff88;
+            text-decoration: none;
+        }
+
+        .tx-link:hover {
+            text-decoration: underline;
         }
 
         footer {
@@ -171,6 +242,11 @@
         <header>
             <div class="logo">FreeSol <span class="maunte-badge">MAUNTE MODE</span></div>
             <div class="tagline">Récupérez vos SOL perdus dans les tokens abandonnés</div>
+            <div class="theme-toggle">
+                <button class="theme-btn" onclick="toggleDarkMode()" id="themeToggle">
+                    🌙 Mode Sombre
+                </button>
+            </div>
         </header>
 
         <div class="main-card">
@@ -188,6 +264,13 @@
                 <h3>Tokens récupérables</h3>
                 <div id="tokensContainer">
                     <!-- Les tokens apparaîtront ici -->
+                </div>
+            </div>
+
+            <div class="tx-history" id="txHistory" style="display: none;">
+                <h3>📜 Historique des transactions</h3>
+                <div id="transactionsList">
+                    <!-- Les transactions apparaîtront ici -->
                 </div>
             </div>
         </div>
@@ -218,20 +301,39 @@
     </div>
 
     <script>
-        // CONFIGURATION SOLANA
+        // ===== CONFIGURATION SOLANA =====
         const connection = new solanaWeb3.Connection(
             solanaWeb3.clusterApiUrl('devnet'),
             'confirmed'
         );
 
+        // ===== FONCTION MODE SOMBRE =====
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            const isDarkMode = document.body.classList.contains('dark-mode');
+            localStorage.setItem('darkMode', isDarkMode);
+            
+            const themeBtn = document.getElementById('themeToggle');
+            themeBtn.innerHTML = isDarkMode ? '☀️ Mode Clair' : '🌙 Mode Sombre';
+        }
+
+        // Charge le mode sauvegardé au chargement
+        window.addEventListener('load', function() {
+            if (localStorage.getItem('darkMode') === 'true') {
+                document.body.classList.add('dark-mode');
+                document.getElementById('themeToggle').innerHTML = '☀️ Mode Clair';
+            }
+        });
+
         let walletConnected = false;
         let userWalletAddress = null;
 
-        // FONCTION DE CONNEXION PHANTOM
+        // ===== FONCTION DE CONNEXION PHANTOM =====
         async function connectWallet() {
             const btn = document.querySelector('.connect-btn');
             const status = document.getElementById('walletStatus');
             const walletInfo = document.getElementById('walletInfo');
+            const txHistory = document.getElementById('txHistory');
             
             try {
                 btn.innerHTML = '<span class="loading"></span> Connexion...';
@@ -248,10 +350,11 @@
                 // Met à jour l'interface
                 btn.style.display = 'none';
                 status.style.display = 'block';
+                txHistory.style.display = 'block';
                 
                 // Récupère le solde
                 const balance = await connection.getBalance(response.publicKey);
-                const solBalance = balance / 1000000000; // Conversion en SOL
+                const solBalance = balance / 1000000000;
                 
                 walletInfo.innerHTML = `
                     ✅ Portefeuille connecté<br>
@@ -264,6 +367,9 @@
                 // Scan les tokens
                 scanTokens();
                 
+                // Affiche l'historique des transactions
+                loadTransactionHistory();
+                
             } catch (error) {
                 console.error('Erreur connexion:', error);
                 btn.innerHTML = '🦊 Connecter Phantom';
@@ -271,7 +377,7 @@
             }
         }
 
-        // FONCTION DE SCAN DES TOKENS
+        // ===== FONCTION DE SCAN DES TOKENS =====
         async function scanTokens() {
             if (!walletConnected) return;
             
@@ -283,7 +389,8 @@
                 setTimeout(() => {
                     const mockTokens = [
                         { mint: 'TokenABC123...', recoverable: 0.002 },
-                        { mint: 'TokenXYZ789...', recoverable: 0.002 }
+                        { mint: 'TokenXYZ789...', recoverable: 0.002 },
+                        { mint: 'TokenDEF456...', recoverable: 0.002 }
                     ];
                     
                     displayTokens(mockTokens);
@@ -295,7 +402,7 @@
             }
         }
 
-        // AFFICHAGE DES TOKENS
+        // ===== AFFICHAGE DES TOKENS =====
         function displayTokens(tokens) {
             const tokensContainer = document.getElementById('tokensContainer');
             
@@ -314,7 +421,7 @@
             `).join('');
         }
 
-        // FONCTION DE RÉCLAMATION (MAUNTE MODE)
+        // ===== FONCTION DE RÉCLAMATION (MAUNTE MODE) =====
         async function claimToken(mintAddress, amount) {
             if (!walletConnected) {
                 alert('Veuillez d\'abord connecter votre wallet!');
@@ -334,6 +441,9 @@
                     
                     // Met à jour les stats
                     updateStats(userAmount);
+                    
+                    // Recharge l'historique
+                    loadTransactionHistory();
                 }
                 
             } catch (error) {
@@ -342,28 +452,70 @@
             }
         }
 
-        // SIMULATION DE TRANSACTION (MAUNTE MODE)
+        // ===== SIMULATION DE TRANSACTION (MAUNTE MODE) =====
         async function simulateTransaction(mintAddress, totalAmount, fee, userAmount) {
             return new Promise((resolve) => {
                 setTimeout(() => {
+                    // Génère un TXID simulé réaliste
+                    const simulatedTxId = 'sim_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+                    
                     // Sauvegarde en local storage pour tracking
                     const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
-                    transactions.push({
+                    const newTransaction = {
+                        txId: simulatedTxId,
                         mint: mintAddress,
                         total: totalAmount,
                         fee: fee,
                         userReceived: userAmount,
                         timestamp: new Date().toISOString(),
-                        mode: 'maunte_simulation'
-                    });
+                        mode: 'maunte_simulation',
+                        status: 'confirmed'
+                    };
+                    
+                    transactions.unshift(newTransaction); // Ajoute au début
                     localStorage.setItem('freesol_transactions', JSON.stringify(transactions));
                     
-                    resolve({ success: true, txId: 'maunte_sim_' + Date.now() });
+                    resolve({ success: true, txId: simulatedTxId });
                 }, 1500);
             });
         }
 
-        // MISE À JOUR DES STATISTIQUES
+        // ===== HISTORIQUE DES TRANSACTIONS =====
+        function loadTransactionHistory() {
+            const transactionsList = document.getElementById('transactionsList');
+            const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
+            
+            if (transactions.length === 0) {
+                transactionsList.innerHTML = '<div style="text-align: center; opacity: 0.7;">Aucune transaction encore</div>';
+                return;
+            }
+            
+            transactionsList.innerHTML = transactions.map(tx => `
+                <div class="tx-item">
+                    <div>
+                        <strong>${tx.mint}</strong><br>
+                        <small>Reçu: ${tx.userReceived.toFixed(4)} SOL | Frais: ${tx.fee.toFixed(4)} SOL</small>
+                    </div>
+                    <div>
+                        <small>${new Date(tx.timestamp).toLocaleDateString()}</small><br>
+                        <a href="#" class="tx-link" onclick="viewTransaction('${tx.txId}')">
+                            🔗 Voir
+                        </a>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ===== AFFICHAGE D'UNE TRANSACTION =====
+        function viewTransaction(txId) {
+            if (txId.startsWith('sim_')) {
+                alert('🔍 Transaction simulée (Mode Maunte)\nTXID: ' + txId + '\n\nEn mode réel, ce lien ouvrirait Solscan.io');
+            } else {
+                window.open(`https://solscan.io/tx/${txId}`, '_blank');
+            }
+        }
+
+        // ===== MISE À JOUR DES STATISTIQUES =====
         function updateStats(amount) {
             const totalSolElement = document.getElementById('totalSol');
             const totalTokensElement = document.getElementById('totalTokens');
@@ -375,7 +527,7 @@
             totalTokensElement.textContent = (currentTokens + 1) + '';
         }
 
-        // VÉRIFICATION AUTO SI DÉJÀ CONNECTÉ
+        // ===== VÉRIFICATION AUTO SI DÉJÀ CONNECTÉ =====
         window.addEventListener('load', function() {
             if (window.solana && window.solana.isConnected) {
                 document.querySelector('.connect-btn').click();
