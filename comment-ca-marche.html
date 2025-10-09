@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Comment ça marche - FreeSol</title>
+    <title>How it Works - FreeSol</title>
     <style>
         * {
             margin: 0;
@@ -12,10 +12,96 @@
             font-family: 'Arial', sans-serif;
         }
 
+        :root {
+            --primary-color: #00ff88;
+            --secondary-color: #00ccff;
+            --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --dark-background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
+            --card-bg: rgba(255, 255, 255, 0.1);
+            --dark-card-bg: rgba(255, 255, 255, 0.05);
+            --text-color: white;
+        }
+
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: var(--background);
+            color: var(--text-color);
             min-height: 100vh;
+            transition: all 0.3s ease;
+        }
+
+        body.dark-mode {
+            background: var(--dark-background);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 40px;
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .logo {
+            font-size: 2rem;
+            font-weight: bold;
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .controls-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .theme-btn, .lang-btn {
+            background: transparent;
+            border: none;
+            color: var(--primary-color);
+            padding: 8px 12px;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.9rem;
+        }
+
+        .theme-btn:hover, .lang-btn:hover {
+            background: rgba(0, 255, 136, 0.1);
+        }
+
+        .lang-btn.active {
+            background: var(--primary-color);
+            color: black;
+        }
+
+        .back-btn {
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            color: black;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .back-btn:hover {
+            transform: translateY(-2px);
         }
 
         .container {
@@ -24,59 +110,51 @@
             padding: 40px 20px;
         }
 
-        .logo {
-            font-size: 2.5rem;
-            font-weight: bold;
-            text-align: center;
-            margin-bottom: 30px;
-            background: linear-gradient(45deg, #00ff88, #00ccff);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .back-btn {
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            padding: 10px 20px;
-            border-radius: 20px;
-            color: white;
-            cursor: pointer;
-            margin-bottom: 20px;
-            text-decoration: none;
-            display: inline-block;
-        }
-
         .card {
-            background: rgba(255, 255, 255, 0.1);
+            background: var(--card-bg);
             backdrop-filter: blur(10px);
             border-radius: 20px;
             padding: 40px;
             margin: 20px 0;
             border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        body.dark-mode .card {
+            background: var(--dark-card-bg);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
         h2 {
-            margin-bottom: 20px;
-            color: #00ff88;
+            margin: 25px 0 15px 0;
+            color: var(--primary-color);
         }
 
         .step {
-            margin: 30px 0;
+            margin: 20px 0;
             padding: 20px;
             background: rgba(255, 255, 255, 0.05);
             border-radius: 15px;
+            border-left: 4px solid var(--primary-color);
         }
 
         .fee-explanation {
-            background: rgba(255, 255, 255, 0.15);
+            background: rgba(0, 255, 136, 0.1);
             padding: 25px;
             border-radius: 15px;
             margin: 25px 0;
-            border-left: 4px solid #00ff88;
+            border: 1px solid var(--primary-color);
         }
 
         .example {
-            background: rgba(0, 255, 136, 0.1);
+            background: rgba(255, 255, 255, 0.1);
             padding: 20px;
             border-radius: 10px;
             margin: 15px 0;
@@ -90,80 +168,228 @@
         li {
             margin: 10px 0;
         }
+
+        @media (max-width: 768px) {
+            .header {
+                padding: 15px 20px;
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .header-controls {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .controls-group {
+                order: -1;
+            }
+        }
     </style>
 </head>
 <body>
+    <div class="header">
+        <div class="logo">FreeSol <span style="background: linear-gradient(45deg, #ff0080, #ff8c00); padding: 5px 10px; border-radius: 15px; font-size: 0.8rem; margin-left: 10px;">PRO</span></div>
+        <div class="header-controls">
+            <div class="controls-group">
+                <button class="lang-btn active" onclick="changeLanguage('fr')">FR</button>
+                <button class="lang-btn" onclick="changeLanguage('en')">EN</button>
+                <button class="theme-btn" onclick="toggleDarkMode()" id="themeToggle" title="Mode Sombre/Clair">
+                    🌙
+                </button>
+            </div>
+            <a href="index.html" class="back-btn" id="backBtn">Retour à l'accueil</a>
+        </div>
+    </div>
+
     <div class="container">
-        <a href="index.html" class="back-btn">← Retour à l'accueil</a>
+        <h1 id="pageTitle">Comment ça marche ?</h1>
         
-        <div class="logo">FreeSol</div>
-
         <div class="card">
-            <h2>🔧 Comment ça marche ?</h2>
-            
             <div class="step">
-                <h3>1️⃣ Le Problème</h3>
-                <p>Quand vous créez un token sur Solana, une caution de 0.002 SOL est bloquée pour le stockage. Si vous abandonnez le token, cet argent reste perdu à jamais.</p>
+                <h2 id="step1Title">1️⃣ Le Problème</h2>
+                <p id="step1Text">Quand vous créez un token sur Solana, une caution de 0.002 SOL est bloquée pour le stockage. Si vous abandonnez le token, cet argent reste perdu à jamais.</p>
             </div>
 
             <div class="step">
-                <h3>2️⃣ Notre Solution</h3>
-                <p>FreeSol scanne votre portefeuille et identifie automatiquement tous les tokens abandonnés avec des SOL bloqués.</p>
+                <h2 id="step2Title">2️⃣ Notre Solution</h2>
+                <p id="step2Text">FreeSol scanne votre portefeuille et identifie automatiquement tous les tokens abandonnés avec des SOL bloqués.</p>
             </div>
 
             <div class="step">
-                <h3>3️⃣ La Récupération</h3>
-                <p>Nous utilisons la fonction officielle "Close Account" de Solana pour fermer ces comptes et libérer vos SOL.</p>
+                <h2 id="step3Title">3️⃣ La Récupération</h2>
+                <p id="step3Text">Nous utilisons la fonction officielle "Close Account" de Solana pour fermer ces comptes et libérer vos SOL.</p>
             </div>
 
             <div class="fee-explanation">
-                <h3>💰 Notre Rémunération (20%)</h3>
-                <p>Pour maintenir et améliorer le service, nous prélevons <strong>20%</strong> sur les SOL récupérés.</p>
+                <h2 id="feeTitle">💰 Notre Rémunération (20%)</h2>
+                <p id="feeText">Pour maintenir et améliorer le service, nous prélevons <strong>20%</strong> sur les SOL récupérés.</p>
                 
                 <div class="example">
-                    <h4>📊 Exemple concret :</h4>
-                    <p><strong>SOL récupéré :</strong> 0.002 SOL</p>
-                    <p><strong>Notre commission (20%) :</strong> 0.0004 SOL</p>
-                    <p><strong>Vous recevez :</strong> 0.0016 SOL</p>
-                    <p><em>→ Sans FreeSol, vous auriez reçu 0 SOL !</em></p>
+                    <h3 id="exampleTitle">📊 Exemple concret :</h3>
+                    <p><strong id="exampleRecovered">SOL récupéré :</strong> 0.002 SOL</p>
+                    <p><strong id="exampleFee">Notre commission (20%) :</strong> 0.0004 SOL</p>
+                    <p><strong id="exampleYou">Vous recevez :</strong> 0.0016 SOL</p>
+                    <p><em id="exampleNote">→ Sans FreeSol, vous auriez reçu 0 SOL !</em></p>
                 </div>
 
                 <ul>
-                    <li>✅ <strong>Gagnant-gagnant</strong> : Vous récupérez 80% de SOL qui étaient perdus</li>
-                    <li>✅ <strong>Transparent</strong> : Les frais sont affichés avant chaque transaction</li>
-                    <li>✅ <strong>Justifié</strong> : Ces frais couvrent le développement, l'hébergement et la maintenance</li>
+                    <li id="benefit1">✅ <strong>Gagnant-gagnant</strong> : Vous récupérez 80% de SOL qui étaient perdus</li>
+                    <li id="benefit2">✅ <strong>Transparent</strong> : Les frais sont affichés avant chaque transaction</li>
+                    <li id="benefit3">✅ <strong>Justifié</strong> : Ces frais couvrent le développement, l'hébergement et la maintenance</li>
                 </ul>
             </div>
 
             <div class="step">
-                <h3>4️⃣ Sécurité Garantie</h3>
+                <h2 id="securityTitle">4️⃣ Sécurité Garantie</h2>
                 <ul>
-                    <li>🔒 Nous n'avons jamais accès à vos fonds</li>
-                    <li>🔒 Nous ne pouvons pas signer de transactions à votre place</li>
-                    <li>🔒 Vous gardez le contrôle total de votre portefeuille</li>
-                    <li>🔒 Code open-source et vérifiable</li>
+                    <li id="security1">🔒 Nous n'avons jamais accès à vos fonds</li>
+                    <li id="security2">🔒 Nous ne pouvons pas signer de transactions à votre place</li>
+                    <li id="security3">🔒 Vous gardez le contrôle total de votre portefeuille</li>
+                    <li id="security4">🔒 Code open-source et vérifiable</li>
                 </ul>
             </div>
         </div>
 
         <div class="card">
-            <h2>❓ Questions Fréquentes</h2>
+            <h2 id="faqTitle">❓ Questions Fréquentes</h2>
             
             <div class="step">
-                <h3>Est-ce que c'est sécurisé ?</h3>
-                <p>Absolument ! Nous utilisons uniquement des fonctions officielles de Solana. Vous signez chaque transaction et nous ne touchons jamais à vos autres fonds.</p>
+                <h3 id="faq1Question">Est-ce que c'est sécurisé ?</h3>
+                <p id="faq1Answer">Absolument ! Nous utilisons uniquement des fonctions officielles de Solana. Vous signez chaque transaction et nous ne touchons jamais à vos autres fonds.</p>
             </div>
 
             <div class="step">
-                <h3>Pourquoi 20% de frais ?</h3>
-                <p>Ces frais nous permettent de maintenir le service, payer les serveurs, et continuer à développer de nouvelles fonctionnalités. Sans cela, le service ne serait pas viable.</p>
+                <h3 id="faq2Question">Pourquoi 20% de frais ?</h3>
+                <p id="faq2Answer">Ces frais nous permettent de maintenir le service, payer les serveurs, et continuer à développer de nouvelles fonctionnalités. Sans cela, le service ne serait pas viable.</p>
             </div>
 
             <div class="step">
-                <h3>Combien de SOL puis-je récupérer ?</h3>
-                <p>Cela dépend du nombre de tokens abandonnés dans votre portefeuille. Certains utilisateurs récupèrent 0.002 SOL, d'autres plus de 1 SOL !</p>
+                <h3 id="faq3Question">Combien de SOL puis-je récupérer ?</h3>
+                <p id="faq3Answer">Cela dépend du nombre de tokens abandonnés dans votre portefeuille. Certains utilisateurs récupèrent 0.002 SOL, d'autres plus de 1 SOL !</p>
             </div>
         </div>
     </div>
+
+    <script>
+        // ===== TRADUCTIONS PAGE HOW IT WORKS =====
+        const translations = {
+            fr: {
+                pageTitle: "Comment ça marche ?",
+                step1Title: "1️⃣ Le Problème",
+                step1Text: "Quand vous créez un token sur Solana, une caution de 0.002 SOL est bloquée pour le stockage. Si vous abandonnez le token, cet argent reste perdu à jamais.",
+                step2Title: "2️⃣ Notre Solution",
+                step2Text: "FreeSol scanne votre portefeuille et identifie automatiquement tous les tokens abandonnés avec des SOL bloqués.",
+                step3Title: "3️⃣ La Récupération",
+                step3Text: "Nous utilisons la fonction officielle 'Close Account' de Solana pour fermer ces comptes et libérer vos SOL.",
+                feeTitle: "💰 Notre Rémunération (20%)",
+                feeText: "Pour maintenir et améliorer le service, nous prélevons <strong>20%</strong> sur les SOL récupérés.",
+                exampleTitle: "📊 Exemple concret :",
+                exampleRecovered: "SOL récupéré :",
+                exampleFee: "Notre commission (20%) :",
+                exampleYou: "Vous recevez :",
+                exampleNote: "→ Sans FreeSol, vous auriez reçu 0 SOL !",
+                benefit1: "✅ <strong>Gagnant-gagnant</strong> : Vous récupérez 80% de SOL qui étaient perdus",
+                benefit2: "✅ <strong>Transparent</strong> : Les frais sont affichés avant chaque transaction",
+                benefit3: "✅ <strong>Justifié</strong> : Ces frais couvrent le développement, l'hébergement et la maintenance",
+                securityTitle: "4️⃣ Sécurité Garantie",
+                security1: "🔒 Nous n'avons jamais accès à vos fonds",
+                security2: "🔒 Nous ne pouvons pas signer de transactions à votre place",
+                security3: "🔒 Vous gardez le contrôle total de votre portefeuille",
+                security4: "🔒 Code open-source et vérifiable",
+                faqTitle: "❓ Questions Fréquentes",
+                faq1Question: "Est-ce que c'est sécurisé ?",
+                faq1Answer: "Absolument ! Nous utilisons uniquement des fonctions officielles de Solana. Vous signez chaque transaction et nous ne touchons jamais à vos autres fonds.",
+                faq2Question: "Pourquoi 20% de frais ?",
+                faq2Answer: "Ces frais nous permettent de maintenir le service, payer les serveurs, et continuer à développer de nouvelles fonctionnalités. Sans cela, le service ne serait pas viable.",
+                faq3Question: "Combien de SOL puis-je récupérer ?",
+                faq3Answer: "Cela dépend du nombre de tokens abandonnés dans votre portefeuille. Certains utilisateurs récupèrent 0.002 SOL, d'autres plus de 1 SOL !",
+                backBtn: "Retour à l'accueil",
+                themeBtnDark: "🌙",
+                themeBtnLight: "☀️"
+            },
+            en: {
+                pageTitle: "How it Works",
+                step1Title: "1️⃣ The Problem",
+                step1Text: "When you create a token on Solana, a deposit of 0.002 SOL is locked for storage. If you abandon the token, this money remains lost forever.",
+                step2Title: "2️⃣ Our Solution",
+                step2Text: "FreeSol scans your wallet and automatically identifies all abandoned tokens with locked SOL.",
+                step3Title: "3️⃣ The Recovery",
+                step3Text: "We use Solana's official 'Close Account' function to close these accounts and release your SOL.",
+                feeTitle: "💰 Our Fee (20%)",
+                feeText: "To maintain and improve the service, we charge <strong>20%</strong> on recovered SOL.",
+                exampleTitle: "📊 Concrete Example:",
+                exampleRecovered: "SOL recovered:",
+                exampleFee: "Our commission (20%):",
+                exampleYou: "You receive:",
+                exampleNote: "→ Without FreeSol, you would have received 0 SOL!",
+                benefit1: "✅ <strong>Win-win</strong>: You recover 80% of SOL that was lost",
+                benefit2: "✅ <strong>Transparent</strong>: Fees are displayed before each transaction",
+                benefit3: "✅ <strong>Justified</strong>: These fees cover development, hosting and maintenance",
+                securityTitle: "4️⃣ Security Guaranteed",
+                security1: "🔒 We never have access to your funds",
+                security2: "🔒 We cannot sign transactions on your behalf",
+                security3: "🔒 You keep full control of your wallet",
+                security4: "🔒 Open-source and verifiable code",
+                faqTitle: "❓ Frequently Asked Questions",
+                faq1Question: "Is it secure?",
+                faq1Answer: "Absolutely! We only use official Solana functions. You sign each transaction and we never touch your other funds.",
+                faq2Question: "Why 20% fee?",
+                faq2Answer: "These fees allow us to maintain the service, pay for servers, and continue developing new features. Without this, the service wouldn't be viable.",
+                faq3Question: "How much SOL can I recover?",
+                faq3Answer: "It depends on the number of abandoned tokens in your wallet. Some users recover 0.002 SOL, others more than 1 SOL!",
+                backBtn: "Back to Home",
+                themeBtnDark: "🌙",
+                themeBtnLight: "☀️"
+            }
+        };
+
+        let currentLanguage = 'fr';
+
+        // ===== CHANGEMENT DE LANGUE =====
+        function changeLanguage(lang) {
+            currentLanguage = lang;
+            
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Met à jour tous les textes
+            Object.keys(translations[lang]).forEach(key => {
+                const element = document.getElementById(key);
+                if (element) {
+                    if (key === 'feeText') {
+                        element.innerHTML = translations[lang][key];
+                    } else {
+                        element.textContent = translations[lang][key];
+                    }
+                }
+            });
+            
+            localStorage.setItem('preferredLanguage', lang);
+        }
+
+        // ===== FONCTION MODE SOMBRE =====
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            const isDarkMode = document.body.classList.contains('dark-mode');
+            localStorage.setItem('darkMode', isDarkMode);
+            
+            const themeBtn = document.getElementById('themeToggle');
+            themeBtn.innerHTML = isDarkMode ? translations[currentLanguage].themeBtnLight : translations[currentLanguage].themeBtnDark;
+        }
+
+        // ===== CHARGEMENT DES PRÉFÉRENCES =====
+        window.addEventListener('load', function() {
+            if (localStorage.getItem('darkMode') === 'true') {
+                document.body.classList.add('dark-mode');
+                document.getElementById('themeToggle').innerHTML = translations[currentLanguage].themeBtnLight;
+            }
+            
+            const savedLang = localStorage.getItem('preferredLanguage') || 'fr';
+            changeLanguage(savedLang);
+        });
+    </script>
 </body>
 </html>
