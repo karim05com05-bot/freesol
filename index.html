@@ -42,7 +42,8 @@
         body.dark-mode .wallet-status,
         body.dark-mode .tx-history,
         body.dark-mode .wallet-selector,
-        body.dark-mode .affiliation-card {
+        body.dark-mode .affiliation-card,
+        body.dark-mode .leaderboard {
             background: var(--dark-card-bg);
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
@@ -198,8 +199,8 @@
         .affiliation-card {
             background: var(--card-bg);
             backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 30px;
+            border-radius: 15px;
+            padding: 20px;
             margin: 20px auto;
             max-width: 500px;
             border: 1px solid rgba(255, 255, 255, 0.2);
@@ -208,33 +209,34 @@
 
         .affiliation-badge {
             background: linear-gradient(45deg, #ff0080, #ff8c00);
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            margin-bottom: 15px;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            margin-bottom: 10px;
             display: inline-block;
         }
 
         .referral-code {
             background: rgba(255, 255, 255, 0.1);
-            padding: 15px;
-            border-radius: 10px;
-            margin: 15px 0;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 0;
             font-family: monospace;
-            font-size: 1.1rem;
+            font-size: 1rem;
             border: 1px dashed var(--primary-color);
         }
 
         .copy-btn {
             background: var(--primary-color);
             border: none;
-            padding: 10px 20px;
-            border-radius: 20px;
+            padding: 8px 16px;
+            border-radius: 15px;
             color: black;
             font-weight: bold;
             cursor: pointer;
-            margin: 10px 5px;
+            margin: 5px;
             transition: transform 0.3s;
+            font-size: 0.9rem;
         }
 
         .copy-btn:hover {
@@ -244,12 +246,12 @@
         .referral-input {
             background: rgba(255, 255, 255, 0.1);
             border: 1px solid var(--primary-color);
-            padding: 12px;
-            border-radius: 10px;
+            padding: 10px;
+            border-radius: 8px;
             color: white;
             width: 100%;
-            margin: 10px 0;
-            font-size: 1rem;
+            margin: 8px 0;
+            font-size: 0.9rem;
         }
 
         .wallet-section {
@@ -263,6 +265,31 @@
             background: var(--card-bg);
             border-radius: 10px;
             transition: all 0.3s ease;
+        }
+
+        .balance-warning {
+            background: rgba(255, 107, 107, 0.2);
+            border: 1px solid #ff6b6b;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            text-align: left;
+        }
+
+        .balance-warning h4 {
+            color: #ff6b6b;
+            margin-bottom: 8px;
+            font-size: 1rem;
+        }
+
+        .balance-warning ul {
+            margin: 8px 0;
+            padding-left: 20px;
+            font-size: 0.9rem;
+        }
+
+        .balance-warning li {
+            margin: 4px 0;
         }
 
         .tokens-list {
@@ -290,9 +317,15 @@
             transition: all 0.3s;
         }
 
-        .claim-btn:hover {
+        .claim-btn:hover:not(:disabled) {
             background: #ff5252;
             transform: translateY(-2px);
+        }
+
+        .claim-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            opacity: 0.7;
         }
 
         .stats {
@@ -312,9 +345,10 @@
 
         .leaderboard {
             background: var(--card-bg);
-            padding: 30px;
+            padding: 25px;
             border-radius: 15px;
-            margin: 30px 0;
+            margin: 30px auto;
+            max-width: 600px;
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.2);
         }
@@ -323,14 +357,14 @@
             text-align: center;
             margin-bottom: 20px;
             color: var(--primary-color);
-            font-size: 1.5rem;
+            font-size: 1.3rem;
         }
 
         .leader-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 15px;
+            padding: 12px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
             transition: all 0.3s ease;
         }
@@ -347,16 +381,18 @@
             font-weight: bold;
             background: var(--primary-color);
             color: black;
-            padding: 8px 12px;
+            padding: 6px 10px;
             border-radius: 50%;
-            min-width: 35px;
+            min-width: 30px;
             text-align: center;
+            font-size: 0.9rem;
         }
 
         .leader-address {
             flex-grow: 1;
-            margin: 0 15px;
+            margin: 0 12px;
             font-family: monospace;
+            font-size: 0.9rem;
         }
 
         .leader-stats {
@@ -366,10 +402,11 @@
         .leader-referrals {
             font-weight: bold;
             color: var(--primary-color);
+            font-size: 0.9rem;
         }
 
         .leader-earnings {
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             opacity: 0.8;
         }
 
@@ -472,7 +509,7 @@
             .leader-item {
                 flex-direction: column;
                 text-align: center;
-                gap: 10px;
+                gap: 8px;
             }
 
             .leader-address {
@@ -525,37 +562,25 @@
             </div>
         </div>
 
-        <!-- CARTE AFFILIATION -->
+        <!-- CARTE AFFILIATION COMPACTE -->
         <div class="affiliation-card" id="affiliationCard" style="display: none;">
             <div class="affiliation-badge">🎯 PROGRAMME DE PARRAINAGE</div>
-            <h3 id="affiliationTitle">Gagnez 3% à vie sur chaque transaction de vos filleuls !</h3>
+            <h4 id="affiliationTitle">Gagnez 3% sur vos filleuls !</h4>
             
             <div class="referral-code" id="referralCode">
                 Chargement...
             </div>
-            <button class="copy-btn" onclick="copyReferralCode()" id="copyBtn">📋 Copier le code</button>
+            <button class="copy-btn" onclick="copyReferralCode()" id="copyBtn">📋 Copier</button>
             
-            <div style="margin: 20px 0; padding: 15px; background: rgba(0, 255, 136, 0.1); border-radius: 10px;">
-                <h4>📊 Vos statistiques de parrainage</h4>
-                <p>👥 Filleuls: <span id="referralCount">0</span></p>
-                <p>💰 Gains: <span id="referralEarnings">0.000 SOL</span></p>
+            <div style="margin: 15px 0; padding: 12px; background: rgba(0, 255, 136, 0.1); border-radius: 8px; font-size: 0.9rem;">
+                <p>👥 <strong>Filleuls:</strong> <span id="referralCount">0</span></p>
+                <p>💰 <strong>Gains:</strong> <span id="referralEarnings">0.000 SOL</span></p>
             </div>
 
-            <div style="margin-top: 20px;">
-                <h4>👋 Invitez un ami</h4>
-                <input type="text" class="referral-input" id="friendReferralInput" placeholder="Code parrain de votre ami (optionnel)">
-                <button class="copy-btn" onclick="applyReferralCode()">✅ Appliquer le code</button>
-            </div>
-        </div>
-
-        <!-- CLASSEMENT DES PARRAINS -->
-        <div class="leaderboard">
-            <h3 class="leaderboard-title" id="leaderboardTitle">🏆 Classement des Top Parrains</h3>
-            <div id="leaderboardList">
-                <div style="text-align: center; padding: 40px;">
-                    <span class="loading"></span>
-                    <div>Chargement du classement...</div>
-                </div>
+            <div style="margin-top: 15px;">
+                <h5>👋 Code parrain d'un ami</h5>
+                <input type="text" class="referral-input" id="friendReferralInput" placeholder="Code parrain (optionnel)">
+                <button class="copy-btn" onclick="applyReferralCode()">✅ Appliquer</button>
             </div>
         </div>
 
@@ -565,6 +590,9 @@
                     <div id="walletInfo"></div>
                 </div>
             </div>
+
+            <!-- ZONE D'ALERTE SOLDE INSUFFISANT -->
+            <div id="balanceWarningContainer"></div>
 
             <div class="tokens-list">
                 <h3 id="tokensTitle">Tokens récupérables</h3>
@@ -596,6 +624,17 @@
             </div>
         </div>
 
+        <!-- CLASSEMENT EN BAS DE PAGE -->
+        <div class="leaderboard">
+            <h3 class="leaderboard-title" id="leaderboardTitle">🏆 Classement des Top Parrains</h3>
+            <div id="leaderboardList">
+                <div style="text-align: center; padding: 20px;">
+                    <span class="loading"></span>
+                    <div>Chargement du classement...</div>
+                </div>
+            </div>
+        </div>
+
         <footer>
             <p>
                 <span id="footerText">FreeSol - Système d'Affiliation Actif</span>
@@ -620,7 +659,7 @@
                 statsTokens: "Tokens fermés",
                 footerText: "FreeSol - Système d'Affiliation Actif",
                 howItWorksLink: "Comment ça marche ?",
-                affiliationTitle: "Gagnez 3% à vie sur chaque transaction de vos filleuls !",
+                affiliationTitle: "Gagnez 3% sur vos filleuls !",
                 leaderboardTitle: "🏆 Classement des Top Parrains",
                 themeBtnDark: "🌙",
                 themeBtnLight: "☀️",
@@ -633,8 +672,15 @@
                 connected: "Connecté",
                 disconnect: "Déconnecter",
                 chooseWallet: "Choisir un wallet",
-                copyBtn: "📋 Copier le code",
-                applyReferral: "✅ Appliquer le code"
+                copyBtn: "📋 Copier",
+                applyReferral: "✅ Appliquer",
+                balanceWarningTitle: "⚠️ Solde SOL insuffisant",
+                balanceWarningText: "Votre wallet doit contenir au moins <strong>0.00204 SOL</strong> pour couvrir les frais réseau Solana.",
+                balanceWarningSolution1: "Achetez du SOL sur un exchange (Binance, Coinbase, etc.)",
+                balanceWarningSolution2: "Utilisez un faucet Solana pour tester",
+                balanceWarningSolution3: "Demandez à un ami de vous envoyer 0.01 SOL",
+                claimButton: "Récupérer",
+                claimDisabled: "⚠️ Solde insuffisant"
             },
             en: {
                 tagline: "Recover your lost SOL from abandoned tokens",
@@ -647,7 +693,7 @@
                 statsTokens: "Tokens Closed",
                 footerText: "FreeSol - Active Affiliation System",
                 howItWorksLink: "How it works?",
-                affiliationTitle: "Earn 3% for life on every transaction from your referrals!",
+                affiliationTitle: "Earn 3% on your referrals!",
                 leaderboardTitle: "🏆 Top Referrers Ranking",
                 themeBtnDark: "🌙",
                 themeBtnLight: "☀️",
@@ -660,8 +706,15 @@
                 connected: "Connected",
                 disconnect: "Disconnect",
                 chooseWallet: "Choose wallet",
-                copyBtn: "📋 Copy code",
-                applyReferral: "✅ Apply code"
+                copyBtn: "📋 Copy",
+                applyReferral: "✅ Apply",
+                balanceWarningTitle: "⚠️ Insufficient SOL Balance",
+                balanceWarningText: "Your wallet needs at least <strong>0.00204 SOL</strong> to cover Solana network fees.",
+                balanceWarningSolution1: "Buy SOL on an exchange (Binance, Coinbase, etc.)",
+                balanceWarningSolution2: "Use a Solana faucet for testing",
+                balanceWarningSolution3: "Ask a friend to send you 0.01 SOL",
+                claimButton: "Recover",
+                claimDisabled: "⚠️ Insufficient balance"
             }
         };
 
@@ -669,6 +722,49 @@
         let currentWallet = null;
         let userWalletAddress = null;
         let userReferralCode = null;
+        let userBalance = 0;
+
+        // ===== GESTION DU SOLDE =====
+        async function getCurrentBalance() {
+            if (!currentWallet || currentWallet === 'metamask') {
+                return userBalance; // Pour MetaMask, on utilise une valeur simulée
+            }
+            
+            try {
+                const publicKey = new solanaWeb3.PublicKey(userWalletAddress);
+                const balance = await connection.getBalance(publicKey);
+                userBalance = balance / 1000000000; // Conversion en SOL
+                return userBalance;
+            } catch (error) {
+                console.error('Erreur récupération solde:', error);
+                return 0;
+            }
+        }
+
+        function hasMinimumBalance() {
+            return userBalance >= 0.00204;
+        }
+
+        function showBalanceWarning() {
+            const warningContainer = document.getElementById('balanceWarningContainer');
+            if (hasMinimumBalance()) {
+                warningContainer.innerHTML = '';
+                return;
+            }
+
+            warningContainer.innerHTML = `
+                <div class="balance-warning">
+                    <h4>${translations[currentLanguage].balanceWarningTitle}</h4>
+                    <p>${translations[currentLanguage].balanceWarningText}</p>
+                    <p><strong>${currentLanguage === 'fr' ? 'Solutions :' : 'Solutions:'}</strong></p>
+                    <ul>
+                        <li>${translations[currentLanguage].balanceWarningSolution1}</li>
+                        <li>${translations[currentLanguage].balanceWarningSolution2}</li>
+                        <li>${translations[currentLanguage].balanceWarningSolution3}</li>
+                    </ul>
+                </div>
+            `;
+        }
 
         // ===== SYSTÈME D'AFFILIATION =====
         function generateReferralCode(walletAddress) {
@@ -709,7 +805,6 @@
 
             const referralData = getReferralData();
             
-            // Trouver le parrain par son code
             let referrerAddress = null;
             for (const [address, data] of Object.entries(referralData)) {
                 if (data.code === code) {
@@ -719,7 +814,6 @@
             }
 
             if (referrerAddress && referrerAddress !== userWalletAddress) {
-                // Ajouter l'utilisateur comme filleul
                 if (!referralData[referrerAddress].referrals.includes(userWalletAddress)) {
                     referralData[referrerAddress].referrals.push(userWalletAddress);
                     saveReferralData(referralData);
@@ -739,7 +833,6 @@
             const referralData = getReferralData();
             const leaderboardList = document.getElementById('leaderboardList');
             
-            // Créer le classement
             const leaders = Object.entries(referralData)
                 .map(([address, data]) => ({
                     address,
@@ -759,8 +852,8 @@
                     <div class="leader-rank">${index + 1}</div>
                     <div class="leader-address">${leader.address.substring(0, 12)}...${leader.address.substring(leader.address.length - 6)}</div>
                     <div class="leader-stats">
-                        <div class="leader-referrals">${leader.referrals} filleuls</div>
-                        <div class="leader-earnings">${leader.earnings.toFixed(6)} SOL gagnés</div>
+                        <div class="leader-referrals">${leader.referrals} ${currentLanguage === 'fr' ? 'filleuls' : 'referrals'}</div>
+                        <div class="leader-earnings">${leader.earnings.toFixed(6)} SOL</div>
                     </div>
                 </div>
             `).join('');
@@ -877,6 +970,7 @@
                             method: 'eth_requestAccounts'
                         });
                         userWalletAddress = "MetaMask_" + response[0].substring(0, 16);
+                        userBalance = 0.001; // Valeur simulée pour MetaMask
                         break;
                     default:
                         throw new Error('Wallet non supporté');
@@ -884,12 +978,12 @@
 
                 if (walletType !== 'metamask') {
                     userWalletAddress = response.publicKey.toString();
+                    userBalance = await getCurrentBalance();
                 }
                 
                 currentWallet = walletType;
                 userReferralCode = generateReferralCode(userWalletAddress);
 
-                // Initialiser les données d'affiliation si nécessaire
                 const referralData = getReferralData();
                 if (!referralData[userWalletAddress]) {
                     referralData[userWalletAddress] = {
@@ -900,23 +994,16 @@
                     saveReferralData(referralData);
                 }
 
-                // Met à jour l'interface
                 walletSelector.style.display = 'none';
                 walletStatus.style.display = 'block';
                 txHistory.style.display = 'block';
                 affiliationCard.style.display = 'block';
                 connectHeaderBtn.style.display = 'none';
 
-                let solBalance = 0;
-                if (walletType !== 'metamask') {
-                    const balance = await connection.getBalance(response.publicKey);
-                    solBalance = balance / 1000000000;
-                }
-
                 walletInfo.innerHTML = `
                     ✅ ${translations[currentLanguage].connected} (${getWalletName(walletType)})<br>
                     <small>${currentLanguage === 'fr' ? 'Adresse' : 'Address'}: ${userWalletAddress.substring(0, 12)}...${userWalletAddress.substring(userWalletAddress.length - 6)}</small><br>
-                    <small>SOL: ${solBalance.toFixed(4)}</small>
+                    <small>SOL: ${userBalance.toFixed(6)}</small>
                     <button class="disconnect-btn" onclick="disconnectWallet()">
                         ${translations[currentLanguage].disconnect}
                     </button>
@@ -924,6 +1011,7 @@
 
                 updateAffiliationStats();
                 updateLeaderboard();
+                showBalanceWarning();
                 scanTokens();
                 loadTransactionHistory();
 
@@ -953,6 +1041,7 @@
             const tokensContainer = document.getElementById('tokensContainer');
             const connectHeaderBtn = document.getElementById('connectHeaderBtn');
             const affiliationCard = document.getElementById('affiliationCard');
+            const balanceWarning = document.getElementById('balanceWarningContainer');
 
             walletSelector.style.display = 'block';
             walletStatus.style.display = 'none';
@@ -960,10 +1049,12 @@
             tokensContainer.innerHTML = '';
             affiliationCard.style.display = 'none';
             connectHeaderBtn.style.display = 'block';
+            balanceWarning.innerHTML = '';
 
             currentWallet = null;
             userWalletAddress = null;
             userReferralCode = null;
+            userBalance = 0;
         }
 
         // ===== FONCTION DE SCAN DES TOKENS =====
@@ -999,12 +1090,19 @@
                 return;
             }
             
+            const canClaim = hasMinimumBalance();
+            
             tokensContainer.innerHTML = tokens.map(token => `
                 <div class="token-item">
                     <span>${token.mint}</span>
-                    <button class="claim-btn" onclick="claimToken('${token.mint}', ${token.recoverable})">
-                        ${currentLanguage === 'fr' ? 'Récupérer' : 'Recover'} ${token.recoverable} SOL
-                    </button>
+                    ${canClaim ? 
+                        `<button class="claim-btn" onclick="claimToken('${token.mint}', ${token.recoverable})">
+                            ${translations[currentLanguage].claimButton} ${token.recoverable} SOL
+                        </button>` :
+                        `<button class="claim-btn" disabled title="${currentLanguage === 'fr' ? 'Solde SOL insuffisant pour les frais réseau' : 'Insufficient SOL balance for network fees'}">
+                            ${translations[currentLanguage].claimDisabled}
+                        </button>`
+                    }
                 </div>
             `).join('');
         }
@@ -1016,11 +1114,18 @@
                 return;
             }
             
+            // VÉRIFICATION FINALE DU SOLDE
+            if (!hasMinimumBalance()) {
+                alert(currentLanguage === 'fr' 
+                    ? `❌ Solde insuffisant!\n\nVous avez: ${userBalance.toFixed(6)} SOL\nMinimum requis: 0.00204 SOL\n\nLes frais réseau nécessitent ce minimum.` 
+                    : `❌ Insufficient balance!\n\nYou have: ${userBalance.toFixed(6)} SOL\nMinimum required: 0.00204 SOL\n\nNetwork fees require this minimum.`);
+                return;
+            }
+            
             try {
                 const referralData = getReferralData();
                 let referrer = null;
                 
-                // Trouver le parrain de l'utilisateur
                 for (const [address, data] of Object.entries(referralData)) {
                     if (data.referrals.includes(userWalletAddress)) {
                         referrer = address;
@@ -1031,21 +1136,17 @@
                 let fee, userAmount, referralFee;
                 
                 if (referrer) {
-                    // Avec parrain : 80% user, 3% parrain, 17% FreeSol
                     fee = amount * 0.17;
                     referralFee = amount * 0.03;
                     userAmount = amount * 0.80;
                     
-                    // Mettre à jour les gains du parrain
                     referralData[referrer].earnings += referralFee;
                     saveReferralData(referralData);
                     
                     if (referrer === userWalletAddress) {
-                        // Si l'utilisateur est son propre parrain (première transaction)
-                        referralData[userWalletAddress].earnings -= referralFee; // Annuler l'auto-attribution
+                        referralData[userWalletAddress].earnings -= referralFee;
                     }
                 } else {
-                    // Sans parrain : 80% user, 20% FreeSol
                     fee = amount * 0.20;
                     userAmount = amount * 0.80;
                     referralFee = 0;
@@ -1057,12 +1158,12 @@
                     let message;
                     if (referrer) {
                         message = currentLanguage === 'fr' 
-                            ? `🎉 SUCCÈS AVEC PARRAIN!\n\nToken: ${mintAddress}\nVous recevez: ${userAmount.toFixed(4)} SOL (80%)\nFreeSol: ${fee.toFixed(4)} SOL (17%)\nParrain: ${referralFee.toFixed(4)} SOL (3%)\n\nVotre parrain gagne aussi !`
-                            : `🎉 SUCCESS WITH REFERRAL!\n\nToken: ${mintAddress}\nYou receive: ${userAmount.toFixed(4)} SOL (80%)\nFreeSol: ${fee.toFixed(4)} SOL (17%)\nReferrer: ${referralFee.toFixed(4)} SOL (3%)\n\nYour referrer earns too!`;
+                            ? `🎉 SUCCÈS AVEC PARRAIN!\n\nVous recevez: ${userAmount.toFixed(4)} SOL (80%)\nFreeSol: ${fee.toFixed(4)} SOL (17%)\nParrain: ${referralFee.toFixed(4)} SOL (3%)` 
+                            : `🎉 SUCCESS WITH REFERRAL!\n\nYou receive: ${userAmount.toFixed(4)} SOL (80%)\nFreeSol: ${fee.toFixed(4)} SOL (17%)\nReferrer: ${referralFee.toFixed(4)} SOL (3%)`;
                     } else {
                         message = currentLanguage === 'fr' 
-                            ? `🎉 SUCCÈS!\n\nToken: ${mintAddress}\nVous recevez: ${userAmount.toFixed(4)} SOL (80%)\nFreeSol: ${fee.toFixed(4)} SOL (20%)\n\nParrainez des amis pour gagner 3% !`
-                            : `🎉 SUCCESS!\n\nToken: ${mintAddress}\nYou receive: ${userAmount.toFixed(4)} SOL (80%)\nFreeSol: ${fee.toFixed(4)} SOL (20%)\n\nRefer friends to earn 3%!`;
+                            ? `🎉 SUCCÈS!\n\nVous recevez: ${userAmount.toFixed(4)} SOL (80%)\nFreeSol: ${fee.toFixed(4)} SOL (20%)` 
+                            : `🎉 SUCCESS!\n\nYou receive: ${userAmount.toFixed(4)} SOL (80%)\nFreeSol: ${fee.toFixed(4)} SOL (20%)`;
                     }
                     
                     alert(message);
