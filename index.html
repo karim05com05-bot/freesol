@@ -522,7 +522,7 @@
 </head>
 <body>
     <div class="header">
-        <div class="logo">FreeSol <span class="maunte-badge">AFFILIATION</span></div>
+        <div class="logo">FreeSol <span class="maunte-badge">RÉEL</span></div>
         <div class="header-controls">
             <div class="controls-group">
                 <button class="lang-btn active" onclick="changeLanguage('fr')">FR</button>
@@ -681,7 +681,7 @@
                 themeBtnDark: "🌙",
                 themeBtnLight: "☀️",
                 noTokens: "Aucun token récupérable trouvé",
-                scanning: "Scan en cours...",
+                scanning: "Scan RÉEL en cours...",
                 connectError: "Erreur de connexion",
                 claimSuccess: "🎉 SUCCÈS!",
                 viewTransaction: "🔗 Voir",
@@ -715,7 +715,7 @@
                 themeBtnDark: "🌙",
                 themeBtnLight: "☀️",
                 noTokens: "No recoverable tokens found",
-                scanning: "Scanning...",
+                scanning: "REAL scan in progress...",
                 connectError: "Connection error",
                 claimSuccess: "🎉 SUCCESS!",
                 viewTransaction: "🔗 View",
@@ -740,6 +740,132 @@
         let userWalletAddress = null;
         let userReferralCode = null;
         let userBalance = 0;
+
+        // ===== VRAI SCAN DES COMPTES TOKENS =====
+        async function scanRealTokenAccounts() {
+            if (!userWalletAddress) return [];
+            
+            try {
+                const publicKey = new solanaWeb3.PublicKey(userWalletAddress);
+                const tokenAccounts = await connection.getTokenAccountsByOwner(publicKey, {
+                    programId: new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
+                });
+
+                const recoverableTokens = [];
+
+                for (let account of tokenAccounts.value) {
+                    try {
+                        const accountInfo = await connection.getAccountInfo(account.pubkey);
+                        const accountData = await connection.getTokenAccountBalance(account.pubkey);
+                        
+                        // Vérifier si le token a 0 balance mais de la rent récupérable
+                        if (accountData.value.uiAmount === 0 && accountInfo.lamports > 2039280) {
+                            const rentAmount = (accountInfo.lamports - 2039280) / 1000000000;
+                            
+                            if (rentAmount > 0.0001) {
+                                const mint = await getTokenMint(account.pubkey);
+                                recoverableTokens.push({
+                                    account: account.pubkey.toString(),
+                                    recoverable: rentAmount,
+                                    mint: mint,
+                                    type: 'TOKEN_ACCOUNT_RENT'
+                                });
+                            }
+                        }
+                    } catch (e) {
+                        console.log('Erreur account:', e);
+                    }
+                }
+
+                return recoverableTokens;
+            } catch (error) {
+                console.error('Erreur scan réel:', error);
+                return [];
+            }
+        }
+
+        // ===== RÉCUPÉRER LE MINT DU TOKEN =====
+        async function getTokenMint(tokenAccount) {
+            try {
+                const accountInfo = await connection.getAccountInfo(new solanaWeb3.PublicKey(tokenAccount));
+                if (accountInfo && accountInfo.data) {
+                    const mint = new solanaWeb3.PublicKey(accountInfo.data.slice(0, 32));
+                    return mint.toString().substring(0, 8) + '...' + mint.toString().substring(mint.toString().length - 8);
+                }
+            } catch (e) {
+                return 'Inconnu';
+            }
+            return 'Inconnu';
+        }
+
+        // ===== VRAIE RÉCUPÉRATION DE RENT =====
+        async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
+            try {
+                const referralData = getReferralData();
+                let referrer = null;
+                
+                // Vérifier le parrain
+                for (const [address, data] of Object.entries(referralData)) {
+                    if (data.referrals.includes(userWalletAddress)) {
+                        referrer = address;
+                        break;
+                    }
+                }
+
+                // 🎯 CALCUL DES MONTANTS RÉELS
+                const bossPercentage = referrer ? REAL_CONFIG.BOSS_FEE_REFERRAL : REAL_CONFIG.BOSS_FEE;
+                const bossAmount = recoverableSOL * bossPercentage;
+                const userAmount = recoverableSOL * REAL_CONFIG.USER_SHARE;
+                const referralAmount = referrer ? recoverableSOL * REAL_CONFIG.REFERRAL_BONUS : 0;
+
+                console.log(`💰 BOSS RECEIVES: ${bossAmount.toFixed(6)} SOL (${bossPercentage * 100}%)`);
+
+                // 🔧 TRANSACTION RÉELLE
+                const transaction = new solanaWeb3.Transaction();
+                
+                // 1. FERMER LE COMPTE TOKEN
+                const closeInstruction = solanaWeb3.Token.createCloseAccountInstruction(
+                    new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'),
+                    new solanaWeb3.PublicKey(tokenAccountAddress),
+                    new solanaWeb3.PublicKey(userWalletAddress),
+                    new solanaWeb3.PublicKey(userWalletAddress),
+                    []
+                );
+                transaction.add(closeInstruction);
+
+                // 2. ENVOYER TA COMMISSION BOSS
+                const bossTransfer = solanaWeb3.SystemProgram.transfer({
+                    fromPubkey: new solanaWeb3.PublicKey(userWalletAddress),
+                    toPubkey: new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET),
+                    lamports: Math.floor(bossAmount * 1000000000)
+                });
+                transaction.add(bossTransfer);
+
+                // ✍️ SIGNATURE ET ENVOI
+                const { signature } = await window.solana.signAndSendTransaction(transaction);
+                
+                // ✅ CONFIRMATION
+                await connection.confirmTransaction(signature);
+                
+                // Mettre à jour les gains du parrain si nécessaire
+                if (referrer) {
+                    referralData[referrer].earnings += referralAmount;
+                    saveReferralData(referralData);
+                }
+
+                return { 
+                    success: true, 
+                    signature: signature,
+                    bossAmount: bossAmount,
+                    userAmount: userAmount,
+                    referralAmount: referralAmount
+                };
+
+            } catch (error) {
+                console.error('❌ Erreur transaction réelle:', error);
+                return { success: false, error: error.message };
+            }
+        }
 
         // ===== GESTION DU SOLDE =====
         async function getCurrentBalance() {
@@ -874,69 +1000,6 @@
                     </div>
                 </div>
             `).join('');
-        }
-
-        // ===== FONCTION DE RÉCUPÉRATION RÉELLE =====
-        async function realClaimToken(tokenAccount, recoverableSOL) {
-            try {
-                const referralData = getReferralData();
-                let referrer = null;
-                
-                // Vérifier le parrain
-                for (const [address, data] of Object.entries(referralData)) {
-                    if (data.referrals.includes(userWalletAddress)) {
-                        referrer = address;
-                        break;
-                    }
-                }
-
-                // 🎯 CALCUL DES MONTANTS RÉELS
-                const bossPercentage = referrer ? REAL_CONFIG.BOSS_FEE_REFERRAL : REAL_CONFIG.BOSS_FEE;
-                const bossAmount = recoverableSOL * bossPercentage;
-                const userAmount = recoverableSOL * REAL_CONFIG.USER_SHARE;
-                const referralAmount = referrer ? recoverableSOL * REAL_CONFIG.REFERRAL_BONUS : 0;
-
-                console.log(`💰 BOSS RECEIVES: ${bossAmount.toFixed(6)} SOL (${bossPercentage * 100}%)`);
-
-                // 🔧 TRANSACTION RÉELLE
-                const transaction = new solanaWeb3.Transaction();
-                
-                // Instruction pour envoyer TES 17-20%
-                const bossTransfer = solanaWeb3.SystemProgram.transfer({
-                    fromPubkey: new solanaWeb3.PublicKey(userWalletAddress),
-                    toPubkey: new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET),
-                    lamports: Math.floor(bossAmount * 1000000000)
-                });
-                
-                transaction.add(bossTransfer);
-
-                // ✍️ Signature
-                const signed = await window.solana.signTransaction(transaction);
-                
-                // 🚀 Envoi sur la blockchain
-                const signature = await connection.sendRawTransaction(signed.serialize());
-                
-                // ✅ Confirmation
-                await connection.confirmTransaction(signature);
-                
-                // Mettre à jour les gains du parrain si nécessaire
-                if (referrer) {
-                    referralData[referrer].earnings += referralAmount;
-                    saveReferralData(referralData);
-                }
-
-                return { 
-                    success: true, 
-                    signature: signature,
-                    bossAmount: bossAmount,
-                    userAmount: userAmount,
-                    referralAmount: referralAmount
-                };
-
-            } catch (error) {
-                console.error('Erreur transaction réelle:', error);
-                return { success: false, error: error.message };
-            }
         }
 
         // ===== CHANGEMENT DE LANGUE =====
@@ -1095,6 +1158,144 @@
             }
         }
 
+        // ===== FONCTION DE SCAN DES TOKENS (RÉELLE) =====
+        async function scanTokens() {
+            if (!currentWallet) return;
+            
+            const tokensContainer = document.getElementById('tokensContainer');
+            tokensContainer.innerHTML = '<div style="text-align: center;"><span class="loading"></span> ' + translations[currentLanguage].scanning + '</div>';
+            
+            try {
+                const realTokens = await scanRealTokenAccounts();
+                displayTokens(realTokens);
+                
+            } catch (error) {
+                console.error('Erreur scan réel:', error);
+                tokensContainer.innerHTML = '<div style="color: #ff6b6b; text-align: center;">' + translations[currentLanguage].connectError + '</div>';
+            }
+        }
+
+        // ===== AFFICHAGE DES TOKENS =====
+        function displayTokens(tokens) {
+            const tokensContainer = document.getElementById('tokensContainer');
+            
+            if (tokens.length === 0) {
+                tokensContainer.innerHTML = '<div style="text-align: center;">' + translations[currentLanguage].noTokens + '</div>';
+                return;
+            }
+            
+            const canClaim = hasMinimumBalance();
+            
+            tokensContainer.innerHTML = tokens.map(token => `
+                <div class="token-item">
+                    <div>
+                        <strong>${token.mint}</strong><br>
+                        <small>Compte: ${token.account.substring(0, 12)}...</small><br>
+                        <small style="color: var(--primary-color);">Récupérable: ${token.recoverable.toFixed(6)} SOL</small>
+                    </div>
+                    ${canClaim ? 
+                        `<button class="claim-btn" onclick="claimToken('${token.account}', ${token.recoverable})">
+                            ${translations[currentLanguage].claimButton} ${token.recoverable.toFixed(4)} SOL
+                        </button>` :
+                        `<button class="claim-btn" disabled title="${currentLanguage === 'fr' ? 'Solde SOL insuffisant pour les frais réseau' : 'Insufficient SOL balance for network fees'}">
+                            ${translations[currentLanguage].claimDisabled}
+                        </button>`
+                    }
+                </div>
+            `).join('');
+        }
+
+        // ===== FONCTION DE RÉCLAMATION RÉELLE =====
+        async function claimToken(tokenAccount, amount) {
+            if (!currentWallet) {
+                alert(currentLanguage === 'fr' ? 'Veuillez d\'abord connecter votre wallet!' : 'Please connect your wallet first!');
+                return;
+            }
+            
+            if (!hasMinimumBalance()) {
+                alert(currentLanguage === 'fr' 
+                    ? `❌ Solde insuffisant!\n\nVous avez: ${userBalance.toFixed(6)} SOL\nMinimum requis: 0.00204 SOL\n\nLes frais réseau nécessitent ce minimum.` 
+                    : `❌ Insufficient balance!\n\nYou have: ${userBalance.toFixed(6)} SOL\nMinimum required: 0.00204 SOL\n\nNetwork fees require this minimum.`);
+                return;
+            }
+            
+            try {
+                // 🚀 UTILISER LA FONCTION RÉELLE
+                const transactionResult = await realRecoverRent(tokenAccount, amount);
+                
+                if (transactionResult.success) {
+                    let message = `🎉 RÉCUPÉRATION RÉUSSIE!\n\n`;
+                    message += `Transaction: ${transactionResult.signature}\n\n`;
+                    message += `Vous recevez: ${transactionResult.userAmount.toFixed(4)} SOL (80%)\n`;
+                    message += `FreeSol: ${transactionResult.bossAmount.toFixed(4)} SOL (${transactionResult.bossAmount === amount * 0.17 ? '17%' : '20%'})\n`;
+                    
+                    if (transactionResult.referralAmount > 0) {
+                        message += `Parrain: ${transactionResult.referralAmount.toFixed(4)} SOL (3%)`;
+                    }
+                    
+                    alert(message);
+                    
+                    // Sauvegarder la transaction
+                    saveTransaction({
+                        txId: transactionResult.signature,
+                        account: tokenAccount,
+                        total: amount,
+                        userReceived: transactionResult.userAmount,
+                        bossReceived: transactionResult.bossAmount,
+                        referralFee: transactionResult.referralAmount || 0,
+                        timestamp: new Date().toISOString()
+                    });
+                    
+                    // Mettre à jour les stats
+                    updateStats(transactionResult.userAmount);
+                    updateAffiliationStats();
+                    updateLeaderboard();
+                    loadTransactionHistory();
+                    
+                } else {
+                    alert('❌ Erreur lors de la récupération: ' + transactionResult.error);
+                }
+                
+            } catch (error) {
+                console.error('Erreur réclamation:', error);
+                alert((currentLanguage === 'fr' ? 'Erreur lors de la récupération: ' : 'Claim error: ') + error.message);
+            }
+        }
+
+        // ===== SAUVEGARDE DES TRANSACTIONS =====
+        function saveTransaction(txData) {
+            const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
+            transactions.unshift(txData);
+            localStorage.setItem('freesol_transactions', JSON.stringify(transactions));
+        }
+
+        // ===== HISTORIQUE DES TRANSACTIONS =====
+        function loadTransactionHistory() {
+            const transactionsList = document.getElementById('transactionsList');
+            const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
+            
+            if (transactions.length === 0) {
+                transactionsList.innerHTML = '<div style="text-align: center; opacity: 0.7;">' + translations[currentLanguage].noTransactions + '</div>';
+                return;
+            }
+            
+            transactionsList.innerHTML = transactions.map(tx => `
+                <div class="tx-item">
+                    <div>
+                        <strong>${tx.account.substring(0, 12)}...</strong><br>
+                        <small>${currentLanguage === 'fr' ? 'Reçu' : 'Received'}: ${tx.userReceived.toFixed(4)} SOL</small>
+                        ${tx.referralFee > 0 ? `<br><small style="color: var(--primary-color);">${currentLanguage === 'fr' ? 'Parrain' : 'Referrer'}: +${tx.referralFee.toFixed(4)} SOL</small>` : ''}
+                    </div>
+                    <div>
+                        <small>${new Date(tx.timestamp).toLocaleDateString()}</small><br>
+                        <a href="https://solscan.io/tx/${tx.txId}" target="_blank" class="tx-link">
+                            ${translations[currentLanguage].viewTransaction}
+                        </a>
+                    </div>
+                </div>
+            `).join('');
+        }
+
         // ===== NOM DU WALLET =====
         function getWalletName(walletType) {
             const names = {
@@ -1129,137 +1330,6 @@
             userWalletAddress = null;
             userReferralCode = null;
             userBalance = 0;
-        }
-
-        // ===== FONCTION DE SCAN DES TOKENS =====
-        async function scanTokens() {
-            if (!currentWallet) return;
-            
-            const tokensContainer = document.getElementById('tokensContainer');
-            tokensContainer.innerHTML = '<div style="text-align: center;"><span class="loading"></span> ' + translations[currentLanguage].scanning + '</div>';
-            
-            try {
-                setTimeout(() => {
-                    const mockTokens = [
-                        { mint: 'TokenABC123...', recoverable: 0.002 },
-                        { mint: 'TokenXYZ789...', recoverable: 0.002 },
-                        { mint: 'TokenDEF456...', recoverable: 0.002 }
-                    ];
-                    
-                    displayTokens(mockTokens);
-                }, 2000);
-                
-            } catch (error) {
-                console.error('Erreur scan:', error);
-                tokensContainer.innerHTML = '<div style="color: #ff6b6b; text-align: center;">' + translations[currentLanguage].connectError + '</div>';
-            }
-        }
-
-        // ===== AFFICHAGE DES TOKENS =====
-        function displayTokens(tokens) {
-            const tokensContainer = document.getElementById('tokensContainer');
-            
-            if (tokens.length === 0) {
-                tokensContainer.innerHTML = '<div style="text-align: center;">' + translations[currentLanguage].noTokens + '</div>';
-                return;
-            }
-            
-            const canClaim = hasMinimumBalance();
-            
-            tokensContainer.innerHTML = tokens.map(token => `
-                <div class="token-item">
-                    <span>${token.mint}</span>
-                    ${canClaim ? 
-                        `<button class="claim-btn" onclick="claimToken('${token.mint}', ${token.recoverable})">
-                            ${translations[currentLanguage].claimButton} ${token.recoverable} SOL
-                        </button>` :
-                        `<button class="claim-btn" disabled title="${currentLanguage === 'fr' ? 'Solde SOL insuffisant pour les frais réseau' : 'Insufficient SOL balance for network fees'}">
-                            ${translations[currentLanguage].claimDisabled}
-                        </button>`
-                    }
-                </div>
-            `).join('');
-        }
-
-        // ===== FONCTION DE RÉCLAMATION RÉELLE =====
-        async function claimToken(mintAddress, amount) {
-            if (!currentWallet) {
-                alert(currentLanguage === 'fr' ? 'Veuillez d\'abord connecter votre wallet!' : 'Please connect your wallet first!');
-                return;
-            }
-            
-            if (!hasMinimumBalance()) {
-                alert(currentLanguage === 'fr' 
-                    ? `❌ Solde insuffisant!\n\nVous avez: ${userBalance.toFixed(6)} SOL\nMinimum requis: 0.00204 SOL\n\nLes frais réseau nécessitent ce minimum.` 
-                    : `❌ Insufficient balance!\n\nYou have: ${userBalance.toFixed(6)} SOL\nMinimum required: 0.00204 SOL\n\nNetwork fees require this minimum.`);
-                return;
-            }
-            
-            try {
-                // 🚀 UTILISER LA FONCTION RÉELLE
-                const transactionResult = await realClaimToken(mintAddress, amount);
-                
-                if (transactionResult.success) {
-                    let message = `🎉 RÉCUPÉRATION RÉUSSIE!\n\n`;
-                    message += `Vous recevez: ${transactionResult.userAmount.toFixed(4)} SOL (80%)\n`;
-                    message += `FreeSol: ${transactionResult.bossAmount.toFixed(4)} SOL (${transactionResult.bossAmount === amount * 0.17 ? '17%' : '20%'})\n`;
-                    
-                    if (transactionResult.referralAmount > 0) {
-                        message += `Parrain: ${transactionResult.referralAmount.toFixed(4)} SOL (3%)`;
-                    }
-                    
-                    alert(message);
-                    
-                    // Mettre à jour les stats
-                    updateStats(transactionResult.userAmount);
-                    updateAffiliationStats();
-                    updateLeaderboard();
-                    loadTransactionHistory();
-                    
-                } else {
-                    alert('❌ Erreur lors de la récupération: ' + transactionResult.error);
-                }
-                
-            } catch (error) {
-                console.error('Erreur réclamation:', error);
-                alert((currentLanguage === 'fr' ? 'Erreur lors de la récupération: ' : 'Claim error: ') + error.message);
-            }
-        }
-
-        // ===== HISTORIQUE DES TRANSACTIONS =====
-        function loadTransactionHistory() {
-            const transactionsList = document.getElementById('transactionsList');
-            const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
-            
-            if (transactions.length === 0) {
-                transactionsList.innerHTML = '<div style="text-align: center; opacity: 0.7;">' + translations[currentLanguage].noTransactions + '</div>';
-                return;
-            }
-            
-            transactionsList.innerHTML = transactions.map(tx => `
-                <div class="tx-item">
-                    <div>
-                        <strong>${tx.mint}</strong><br>
-                        <small>${currentLanguage === 'fr' ? 'Reçu' : 'Received'}: ${tx.userReceived.toFixed(4)} SOL</small>
-                        ${tx.referralFee > 0 ? `<br><small style="color: var(--primary-color);">${currentLanguage === 'fr' ? 'Parrain' : 'Referrer'}: +${tx.referralFee.toFixed(4)} SOL</small>` : ''}
-                    </div>
-                    <div>
-                        <small>${new Date(tx.timestamp).toLocaleDateString()}</small><br>
-                        <a href="#" class="tx-link" onclick="viewTransaction('${tx.txId}')">
-                            ${translations[currentLanguage].viewTransaction}
-                        </a>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        // ===== AFFICHAGE D'UNE TRANSACTION =====
-        function viewTransaction(txId) {
-            if (txId.startsWith('sim_')) {
-                alert((currentLanguage === 'fr' ? '🔍 Transaction simulée (Mode Test)\nTXID: ' : '🔍 Simulated transaction (Test Mode)\nTXID: ') + txId);
-            } else {
-                window.open(`https://solscan.io/tx/${txId}`, '_blank');
-            }
         }
 
         // ===== MISE À JOUR DES STATISTIQUES =====
