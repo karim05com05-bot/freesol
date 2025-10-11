@@ -958,6 +958,10 @@
 
         // ===== SYSTÈME D'AFFILIATION =====
         function generateReferralCode(walletAddress) {
+            if (!walletAddress) {
+                console.error('❌ walletAddress est undefined dans generateReferralCode');
+                return "ERROR_NO_ADDRESS";
+            }
             return "FREESOL_" + walletAddress.substring(0, 8).toUpperCase();
         }
 
@@ -970,6 +974,11 @@
         }
 
         function updateAffiliationStats() {
+            if (!userWalletAddress) {
+                console.error('❌ userWalletAddress est undefined dans updateAffiliationStats');
+                return;
+            }
+            
             const referralData = getReferralData();
             const userData = referralData[userWalletAddress] || { referrals: [], earnings: 0, code: userReferralCode };
             
@@ -1121,7 +1130,7 @@
             });
         }
 
-        // ===== CONNEXION WALLET =====
+        // ===== CONNEXION WALLET - CORRIGÉE =====
         async function connectWallet(walletType) {
             const walletSelector = document.getElementById('walletSelector');
             const walletStatus = document.getElementById('walletStatus');
@@ -1136,25 +1145,35 @@
                 }
 
                 let response;
+                let publicKey;
+                
                 switch (walletType) {
                     case 'phantom':
                         response = await window.solana.connect();
-                        userWalletAddress = response.publicKey.toString();
+                        publicKey = response.publicKey.toString();
+                        if (!publicKey) throw new Error('Adresse Phantom non reçue');
+                        userWalletAddress = publicKey;
                         userBalance = await getCurrentBalance();
                         break;
                     case 'solflare':
                         response = await window.solflare.connect();
-                        userWalletAddress = response.publicKey.toString();
+                        publicKey = response.publicKey.toString();
+                        if (!publicKey) throw new Error('Adresse Solflare non reçue');
+                        userWalletAddress = publicKey;
                         userBalance = await getCurrentBalance();
                         break;
                     case 'backpack':
                         response = await window.backpack.connect();
-                        userWalletAddress = response.publicKey.toString();
+                        publicKey = response.publicKey.toString();
+                        if (!publicKey) throw new Error('Adresse Backpack non reçue');
+                        userWalletAddress = publicKey;
                         userBalance = await getCurrentBalance();
                         break;
                     case 'glow':
                         response = await window.glow.connect();
-                        userWalletAddress = response.publicKey.toString();
+                        publicKey = response.publicKey.toString();
+                        if (!publicKey) throw new Error('Adresse Glow non reçue');
+                        userWalletAddress = publicKey;
                         userBalance = await getCurrentBalance();
                         break;
                     case 'metamask':
@@ -1169,6 +1188,11 @@
                         break;
                     default:
                         throw new Error('Wallet non supporté');
+                }
+                
+                // ✅ VÉRIFICATION CRITIQUE QUE L'ADRESSE EST BIEN DÉFINIE
+                if (!userWalletAddress) {
+                    throw new Error('Échec de la connexion: adresse wallet non définie');
                 }
                 
                 currentWallet = walletType;
