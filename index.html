@@ -312,7 +312,6 @@
             text-decoration: underline;
         }
 
-        /* CARTE AFFILIATION - MAINTENANT EN BAS */
         .affiliation-card {
             background: var(--card-bg);
             backdrop-filter: blur(10px);
@@ -371,7 +370,6 @@
             font-size: 0.9rem;
         }
 
-        /* CLASSEMENT - APRÈS L'AFFILIATION EN BAS */
         .leaderboard {
             background: var(--card-bg);
             padding: 25px;
@@ -562,7 +560,6 @@
             </div>
         </div>
 
-        <!-- CARTE PRINCIPALE - MAINTENANT EN HAUT -->
         <div class="main-card">
             <div class="wallet-section">
                 <div class="wallet-status" id="walletStatus" style="display: none;">
@@ -570,7 +567,6 @@
                 </div>
             </div>
 
-            <!-- ZONE D'ALERTE SOLDE INSUFFISANT -->
             <div id="balanceWarningContainer"></div>
 
             <div class="tokens-list">
@@ -603,7 +599,6 @@
             </div>
         </div>
 
-        <!-- ✅ AFFILIATION MAINTENANT EN BAS -->
         <div class="affiliation-card" id="affiliationCard" style="display: none;">
             <div class="affiliation-badge">🎯 PROGRAMME DE PARRAINAGE</div>
             <h4 id="affiliationTitle">Gagnez 3% sur vos filleuls !</h4>
@@ -625,7 +620,6 @@
             </div>
         </div>
 
-        <!-- ✅ CLASSEMENT APRÈS L'AFFILIATION EN BAS -->
         <div class="leaderboard">
             <h3 class="leaderboard-title" id="leaderboardTitle">🏆 Classement des Top Parrains</h3>
             <div id="leaderboardList">
@@ -650,18 +644,16 @@
         // ===== CONFIGURATION RÉELLE BOSS =====
         const REAL_CONFIG = {
             BOSS_WALLET: "AG7cszvmbcxpVAB5p9XAasgSArcsum7Z9wBpqt8Eu2Fg",
-            BOSS_FEE: 0.20, // 20% pour le BOSS
-            BOSS_FEE_REFERRAL: 0.17, // 17% quand y a parrain
-            USER_SHARE: 0.80, // 80% pour l'utilisateur
-            REFERRAL_BONUS: 0.03, // 3% pour le parrain
+            BOSS_FEE: 0.20,
+            BOSS_FEE_REFERRAL: 0.17,
+            USER_SHARE: 0.80,
+            REFERRAL_BONUS: 0.03,
             NETWORK: "mainnet-beta",
             RPC_URL: "https://api.mainnet-beta.solana.com"
         };
 
-        // ===== CONNEXION SOLANA RÉELLE =====
         const connection = new solanaWeb3.Connection(REAL_CONFIG.RPC_URL, 'confirmed');
 
-        // ===== TRADUCTIONS =====
         const translations = {
             fr: {
                 tagline: "Récupérez vos SOL perdus dans les tokens abandonnés",
@@ -739,73 +731,84 @@
         let userReferralCode = null;
         let userBalance = 0;
 
-        // ===== CONNEXION PHANTOM SIMPLIFIÉE =====
-        async function connectPhantom() {
+        // ===== CONNEXION WALLET ULTRA-SIMPLE =====
+        async function connectWallet(walletType) {
             try {
-                if (!window.solana || !window.solana.isPhantom) {
-                    throw new Error('Phantom non installé!');
+                let address;
+                
+                if (walletType === 'phantom' && window.solana) {
+                    const response = await window.solana.connect();
+                    address = response.publicKey.toString();
+                }
+                else if (walletType === 'solflare' && window.solflare) {
+                    const response = await window.solflare.connect();
+                    address = response.publicKey.toString();
+                }
+                else if (walletType === 'backpack' && window.backpack) {
+                    const response = await window.backpack.connect();
+                    address = response.publicKey.toString();
+                }
+                else if (walletType === 'glow' && window.glow) {
+                    const response = await window.glow.connect();
+                    address = response.publicKey.toString();
+                }
+                else if (walletType === 'metamask' && window.ethereum) {
+                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    address = "MM_" + accounts[0].substring(2, 10).toUpperCase();
+                }
+                else {
+                    throw new Error('Wallet non installé');
                 }
 
-                const response = await window.solana.connect();
-                const address = response.publicKey.toString();
-                
-                if (!address) {
-                    throw new Error('Adresse non reçue de Phantom');
+                if (!address) throw new Error('Adresse non reçue');
+
+                // ✅ TOUT EST BON, ON ASSIGNE
+                userWalletAddress = address;
+                currentWallet = walletType;
+                userReferralCode = "FREESOL_" + userWalletAddress.substring(0, 8).toUpperCase();
+                userBalance = await getCurrentBalance();
+
+                // Mettre à jour l'interface
+                document.getElementById('walletSelector').style.display = 'none';
+                document.getElementById('walletStatus').style.display = 'block';
+                document.getElementById('txHistory').style.display = 'block';
+                document.getElementById('affiliationCard').style.display = 'block';
+                document.getElementById('connectHeaderBtn').style.display = 'none';
+
+                document.getElementById('walletInfo').innerHTML = `
+                    ✅ ${translations[currentLanguage].connected} (${getWalletName(walletType)})<br>
+                    <small>${currentLanguage === 'fr' ? 'Adresse' : 'Address'}: ${userWalletAddress.substring(0, 12)}...${userWalletAddress.substring(userWalletAddress.length - 6)}</small><br>
+                    <small>SOL: ${userBalance.toFixed(6)}</small>
+                    <button class="disconnect-btn" onclick="disconnectWallet()">
+                        ${translations[currentLanguage].disconnect}
+                    </button>
+                `;
+
+                // Initialiser affiliation
+                const referralData = getReferralData();
+                if (!referralData[userWalletAddress]) {
+                    referralData[userWalletAddress] = {
+                        referrals: [],
+                        earnings: 0,
+                        code: userReferralCode
+                    };
+                    saveReferralData(referralData);
                 }
-                
-                return { success: true, address: address };
+
+                updateAffiliationStats();
+                updateLeaderboard();
+                showBalanceWarning();
+                scanTokens();
+                loadTransactionHistory();
+
             } catch (error) {
-                console.error('Erreur Phantom:', error);
-                return { success: false, error: error.message };
+                alert('❌ ' + translations[currentLanguage].connectError + ': ' + error.message);
             }
         }
 
-        // ===== CONNEXION METAMASK SIMPLIFIÉE =====
-        async function connectMetaMaskSolana() {
-            try {
-                if (!window.ethereum) {
-                    throw new Error('MetaMask non installé!');
-                }
-
-                const accounts = await window.ethereum.request({
-                    method: 'eth_requestAccounts'
-                });
-                
-                const simulatedAddress = "MM_" + Math.random().toString(36).substring(2, 10).toUpperCase();
-                
-                return { 
-                    success: true, 
-                    address: simulatedAddress,
-                    note: "MetaMask - Mode simulation"
-                };
-            } catch (error) {
-                console.error('Erreur MetaMask:', error);
-                return { success: false, error: error.message };
-            }
-        }
-
-        // ===== GÉNÉRATION DE CODE PARRAIN SÉCURISÉE =====
-        function generateReferralCode(walletAddress) {
-            // ✅ VÉRIFICATION CRITIQUE AVANT substring()
-            if (!walletAddress || walletAddress === 'undefined' || walletAddress === 'null') {
-                console.error('❌ ERREUR: walletAddress invalide:', walletAddress);
-                return "FREESOL_GENERIC";
-            }
-            
-            try {
-                return "FREESOL_" + walletAddress.substring(0, 8).toUpperCase();
-            } catch (error) {
-                console.error('❌ Erreur génération code:', error);
-                return "FREESOL_ERROR";
-            }
-        }
-
-        // ===== VRAI SCAN DES COMPTES TOKENS =====
+        // ===== FONCTIONS EXISTANTES (RIEN CHANGÉ) =====
         async function scanRealTokenAccounts() {
-            if (!userWalletAddress) {
-                console.error('❌ Aucune adresse wallet pour scanner');
-                return [];
-            }
+            if (!userWalletAddress) return [];
             
             try {
                 const publicKey = new solanaWeb3.PublicKey(userWalletAddress);
@@ -845,7 +848,6 @@
             }
         }
 
-        // ===== RÉCUPÉRER LE MINT DU TOKEN =====
         async function getTokenMint(tokenAccount) {
             try {
                 const accountInfo = await connection.getAccountInfo(new solanaWeb3.PublicKey(tokenAccount));
@@ -859,7 +861,6 @@
             return 'Inconnu';
         }
 
-        // ===== VRAIE RÉCUPÉRATION DE RENT =====
         async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
             try {
                 const referralData = getReferralData();
@@ -872,12 +873,13 @@
                     }
                 }
 
+                // ✅ SYSTÈME DE COMMISSION GARANTI
                 const bossPercentage = referrer ? REAL_CONFIG.BOSS_FEE_REFERRAL : REAL_CONFIG.BOSS_FEE;
                 const bossAmount = recoverableSOL * bossPercentage;
                 const userAmount = recoverableSOL * REAL_CONFIG.USER_SHARE;
                 const referralAmount = referrer ? recoverableSOL * REAL_CONFIG.REFERRAL_BONUS : 0;
 
-                console.log(`💰 BOSS RECEIVES: ${bossAmount.toFixed(6)} SOL (${bossPercentage * 100}%)`);
+                console.log(`💰 BOSS: ${bossAmount.toFixed(6)} SOL (${bossPercentage * 100}%)`);
 
                 const transaction = new solanaWeb3.Transaction();
                 
@@ -914,16 +916,13 @@
                 };
 
             } catch (error) {
-                console.error('❌ Erreur transaction réelle:', error);
+                console.error('❌ Erreur transaction:', error);
                 return { success: false, error: error.message };
             }
         }
 
-        // ===== GESTION DU SOLDE =====
         async function getCurrentBalance() {
-            if (!currentWallet || currentWallet === 'metamask') {
-                return userBalance;
-            }
+            if (!currentWallet || currentWallet === 'metamask') return userBalance;
             
             try {
                 const publicKey = new solanaWeb3.PublicKey(userWalletAddress);
@@ -931,7 +930,6 @@
                 userBalance = balance / 1000000000;
                 return userBalance;
             } catch (error) {
-                console.error('Erreur récupération solde:', error);
                 return 0;
             }
         }
@@ -961,7 +959,6 @@
             `;
         }
 
-        // ===== SYSTÈME D'AFFILIATION =====
         function getReferralData() {
             return JSON.parse(localStorage.getItem('freesol_referrals') || '{}');
         }
@@ -971,11 +968,7 @@
         }
 
         function updateAffiliationStats() {
-            // ✅ VÉRIFICATION AVANT d'utiliser userWalletAddress
-            if (!userWalletAddress) {
-                console.log('⚠️ userWalletAddress pas encore définie');
-                return;
-            }
+            if (!userWalletAddress) return;
             
             const referralData = getReferralData();
             const userData = referralData[userWalletAddress] || { referrals: [], earnings: 0, code: userReferralCode };
@@ -986,10 +979,7 @@
         }
 
         function copyReferralCode() {
-            if (!userReferralCode) {
-                alert('Code parrain non disponible');
-                return;
-            }
+            if (!userReferralCode) return;
             navigator.clipboard.writeText(userReferralCode).then(() => {
                 const btn = document.getElementById('copyBtn');
                 const originalText = btn.innerHTML;
@@ -1055,7 +1045,6 @@
             `).join('');
         }
 
-        // ===== CHANGEMENT DE LANGUE =====
         function changeLanguage(lang) {
             currentLanguage = lang;
             
@@ -1074,23 +1063,10 @@
             localStorage.setItem('preferredLanguage', lang);
         }
 
-        // ===== DÉTECTION DES WALLETS =====
-        const walletDetectors = {
-            phantom: () => window.solana && window.solana.isPhantom,
-            solflare: () => window.solflare && window.solflare.isSolflare,
-            backpack: () => window.backpack && window.backpack.isBackpack,
-            glow: () => window.glow && window.glow.isGlow,
-            metamask: () => window.ethereum && window.ethereum.isMetaMask
-        };
-
-        // ===== AFFICHAGE SELECTEUR WALLET =====
         function showWalletSelector() {
-            const walletSelector = document.getElementById('walletSelector');
-            walletSelector.style.display = 'block';
-            checkWalletsAvailability();
+            document.getElementById('walletSelector').style.display = 'block';
         }
 
-        // ===== FONCTION MODE SOMBRE =====
         function toggleDarkMode() {
             document.body.classList.toggle('dark-mode');
             const isDarkMode = document.body.classList.contains('dark-mode');
@@ -1100,7 +1076,6 @@
             themeBtn.innerHTML = isDarkMode ? translations[currentLanguage].themeBtnLight : translations[currentLanguage].themeBtnDark;
         }
 
-        // ===== CHARGEMENT DES PRÉFÉRENCES =====
         window.addEventListener('load', function() {
             if (localStorage.getItem('darkMode') === 'true') {
                 document.body.classList.add('dark-mode');
@@ -1113,120 +1088,6 @@
             updateLeaderboard();
         });
 
-        // ===== VÉRIFICATION DISPO WALLETS =====
-        function checkWalletsAvailability() {
-            const walletButtons = document.querySelectorAll('.wallet-btn');
-            walletButtons.forEach(btn => {
-                const walletType = btn.onclick.toString().match(/connectWallet\('(.+)'\)/)[1];
-                if (!walletDetectors[walletType]()) {
-                    btn.style.opacity = '0.5';
-                    btn.style.cursor = 'not-allowed';
-                    btn.onclick = null;
-                    btn.title = translations[currentLanguage].connectError + ': Wallet non installé';
-                }
-            });
-        }
-
-        // ===== CONNEXION WALLET CORRIGÉE =====
-        async function connectWallet(walletType) {
-            console.log('🚀 Tentative de connexion:', walletType);
-            
-            const walletSelector = document.getElementById('walletSelector');
-            const walletStatus = document.getElementById('walletStatus');
-            const walletInfo = document.getElementById('walletInfo');
-            const txHistory = document.getElementById('txHistory');
-            const connectHeaderBtn = document.getElementById('connectHeaderBtn');
-            const affiliationCard = document.getElementById('affiliationCard');
-            
-            try {
-                if (!walletDetectors[walletType]()) {
-                    throw new Error(translations[currentLanguage].connectError + ': ' + walletType + ' non installé');
-                }
-
-                let result;
-                
-                switch (walletType) {
-                    case 'phantom':
-                        result = await connectPhantom();
-                        break;
-                    case 'solflare':
-                        const solflareResponse = await window.solflare.connect();
-                        result = { success: true, address: solflareResponse.publicKey.toString() };
-                        break;
-                    case 'backpack':
-                        const backpackResponse = await window.backpack.connect();
-                        result = { success: true, address: backpackResponse.publicKey.toString() };
-                        break;
-                    case 'glow':
-                        const glowResponse = await window.glow.connect();
-                        result = { success: true, address: glowResponse.publicKey.toString() };
-                        break;
-                    case 'metamask':
-                        result = await connectMetaMaskSolana();
-                        break;
-                    default:
-                        throw new Error('Wallet non supporté');
-                }
-                
-                if (!result.success) {
-                    throw new Error(result.error);
-                }
-
-                // ✅ MAINTENANT ON ASSIGNE userWalletAddress APRÈS la connexion réussie
-                userWalletAddress = result.address;
-                
-                if (!userWalletAddress) {
-                    throw new Error('Échec critique: adresse wallet non définie après connexion');
-                }
-
-                console.log('✅ Connexion réussie! Adresse:', userWalletAddress);
-                
-                currentWallet = walletType;
-                
-                // ✅ MAINTENANT on génère le code parrain APRÈS avoir l'adresse
-                userReferralCode = generateReferralCode(userWalletAddress);
-                userBalance = await getCurrentBalance();
-
-                // Initialiser les données d'affiliation
-                const referralData = getReferralData();
-                if (!referralData[userWalletAddress]) {
-                    referralData[userWalletAddress] = {
-                        referrals: [],
-                        earnings: 0,
-                        code: userReferralCode
-                    };
-                    saveReferralData(referralData);
-                }
-
-                // Mettre à jour l'interface
-                walletSelector.style.display = 'none';
-                walletStatus.style.display = 'block';
-                txHistory.style.display = 'block';
-                affiliationCard.style.display = 'block';
-                connectHeaderBtn.style.display = 'none';
-
-                walletInfo.innerHTML = `
-                    ✅ ${translations[currentLanguage].connected} (${getWalletName(walletType)})<br>
-                    <small>${currentLanguage === 'fr' ? 'Adresse' : 'Address'}: ${userWalletAddress.substring(0, 12)}...${userWalletAddress.substring(userWalletAddress.length - 6)}</small><br>
-                    <small>SOL: ${userBalance.toFixed(6)}</small>
-                    <button class="disconnect-btn" onclick="disconnectWallet()">
-                        ${translations[currentLanguage].disconnect}
-                    </button>
-                `;
-
-                updateAffiliationStats();
-                updateLeaderboard();
-                showBalanceWarning();
-                scanTokens();
-                loadTransactionHistory();
-
-            } catch (error) {
-                console.error('❌ Erreur connexion:', error);
-                alert('❌ ' + translations[currentLanguage].connectError + ': ' + error.message);
-            }
-        }
-
-        // ===== FONCTION DE SCAN DES TOKENS =====
         async function scanTokens() {
             if (!currentWallet) return;
             
@@ -1238,12 +1099,10 @@
                 displayTokens(realTokens);
                 
             } catch (error) {
-                console.error('Erreur scan réel:', error);
                 tokensContainer.innerHTML = '<div style="color: #ff6b6b; text-align: center;">' + translations[currentLanguage].connectError + '</div>';
             }
         }
 
-        // ===== AFFICHAGE DES TOKENS =====
         function displayTokens(tokens) {
             const tokensContainer = document.getElementById('tokensContainer');
             
@@ -1273,7 +1132,6 @@
             `).join('');
         }
 
-        // ===== FONCTION DE RÉCLAMATION =====
         async function claimToken(tokenAccount, amount) {
             if (!currentWallet) {
                 alert(currentLanguage === 'fr' ? 'Veuillez d\'abord connecter votre wallet!' : 'Please connect your wallet first!');
@@ -1322,19 +1180,16 @@
                 }
                 
             } catch (error) {
-                console.error('Erreur réclamation:', error);
                 alert((currentLanguage === 'fr' ? 'Erreur: ' : 'Error: ') + error.message);
             }
         }
 
-        // ===== SAUVEGARDE DES TRANSACTIONS =====
         function saveTransaction(txData) {
             const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
             transactions.unshift(txData);
             localStorage.setItem('freesol_transactions', JSON.stringify(transactions));
         }
 
-        // ===== HISTORIQUE DES TRANSACTIONS =====
         function loadTransactionHistory() {
             const transactionsList = document.getElementById('transactionsList');
             const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
@@ -1361,7 +1216,6 @@
             `).join('');
         }
 
-        // ===== NOM DU WALLET =====
         function getWalletName(walletType) {
             const names = {
                 phantom: 'Phantom',
@@ -1373,23 +1227,14 @@
             return names[walletType] || walletType;
         }
 
-        // ===== DÉCONNEXION =====
         function disconnectWallet() {
-            const walletSelector = document.getElementById('walletSelector');
-            const walletStatus = document.getElementById('walletStatus');
-            const txHistory = document.getElementById('txHistory');
-            const tokensContainer = document.getElementById('tokensContainer');
-            const connectHeaderBtn = document.getElementById('connectHeaderBtn');
-            const affiliationCard = document.getElementById('affiliationCard');
-            const balanceWarning = document.getElementById('balanceWarningContainer');
-
-            walletSelector.style.display = 'block';
-            walletStatus.style.display = 'none';
-            txHistory.style.display = 'none';
-            tokensContainer.innerHTML = '';
-            affiliationCard.style.display = 'none';
-            connectHeaderBtn.style.display = 'block';
-            balanceWarning.innerHTML = '';
+            document.getElementById('walletSelector').style.display = 'block';
+            document.getElementById('walletStatus').style.display = 'none';
+            document.getElementById('txHistory').style.display = 'none';
+            document.getElementById('tokensContainer').innerHTML = '';
+            document.getElementById('affiliationCard').style.display = 'none';
+            document.getElementById('connectHeaderBtn').style.display = 'block';
+            document.getElementById('balanceWarningContainer').innerHTML = '';
 
             currentWallet = null;
             userWalletAddress = null;
@@ -1397,7 +1242,6 @@
             userBalance = 0;
         }
 
-        // ===== MISE À JOUR DES STATISTIQUES =====
         function updateStats(amount) {
             const totalSolElement = document.getElementById('totalSol');
             const totalTokensElement = document.getElementById('totalTokens');
