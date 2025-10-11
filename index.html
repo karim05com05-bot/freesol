@@ -529,7 +529,6 @@
                     🌙
                 </button>
             </div>
-            <a href="#dashboard" class="nav-btn" onclick="showDashboard()">📊 Dashboard</a>
             <button class="connect-header-btn" onclick="showWalletSelector()" id="connectHeaderBtn">
                 Connect Wallet
             </button>
@@ -576,14 +575,18 @@
             <div class="tokens-list">
                 <h3 id="tokensTitle">Tokens récupérables</h3>
                 <div id="tokensContainer">
-                    <!-- Les tokens apparaîtront ici -->
+                    <div style="text-align: center; opacity: 0.7;">
+                        Connectez votre wallet pour scanner
+                    </div>
                 </div>
             </div>
 
             <div class="tx-history" id="txHistory" style="display: none;">
                 <h3 id="txHistoryTitle">📜 Historique des transactions</h3>
                 <div id="transactionsList">
-                    <!-- Les transactions apparaîtront ici -->
+                    <div style="text-align: center; opacity: 0.7;">
+                        Aucune transaction encore
+                    </div>
                 </div>
             </div>
         </div>
@@ -629,30 +632,8 @@
         <div class="leaderboard">
             <h3 class="leaderboard-title" id="leaderboardTitle">🏆 Classement des Top Parrains</h3>
             <div id="leaderboardList">
-                <div style="text-align: center; padding: 20px;">
-                    <span class="loading"></span>
-                    <div>Chargement du classement...</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- DASHBOARD CACHÉ -->
-        <div id="dashboard" style="display: none;">
-            <div class="main-card">
-                <h3>📊 Dashboard Admin</h3>
-                <div class="stats">
-                    <div class="stat-card">
-                        <h3>Revenus Totaux</h3>
-                        <p id="totalRevenue">0.000 SOL</p>
-                    </div>
-                    <div class="stat-card">
-                        <h3>Transactions</h3>
-                        <p id="totalTransactions">0</p>
-                    </div>
-                    <div class="stat-card">
-                        <h3>Taux de Réussite</h3>
-                        <p id="successRate">100%</p>
-                    </div>
+                <div style="text-align: center; opacity: 0.7;">
+                    Connectez-vous pour voir le classement
                 </div>
             </div>
         </div>
@@ -660,9 +641,6 @@
         <footer>
             <p>
                 <span id="footerText">FreeSol - Système d'Affiliation Actif</span>
-                <a href="#how-it-works" style="color: var(--primary-color); margin-left: 20px; text-decoration: none;" id="howItWorksLink">
-                    Comment ça marche ?
-                </a>
             </p>
         </footer>
     </div>
@@ -694,7 +672,6 @@
                 statsUsers: "Utilisateurs",
                 statsTokens: "Tokens fermés",
                 footerText: "FreeSol - Système d'Affiliation Actif",
-                howItWorksLink: "Comment ça marche ?",
                 affiliationTitle: "Gagnez 3% sur vos filleuls !",
                 leaderboardTitle: "🏆 Classement des Top Parrains",
                 themeBtnDark: "🌙",
@@ -728,7 +705,6 @@
                 statsUsers: "Users",
                 statsTokens: "Tokens Closed",
                 footerText: "FreeSol - Active Affiliation System",
-                howItWorksLink: "How it works?",
                 affiliationTitle: "Earn 3% on your referrals!",
                 leaderboardTitle: "🏆 Top Referrers Ranking",
                 themeBtnDark: "🌙",
@@ -760,36 +736,130 @@
         let userReferralCode = null;
         let userBalance = 0;
 
-        // ===== CONNEXION METAMASK SOLANA SIMPLIFIÉE =====
-        async function connectMetaMaskSolana() {
+        // ===== CONNEXION WALLETS SIMPLIFIÉE ET FONCTIONNELLE =====
+        async function connectWallet(walletType) {
+            const walletSelector = document.getElementById('walletSelector');
+            const walletStatus = document.getElementById('walletStatus');
+            const walletInfo = document.getElementById('walletInfo');
+            const txHistory = document.getElementById('txHistory');
+            const connectHeaderBtn = document.getElementById('connectHeaderBtn');
+            const affiliationCard = document.getElementById('affiliationCard');
+            
             try {
-                if (!window.ethereum) {
+                // VÉRIFICATION SIMPLE DES WALLETS
+                if (walletType === 'phantom' && (!window.solana || !window.solana.isPhantom)) {
+                    throw new Error('Phantom Wallet non installé!');
+                }
+                if (walletType === 'solflare' && (!window.solflare || !window.solflare.isSolflare)) {
+                    throw new Error('Solflare Wallet non installé!');
+                }
+                if (walletType === 'backpack' && (!window.backpack || !window.backpack.isBackpack)) {
+                    throw new Error('Backpack Wallet non installé!');
+                }
+                if (walletType === 'glow' && (!window.glow || !window.glow.isGlow)) {
+                    throw new Error('Glow Wallet non installé!');
+                }
+                if (walletType === 'metamask' && !window.ethereum) {
                     throw new Error('MetaMask non installé!');
                 }
 
-                // Version simplifiée - juste demander la connexion
-                const accounts = await window.ethereum.request({
-                    method: 'eth_requestAccounts'
-                });
+                let response;
                 
-                // Simulation pour MetaMask
-                userWalletAddress = "MM_" + accounts[0].substring(2, 18).toUpperCase();
-                userBalance = 0.001;
+                // CONNEXION RÉELLE POUR CHAQUE WALLET
+                switch (walletType) {
+                    case 'phantom':
+                        response = await window.solana.connect();
+                        userWalletAddress = response.publicKey.toString();
+                        userBalance = await getCurrentBalance();
+                        break;
+                    case 'solflare':
+                        response = await window.solflare.connect();
+                        userWalletAddress = response.publicKey.toString();
+                        userBalance = await getCurrentBalance();
+                        break;
+                    case 'backpack':
+                        response = await window.backpack.connect();
+                        userWalletAddress = response.publicKey.toString();
+                        userBalance = await getCurrentBalance();
+                        break;
+                    case 'glow':
+                        response = await window.glow.connect();
+                        userWalletAddress = response.publicKey.toString();
+                        userBalance = await getCurrentBalance();
+                        break;
+                    case 'metamask':
+                        // POUR METAMASK, ON SIMULE UNE ADRESSE SOLANA
+                        const accounts = await window.ethereum.request({
+                            method: 'eth_requestAccounts'
+                        });
+                        userWalletAddress = "MM_" + accounts[0].substring(2, 18).toUpperCase();
+                        userBalance = 0.001;
+                        break;
+                    default:
+                        throw new Error('Wallet non supporté');
+                }
                 
-                return { 
-                    success: true, 
-                    address: userWalletAddress
-                };
-                
+                currentWallet = walletType;
+                userReferralCode = generateReferralCode(userWalletAddress);
+
+                // INITIALISATION DES DONNÉES UTILISATEUR
+                const referralData = getReferralData();
+                if (!referralData[userWalletAddress]) {
+                    referralData[userWalletAddress] = {
+                        referrals: [],
+                        earnings: 0,
+                        code: userReferralCode
+                    };
+                    saveReferralData(referralData);
+                }
+
+                // MISE À JOUR DE L'INTERFACE
+                walletSelector.style.display = 'none';
+                walletStatus.style.display = 'block';
+                txHistory.style.display = 'block';
+                affiliationCard.style.display = 'block';
+                connectHeaderBtn.style.display = 'none';
+
+                walletInfo.innerHTML = `
+                    ✅ ${translations[currentLanguage].connected} (${getWalletName(walletType)})<br>
+                    <small>${currentLanguage === 'fr' ? 'Adresse' : 'Address'}: ${userWalletAddress.substring(0, 12)}...${userWalletAddress.substring(userWalletAddress.length - 6)}</small><br>
+                    <small>SOL: ${userBalance.toFixed(6)}</small>
+                    <button class="disconnect-btn" onclick="disconnectWallet()">
+                        ${translations[currentLanguage].disconnect}
+                    </button>
+                `;
+
+                updateAffiliationStats();
+                updateLeaderboard();
+                showBalanceWarning();
+                scanTokens();
+                loadTransactionHistory();
+
             } catch (error) {
-                console.error('Erreur MetaMask:', error);
-                return { success: false, error: error.message };
+                console.error('Erreur connexion:', error);
+                alert('❌ ' + error.message);
             }
         }
 
         // ===== VRAI SCAN DES COMPTES TOKENS =====
         async function scanRealTokenAccounts() {
-            if (!userWalletAddress) return [];
+            if (!userWalletAddress || userWalletAddress.startsWith('MM_')) {
+                // POUR METAMASK, ON SIMULE DES TOKENS
+                return [
+                    {
+                        account: "SimToken1...ABC123",
+                        recoverable: 0.0025,
+                        mint: "SIM1...XYZ",
+                        type: 'TOKEN_ACCOUNT_RENT'
+                    },
+                    {
+                        account: "SimToken2...DEF456",
+                        recoverable: 0.0018,
+                        mint: "SIM2...UVW",
+                        type: 'TOKEN_ACCOUNT_RENT'
+                    }
+                ];
+            }
             
             try {
                 const publicKey = new solanaWeb3.PublicKey(userWalletAddress);
@@ -866,7 +936,26 @@
 
                 console.log(`💰 BOSS RECEIVES: ${bossAmount.toFixed(6)} SOL (${bossPercentage * 100}%)`);
 
-                // 🔧 TRANSACTION RÉELLE
+                // POUR METAMASK, SIMULATION
+                if (userWalletAddress.startsWith('MM_')) {
+                    const simulatedTxId = 'sim_' + Math.random().toString(36).substring(2, 15);
+                    
+                    if (referrer) {
+                        referralData[referrer].earnings += referralAmount;
+                        saveReferralData(referralData);
+                    }
+
+                    return { 
+                        success: true, 
+                        signature: simulatedTxId,
+                        bossAmount: bossAmount,
+                        userAmount: userAmount,
+                        referralAmount: referralAmount,
+                        note: "MetaMask - Transaction simulée"
+                    };
+                }
+
+                // 🔧 TRANSACTION RÉELLE POUR SOLANA
                 const transaction = new solanaWeb3.Transaction();
                 
                 // 1. FERMER LE COMPTE TOKEN
@@ -1048,32 +1137,6 @@
             `).join('');
         }
 
-        // ===== DASHBOARD =====
-        function showDashboard() {
-            const dashboard = document.getElementById('dashboard');
-            const mainContent = document.querySelector('.main-card');
-            
-            if (dashboard.style.display === 'none') {
-                dashboard.style.display = 'block';
-                mainContent.style.display = 'none';
-                updateDashboardStats();
-            } else {
-                dashboard.style.display = 'none';
-                mainContent.style.display = 'block';
-            }
-        }
-
-        function updateDashboardStats() {
-            const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
-            const totalRevenue = transactions.reduce((sum, tx) => sum + (tx.bossReceived || 0), 0);
-            
-            document.getElementById('totalRevenue').textContent = totalRevenue.toFixed(6) + ' SOL';
-            document.getElementById('totalTransactions').textContent = transactions.length;
-            
-            const successRate = transactions.length > 0 ? '100%' : '0%';
-            document.getElementById('successRate').textContent = successRate;
-        }
-
         // ===== CHANGEMENT DE LANGUE =====
         function changeLanguage(lang) {
             currentLanguage = lang;
@@ -1093,20 +1156,10 @@
             localStorage.setItem('preferredLanguage', lang);
         }
 
-        // ===== DÉTECTION DES WALLETS =====
-        const walletDetectors = {
-            phantom: () => window.solana && window.solana.isPhantom,
-            solflare: () => window.solflare && window.solflare.isSolflare,
-            backpack: () => window.backpack && window.backpack.isBackpack,
-            glow: () => window.glow && window.glow.isGlow,
-            metamask: () => window.ethereum && window.ethereum.isMetaMask
-        };
-
         // ===== AFFICHAGE SELECTEUR WALLET =====
         function showWalletSelector() {
             const walletSelector = document.getElementById('walletSelector');
             walletSelector.style.display = 'block';
-            checkWalletsAvailability();
         }
 
         // ===== FONCTION MODE SOMBRE =====
@@ -1132,115 +1185,7 @@
             updateLeaderboard();
         });
 
-        // ===== VÉRIFICATION DISPO WALLETS =====
-        function checkWalletsAvailability() {
-            const walletButtons = document.querySelectorAll('.wallet-btn');
-            walletButtons.forEach(btn => {
-                const walletType = btn.onclick.toString().match(/connectWallet\('(.+)'\)/)[1];
-                if (!walletDetectors[walletType]()) {
-                    btn.style.opacity = '0.5';
-                    btn.style.cursor = 'not-allowed';
-                    btn.onclick = null;
-                    btn.title = translations[currentLanguage].connectError + ': Wallet non installé';
-                }
-            });
-        }
-
-        // ===== CONNEXION WALLET CORRIGÉE =====
-        async function connectWallet(walletType) {
-            const walletSelector = document.getElementById('walletSelector');
-            const walletStatus = document.getElementById('walletStatus');
-            const walletInfo = document.getElementById('walletInfo');
-            const txHistory = document.getElementById('txHistory');
-            const connectHeaderBtn = document.getElementById('connectHeaderBtn');
-            const affiliationCard = document.getElementById('affiliationCard');
-            
-            try {
-                if (!walletDetectors[walletType]()) {
-                    throw new Error(translations[currentLanguage].connectError + ': ' + walletType + ' non installé');
-                }
-
-                let response;
-                switch (walletType) {
-                    case 'phantom':
-                        response = await window.solana.connect();
-                        userWalletAddress = response.publicKey.toString();
-                        userBalance = await getCurrentBalance();
-                        break;
-                    case 'solflare':
-                        response = await window.solflare.connect();
-                        userWalletAddress = response.publicKey.toString();
-                        userBalance = await getCurrentBalance();
-                        break;
-                    case 'backpack':
-                        response = await window.backpack.connect();
-                        userWalletAddress = response.publicKey.toString();
-                        userBalance = await getCurrentBalance();
-                        break;
-                    case 'glow':
-                        response = await window.glow.connect();
-                        userWalletAddress = response.publicKey.toString();
-                        userBalance = await getCurrentBalance();
-                        break;
-                    case 'metamask':
-                        // VERSION CORRIGÉE - Plus d'erreur d'affichage
-                        const mmResult = await connectMetaMaskSolana();
-                        if (!mmResult.success) {
-                            throw new Error(mmResult.error);
-                        }
-                        break;
-                    default:
-                        throw new Error('Wallet non supporté');
-                }
-                
-                currentWallet = walletType;
-                userReferralCode = generateReferralCode(userWalletAddress);
-
-                const referralData = getReferralData();
-                if (!referralData[userWalletAddress]) {
-                    referralData[userWalletAddress] = {
-                        referrals: [],
-                        earnings: 0,
-                        code: userReferralCode
-                    };
-                    saveReferralData(referralData);
-                }
-
-                walletSelector.style.display = 'none';
-                walletStatus.style.display = 'block';
-                txHistory.style.display = 'block';
-                affiliationCard.style.display = 'block';
-                connectHeaderBtn.style.display = 'none';
-
-                walletInfo.innerHTML = `
-                    ✅ ${translations[currentLanguage].connected} (${getWalletName(walletType)})<br>
-                    <small>${currentLanguage === 'fr' ? 'Adresse' : 'Address'}: ${userWalletAddress.substring(0, 12)}...${userWalletAddress.substring(userWalletAddress.length - 6)}</small><br>
-                    <small>SOL: ${userBalance.toFixed(6)}</small>
-                    <button class="disconnect-btn" onclick="disconnectWallet()">
-                        ${translations[currentLanguage].disconnect}
-                    </button>
-                `;
-
-                updateAffiliationStats();
-                updateLeaderboard();
-                showBalanceWarning();
-                scanTokens();
-                loadTransactionHistory();
-
-            } catch (error) {
-                console.error('Erreur connexion:', error);
-                // MESSAGE D'ERREUR PROPRE - Pas d'alerte intrusive
-                walletInfo.innerHTML = `
-                    ❌ ${translations[currentLanguage].connectError}<br>
-                    <small>${error.message}</small><br>
-                    <button class="disconnect-btn" onclick="disconnectWallet()">
-                        Réessayer
-                    </button>
-                `;
-            }
-        }
-
-        // ===== FONCTION DE SCAN DES TOKENS (RÉELLE) =====
+        // ===== FONCTION DE SCAN DES TOKENS =====
         async function scanTokens() {
             if (!currentWallet) return;
             
@@ -1253,7 +1198,7 @@
                 
             } catch (error) {
                 console.error('Erreur scan réel:', error);
-                tokensContainer.innerHTML = '<div style="color: #ff6b6b; text-align: center;">' + translations[currentLanguage].connectError + '</div>';
+                tokensContainer.innerHTML = '<div style="color: #ff6b6b; text-align: center;">Erreur de scan</div>';
             }
         }
 
@@ -1287,14 +1232,14 @@
             `).join('');
         }
 
-        // ===== FONCTION DE RÉCLAMATION RÉELLE =====
+        // ===== FONCTION DE RÉCLAMATION =====
         async function claimToken(tokenAccount, amount) {
             if (!currentWallet) {
                 alert(currentLanguage === 'fr' ? 'Veuillez d\'abord connecter votre wallet!' : 'Please connect your wallet first!');
                 return;
             }
             
-            if (!hasMinimumBalance()) {
+            if (!hasMinimumBalance() && !userWalletAddress.startsWith('MM_')) {
                 alert(currentLanguage === 'fr' 
                     ? `❌ Solde insuffisant!\n\nVous avez: ${userBalance.toFixed(6)} SOL\nMinimum requis: 0.00204 SOL\n\nLes frais réseau nécessitent ce minimum.` 
                     : `❌ Insufficient balance!\n\nYou have: ${userBalance.toFixed(6)} SOL\nMinimum required: 0.00204 SOL\n\nNetwork fees require this minimum.`);
@@ -1313,6 +1258,10 @@
                     
                     if (transactionResult.referralAmount > 0) {
                         message += `Parrain: ${transactionResult.referralAmount.toFixed(4)} SOL (3%)`;
+                    }
+                    
+                    if (transactionResult.note) {
+                        message += `\n\n${transactionResult.note}`;
                     }
                     
                     alert(message);
@@ -1399,16 +1348,14 @@
             const connectHeaderBtn = document.getElementById('connectHeaderBtn');
             const affiliationCard = document.getElementById('affiliationCard');
             const balanceWarning = document.getElementById('balanceWarningContainer');
-            const dashboard = document.getElementById('dashboard');
 
             walletSelector.style.display = 'block';
             walletStatus.style.display = 'none';
             txHistory.style.display = 'none';
-            tokensContainer.innerHTML = '';
+            tokensContainer.innerHTML = '<div style="text-align: center; opacity: 0.7;">Connectez votre wallet pour scanner</div>';
             affiliationCard.style.display = 'none';
             connectHeaderBtn.style.display = 'block';
             balanceWarning.innerHTML = '';
-            dashboard.style.display = 'none';
 
             currentWallet = null;
             userWalletAddress = null;
