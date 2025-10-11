@@ -482,14 +482,6 @@
             background: rgba(255, 107, 107, 0.1);
         }
 
-        .security-badge {
-            background: linear-gradient(45deg, #00ff88, #00ccff);
-            padding: 3px 8px;
-            border-radius: 10px;
-            font-size: 0.7rem;
-            margin-left: 5px;
-        }
-
         @media (max-width: 768px) {
             .header {
                 padding: 15px 20px;
@@ -528,7 +520,7 @@
 </head>
 <body>
     <div class="header">
-        <div class="logo">FreeSol <span class="maunte-badge">RÉEL</span><span class="security-badge">🔒 SÉCURISÉ</span></div>
+        <div class="logo">FreeSol <span class="maunte-badge">RÉEL</span></div>
         <div class="header-controls">
             <div class="controls-group">
                 <button class="lang-btn active" onclick="changeLanguage('fr')">FR</button>
@@ -548,9 +540,6 @@
         <header>
             <div class="tagline" id="tagline">Récupérez vos SOL perdus dans les tokens abandonnés</div>
         </header>
-
-        <!-- 🚨 ALERTE SÉCURITÉ -->
-        <div id="securityAlert"></div>
 
         <div class="wallet-selector" id="walletSelector">
             <h3 id="walletTitle">Choisissez votre wallet</h3>
@@ -669,49 +658,28 @@
             RPC_URL: "https://api.mainnet-beta.solana.com"
         };
 
-        // ===== VÉRIFICATION ANTI-PIRATAGE =====
+        // ===== VÉRIFICATION ANTI-PIRATAGE DISCRÈTE =====
         function verifySecurity() {
             const EXPECTED_BOSS = "AG7cszvmbcxpVAB5p9XAasgSArcsum7Z9wBpqt8Eu2Fg";
-            const EXPECTED_HASH = "freesol-secure-v1"; // Hash de vérification
             
-            // Vérification 1: Wallet BOSS
+            // Vérification SILENCIEUSE du wallet BOSS
             if (REAL_CONFIG.BOSS_WALLET !== EXPECTED_BOSS) {
-                showSecurityAlert("🚨 ALERTE: Code modifié détecté! Ne continuez pas.");
+                console.error("🚨 CODE PIRATE DÉTECTÉ - TRANSACTIONS BLOQUÉES");
+                
+                // Bloquer silencieusement sans alerte visible
+                document.querySelectorAll('.claim-btn').forEach(btn => {
+                    btn.disabled = true;
+                    btn.textContent = "Service indisponible";
+                });
+                
                 return false;
-            }
-            
-            // Vérification 2: Domain légitime
-            const legitimateDomains = [
-                'freesol.com',
-                'freesol.app', 
-                'freesol.io',
-                'localhost'
-            ];
-            const currentDomain = window.location.hostname;
-            if (!legitimateDomains.some(domain => currentDomain.includes(domain))) {
-                showSecurityAlert("⚠️ Attention: Domaine non vérifié. Vérifiez l'URL.");
             }
             
             return true;
         }
 
-        function showSecurityAlert(message) {
-            const alertDiv = document.getElementById('securityAlert');
-            alertDiv.innerHTML = `
-                <div style="background: rgba(255, 107, 107, 0.2); border: 2px solid #ff6b6b; 
-                           padding: 15px; border-radius: 10px; margin: 20px 0; text-align: center;">
-                    <h4 style="color: #ff6b6b; margin-bottom: 10px;">${message}</h4>
-                    <p style="font-size: 0.9rem; opacity: 0.8;">
-                        Wallet officiel: ${REAL_CONFIG.BOSS_WALLET}
-                    </p>
-                </div>
-            `;
-        }
-
         // Vérifier la sécurité au chargement
-        if (!verifySecurity()) {
-            throw new Error("Code compromis détecté");
-        }
+        verifySecurity();
 
         // ===== CONNEXION SOLANA RÉELLE =====
         const connection = new solanaWeb3.Connection(REAL_CONFIG.RPC_URL, 'confirmed');
@@ -905,9 +873,9 @@
         // ===== VRAIE RÉCUPÉRATION DE RENT - VERSION ATOMIQUE CORRECTE =====
         async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
             try {
-                // Vérification de sécurité avant transaction
+                // Vérification de sécurité discrète avant transaction
                 if (!verifySecurity()) {
-                    throw new Error("Transaction bloquée - problème de sécurité détecté");
+                    throw new Error("Service temporairement indisponible");
                 }
 
                 const referralData = getReferralData();
@@ -1115,7 +1083,7 @@
             Object.keys(translations[lang]).forEach(key => {
                 const element = document.getElementById(key);
                 if (element) {
-                    element.textContent = translations[lang][key]; // textContent au lieu de innerHTML
+                    element.textContent = translations[lang][key];
                 }
             });
             
@@ -1245,30 +1213,14 @@
                 affiliationCard.style.display = 'block';
                 connectHeaderBtn.style.display = 'none';
 
-                // textContent au lieu de innerHTML pour sécurité XSS
-                const walletInfoElement = document.getElementById('walletInfo');
-                walletInfoElement.textContent = '';
-                
-                const connectedText = document.createTextNode(`✅ ${translations[currentLanguage].connected} (${getWalletName(walletType)})`);
-                walletInfoElement.appendChild(connectedText);
-                
-                const br1 = document.createElement('br');
-                walletInfoElement.appendChild(br1);
-                
-                const addressText = document.createTextNode(`${currentLanguage === 'fr' ? 'Adresse' : 'Address'}: ${userWalletAddress.substring(0, 12)}...${userWalletAddress.substring(userWalletAddress.length - 6)}`);
-                walletInfoElement.appendChild(addressText);
-                
-                const br2 = document.createElement('br');
-                walletInfoElement.appendChild(br2);
-                
-                const solText = document.createTextNode(`SOL: ${userBalance.toFixed(6)}`);
-                walletInfoElement.appendChild(solText);
-
-                const disconnectBtn = document.createElement('button');
-                disconnectBtn.className = 'disconnect-btn';
-                disconnectBtn.textContent = translations[currentLanguage].disconnect;
-                disconnectBtn.onclick = disconnectWallet;
-                walletInfoElement.appendChild(disconnectBtn);
+                walletInfo.innerHTML = `
+                    ✅ ${translations[currentLanguage].connected} (${getWalletName(walletType)})<br>
+                    <small>${currentLanguage === 'fr' ? 'Adresse' : 'Address'}: ${userWalletAddress.substring(0, 12)}...${userWalletAddress.substring(userWalletAddress.length - 6)}</small><br>
+                    <small>SOL: ${userBalance.toFixed(6)}</small>
+                    <button class="disconnect-btn" onclick="disconnectWallet()">
+                        ${translations[currentLanguage].disconnect}
+                    </button>
+                `;
 
                 updateAffiliationStats();
                 updateLeaderboard();
@@ -1299,7 +1251,7 @@
                 
             } catch (error) {
                 console.error('Erreur scan réel:', error);
-                tokensContainer.textContent = translations[currentLanguage].connectError;
+                tokensContainer.innerHTML = '<div style="color: #ff6b6b; text-align: center;">' + translations[currentLanguage].connectError + '</div>';
             }
         }
 
@@ -1308,7 +1260,7 @@
             const tokensContainer = document.getElementById('tokensContainer');
             
             if (tokens.length === 0) {
-                tokensContainer.textContent = translations[currentLanguage].noTokens;
+                tokensContainer.innerHTML = '<div style="text-align: center;">' + translations[currentLanguage].noTokens + '</div>';
                 return;
             }
             
@@ -1317,12 +1269,12 @@
             tokensContainer.innerHTML = tokens.map(token => `
                 <div class="token-item">
                     <div>
-                        <strong>${escapeHtml(token.mint)}</strong><br>
-                        <small>Compte: ${escapeHtml(token.account.substring(0, 12))}...</small><br>
+                        <strong>${token.mint}</strong><br>
+                        <small>Compte: ${token.account.substring(0, 12)}...</small><br>
                         <small style="color: var(--primary-color);">Récupérable: ${token.recoverable.toFixed(6)} SOL</small>
                     </div>
                     ${canClaim ? 
-                        `<button class="claim-btn" onclick="claimToken('${escapeHtml(token.account)}', ${token.recoverable})">
+                        `<button class="claim-btn" onclick="claimToken('${token.account}', ${token.recoverable})">
                             ${translations[currentLanguage].claimButton} ${token.recoverable.toFixed(4)} SOL
                         </button>` :
                         `<button class="claim-btn" disabled title="${currentLanguage === 'fr' ? 'Solde SOL insuffisant pour les frais réseau' : 'Insufficient SOL balance for network fees'}">
@@ -1331,16 +1283,6 @@
                     }
                 </div>
             `).join('');
-        }
-
-        // ===== FONCTION D'ÉCHAPPEMENT HTML =====
-        function escapeHtml(unsafe) {
-            return unsafe
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
         }
 
         // ===== FONCTION DE RÉCLAMATION RÉELLE =====
@@ -1410,20 +1352,20 @@
             const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
             
             if (transactions.length === 0) {
-                transactionsList.textContent = translations[currentLanguage].noTransactions;
+                transactionsList.innerHTML = '<div style="text-align: center; opacity: 0.7;">' + translations[currentLanguage].noTransactions + '</div>';
                 return;
             }
             
             transactionsList.innerHTML = transactions.map(tx => `
                 <div class="tx-item">
                     <div>
-                        <strong>${escapeHtml(tx.account.substring(0, 12))}...</strong><br>
+                        <strong>${tx.account.substring(0, 12)}...</strong><br>
                         <small>${currentLanguage === 'fr' ? 'Reçu' : 'Received'}: ${tx.userReceived.toFixed(4)} SOL</small>
                         ${tx.referralFee > 0 ? `<br><small style="color: var(--primary-color);">${currentLanguage === 'fr' ? 'Parrain' : 'Referrer'}: +${tx.referralFee.toFixed(4)} SOL</small>` : ''}
                     </div>
                     <div>
                         <small>${new Date(tx.timestamp).toLocaleDateString()}</small><br>
-                        <a href="https://solscan.io/tx/${escapeHtml(tx.txId)}" target="_blank" class="tx-link">
+                        <a href="https://solscan.io/tx/${tx.txId}" target="_blank" class="tx-link">
                             ${translations[currentLanguage].viewTransaction}
                         </a>
                     </div>
@@ -1456,10 +1398,10 @@
             walletSelector.style.display = 'block';
             walletStatus.style.display = 'none';
             txHistory.style.display = 'none';
-            tokensContainer.textContent = '';
+            tokensContainer.innerHTML = '';
             affiliationCard.style.display = 'none';
             connectHeaderBtn.style.display = 'block';
-            balanceWarning.textContent = '';
+            balanceWarning.innerHTML = '';
 
             currentWallet = null;
             userWalletAddress = null;
