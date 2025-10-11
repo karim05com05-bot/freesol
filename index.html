@@ -739,58 +739,65 @@
         let userReferralCode = null;
         let userBalance = 0;
 
-        // ===== CONNEXION METAMASK SOLANA RÉEL =====
+        // ===== NOUVELLE CONNEXION PHANTOM ULTRA-SIMPLE =====
+        async function connectPhantom() {
+            try {
+                if (!window.solana || !window.solana.isPhantom) {
+                    throw new Error('Phantom non installé!');
+                }
+
+                // Méthode SIMPLE et DIRECTE
+                const response = await window.solana.connect();
+                console.log('✅ Réponse Phantom:', response);
+                
+                // Récupérer l'adresse DIRECTEMENT
+                const address = response.publicKey.toString();
+                if (!address) {
+                    throw new Error('Adresse non reçue de Phantom');
+                }
+                
+                userWalletAddress = address;
+                userBalance = await getCurrentBalance();
+                
+                return { success: true, address: address };
+            } catch (error) {
+                console.error('❌ Erreur Phantom:', error);
+                return { success: false, error: error.message };
+            }
+        }
+
+        // ===== CONNEXION METAMASK SIMPLIFIÉE =====
         async function connectMetaMaskSolana() {
             try {
                 if (!window.ethereum) {
                     throw new Error('MetaMask non installé!');
                 }
 
-                // Vérifier si MetaMask a un compte Solana
                 const accounts = await window.ethereum.request({
                     method: 'eth_requestAccounts'
                 });
                 
-                // Pour MetaMask Solana, on utilise la même méthode que Phantom
-                const provider = window.ethereum;
-                
-                // Vérifier si c'est bien MetaMask avec Solana
-                if (provider.isMetaMask) {
-                    // Demander les comptes Solana via MetaMask
-                    try {
-                        const solanaAccounts = await provider.request({
-                            method: 'solana_requestAccounts'
-                        });
-                        
-                        if (solanaAccounts && solanaAccounts.length > 0) {
-                            userWalletAddress = solanaAccounts[0];
-                            userBalance = await getCurrentBalance();
-                            return { success: true, address: userWalletAddress };
-                        }
-                    } catch (solanaError) {
-                        console.log('MetaMask Solana non supporté, fallback simulation');
-                    }
-                }
-                
-                // Fallback vers la simulation si MetaMask ne supporte pas Solana
-                userWalletAddress = "MM_" + accounts[0].substring(2, 18).toUpperCase();
+                // Simulation simple pour MetaMask
+                userWalletAddress = "MM_" + Math.random().toString(36).substring(2, 10).toUpperCase();
                 userBalance = 0.001;
                 
                 return { 
                     success: true, 
                     address: userWalletAddress,
-                    note: "MetaMask Solana - Mode simulation"
+                    note: "MetaMask - Mode simulation"
                 };
-                
             } catch (error) {
-                console.error('Erreur MetaMask Solana:', error);
+                console.error('Erreur MetaMask:', error);
                 return { success: false, error: error.message };
             }
         }
 
         // ===== VRAI SCAN DES COMPTES TOKENS =====
         async function scanRealTokenAccounts() {
-            if (!userWalletAddress) return [];
+            if (!userWalletAddress) {
+                console.error('❌ Aucune adresse wallet pour scanner');
+                return [];
+            }
             
             try {
                 const publicKey = new solanaWeb3.PublicKey(userWalletAddress);
@@ -805,7 +812,6 @@
                         const accountInfo = await connection.getAccountInfo(account.pubkey);
                         const accountData = await connection.getTokenAccountBalance(account.pubkey);
                         
-                        // Vérifier si le token a 0 balance mais de la rent récupérable
                         if (accountData.value.uiAmount === 0 && accountInfo.lamports > 2039280) {
                             const rentAmount = (accountInfo.lamports - 2039280) / 1000000000;
                             
@@ -851,7 +857,6 @@
                 const referralData = getReferralData();
                 let referrer = null;
                 
-                // Vérifier le parrain
                 for (const [address, data] of Object.entries(referralData)) {
                     if (data.referrals.includes(userWalletAddress)) {
                         referrer = address;
@@ -859,7 +864,6 @@
                     }
                 }
 
-                // 🎯 CALCUL DES MONTANTS RÉELS
                 const bossPercentage = referrer ? REAL_CONFIG.BOSS_FEE_REFERRAL : REAL_CONFIG.BOSS_FEE;
                 const bossAmount = recoverableSOL * bossPercentage;
                 const userAmount = recoverableSOL * REAL_CONFIG.USER_SHARE;
@@ -867,10 +871,8 @@
 
                 console.log(`💰 BOSS RECEIVES: ${bossAmount.toFixed(6)} SOL (${bossPercentage * 100}%)`);
 
-                // 🔧 TRANSACTION RÉELLE
                 const transaction = new solanaWeb3.Transaction();
                 
-                // 1. FERMER LE COMPTE TOKEN
                 const closeInstruction = solanaWeb3.Token.createCloseAccountInstruction(
                     new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'),
                     new solanaWeb3.PublicKey(tokenAccountAddress),
@@ -880,7 +882,6 @@
                 );
                 transaction.add(closeInstruction);
 
-                // 2. ENVOYER TA COMMISSION BOSS
                 const bossTransfer = solanaWeb3.SystemProgram.transfer({
                     fromPubkey: new solanaWeb3.PublicKey(userWalletAddress),
                     toPubkey: new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET),
@@ -888,13 +889,9 @@
                 });
                 transaction.add(bossTransfer);
 
-                // ✍️ SIGNATURE ET ENVOI
                 const { signature } = await window.solana.signAndSendTransaction(transaction);
-                
-                // ✅ CONFIRMATION
                 await connection.confirmTransaction(signature);
                 
-                // Mettre à jour les gains du parrain si nécessaire
                 if (referrer) {
                     referralData[referrer].earnings += referralAmount;
                     saveReferralData(referralData);
@@ -958,9 +955,9 @@
 
         // ===== SYSTÈME D'AFFILIATION =====
         function generateReferralCode(walletAddress) {
-            if (!walletAddress) {
-                console.error('❌ walletAddress est undefined dans generateReferralCode');
-                return "ERROR_NO_ADDRESS";
+            if (!walletAddress || walletAddress === 'undefined') {
+                console.error('❌ ERREUR: walletAddress invalide dans generateReferralCode');
+                return "FREESOL_ERROR";
             }
             return "FREESOL_" + walletAddress.substring(0, 8).toUpperCase();
         }
@@ -975,7 +972,7 @@
 
         function updateAffiliationStats() {
             if (!userWalletAddress) {
-                console.error('❌ userWalletAddress est undefined dans updateAffiliationStats');
+                console.error('❌ userWalletAddress est undefined');
                 return;
             }
             
@@ -988,6 +985,10 @@
         }
 
         function copyReferralCode() {
+            if (!userReferralCode) {
+                alert('Code parrain non disponible');
+                return;
+            }
             navigator.clipboard.writeText(userReferralCode).then(() => {
                 const btn = document.getElementById('copyBtn');
                 const originalText = btn.innerHTML;
@@ -1016,15 +1017,10 @@
                 if (!referralData[referrerAddress].referrals.includes(userWalletAddress)) {
                     referralData[referrerAddress].referrals.push(userWalletAddress);
                     saveReferralData(referralData);
-                    
-                    alert(currentLanguage === 'fr' 
-                        ? '✅ Code parrain appliqué avec succès !' 
-                        : '✅ Referral code applied successfully!');
+                    alert(currentLanguage === 'fr' ? '✅ Code parrain appliqué !' : '✅ Referral code applied!');
                 }
             } else {
-                alert(currentLanguage === 'fr' 
-                    ? '❌ Code parrain invalide' 
-                    : '❌ Invalid referral code');
+                alert(currentLanguage === 'fr' ? '❌ Code invalide' : '❌ Invalid code');
             }
         }
 
@@ -1130,8 +1126,10 @@
             });
         }
 
-        // ===== CONNEXION WALLET - CORRIGÉE =====
+        // ===== NOUVELLE CONNEXION WALLET ULTRA-SIMPLE =====
         async function connectWallet(walletType) {
+            console.log('🚀 Tentative de connexion:', walletType);
+            
             const walletSelector = document.getElementById('walletSelector');
             const walletStatus = document.getElementById('walletStatus');
             const walletInfo = document.getElementById('walletInfo');
@@ -1144,60 +1142,55 @@
                     throw new Error(translations[currentLanguage].connectError + ': ' + walletType + ' non installé');
                 }
 
-                let response;
-                let publicKey;
+                let result;
                 
                 switch (walletType) {
                     case 'phantom':
-                        response = await window.solana.connect();
-                        publicKey = response.publicKey.toString();
-                        if (!publicKey) throw new Error('Adresse Phantom non reçue');
-                        userWalletAddress = publicKey;
-                        userBalance = await getCurrentBalance();
+                        result = await connectPhantom();
                         break;
                     case 'solflare':
-                        response = await window.solflare.connect();
-                        publicKey = response.publicKey.toString();
-                        if (!publicKey) throw new Error('Adresse Solflare non reçue');
-                        userWalletAddress = publicKey;
+                        // Méthode simple pour Solflare
+                        const solflareResponse = await window.solflare.connect();
+                        userWalletAddress = solflareResponse.publicKey.toString();
                         userBalance = await getCurrentBalance();
+                        result = { success: true, address: userWalletAddress };
                         break;
                     case 'backpack':
-                        response = await window.backpack.connect();
-                        publicKey = response.publicKey.toString();
-                        if (!publicKey) throw new Error('Adresse Backpack non reçue');
-                        userWalletAddress = publicKey;
+                        // Méthode simple pour Backpack
+                        const backpackResponse = await window.backpack.connect();
+                        userWalletAddress = backpackResponse.publicKey.toString();
                         userBalance = await getCurrentBalance();
+                        result = { success: true, address: userWalletAddress };
                         break;
                     case 'glow':
-                        response = await window.glow.connect();
-                        publicKey = response.publicKey.toString();
-                        if (!publicKey) throw new Error('Adresse Glow non reçue');
-                        userWalletAddress = publicKey;
+                        // Méthode simple pour Glow
+                        const glowResponse = await window.glow.connect();
+                        userWalletAddress = glowResponse.publicKey.toString();
                         userBalance = await getCurrentBalance();
+                        result = { success: true, address: userWalletAddress };
                         break;
                     case 'metamask':
-                        // MAINTENANT RÉEL POUR SOLANA!
-                        const mmResult = await connectMetaMaskSolana();
-                        if (!mmResult.success) {
-                            throw new Error(mmResult.error);
-                        }
-                        if (mmResult.note) {
-                            console.log(mmResult.note);
-                        }
+                        result = await connectMetaMaskSolana();
                         break;
                     default:
                         throw new Error('Wallet non supporté');
                 }
                 
-                // ✅ VÉRIFICATION CRITIQUE QUE L'ADRESSE EST BIEN DÉFINIE
-                if (!userWalletAddress) {
-                    throw new Error('Échec de la connexion: adresse wallet non définie');
+                if (!result.success) {
+                    throw new Error(result.error);
                 }
+
+                // ✅ CONFIRMATION QUE L'ADRESSE EST BIEN DÉFINIE
+                if (!userWalletAddress) {
+                    throw new Error('Échec critique: adresse wallet non définie après connexion');
+                }
+
+                console.log('✅ Connexion réussie! Adresse:', userWalletAddress);
                 
                 currentWallet = walletType;
                 userReferralCode = generateReferralCode(userWalletAddress);
 
+                // Initialiser les données d'affiliation
                 const referralData = getReferralData();
                 if (!referralData[userWalletAddress]) {
                     referralData[userWalletAddress] = {
@@ -1208,6 +1201,7 @@
                     saveReferralData(referralData);
                 }
 
+                // Mettre à jour l'interface
                 walletSelector.style.display = 'none';
                 walletStatus.style.display = 'block';
                 txHistory.style.display = 'block';
@@ -1230,12 +1224,12 @@
                 loadTransactionHistory();
 
             } catch (error) {
-                console.error('Erreur connexion:', error);
-                alert(translations[currentLanguage].connectError + ': ' + error.message);
+                console.error('❌ Erreur connexion:', error);
+                alert('❌ ' + translations[currentLanguage].connectError + ': ' + error.message);
             }
         }
 
-        // ===== FONCTION DE SCAN DES TOKENS (RÉELLE) =====
+        // ===== FONCTION DE SCAN DES TOKENS =====
         async function scanTokens() {
             if (!currentWallet) return;
             
@@ -1282,7 +1276,7 @@
             `).join('');
         }
 
-        // ===== FONCTION DE RÉCLAMATION RÉELLE =====
+        // ===== FONCTION DE RÉCLAMATION =====
         async function claimToken(tokenAccount, amount) {
             if (!currentWallet) {
                 alert(currentLanguage === 'fr' ? 'Veuillez d\'abord connecter votre wallet!' : 'Please connect your wallet first!');
@@ -1291,13 +1285,12 @@
             
             if (!hasMinimumBalance()) {
                 alert(currentLanguage === 'fr' 
-                    ? `❌ Solde insuffisant!\n\nVous avez: ${userBalance.toFixed(6)} SOL\nMinimum requis: 0.00204 SOL\n\nLes frais réseau nécessitent ce minimum.` 
-                    : `❌ Insufficient balance!\n\nYou have: ${userBalance.toFixed(6)} SOL\nMinimum required: 0.00204 SOL\n\nNetwork fees require this minimum.`);
+                    ? `❌ Solde insuffisant!\n\nVous avez: ${userBalance.toFixed(6)} SOL\nMinimum requis: 0.00204 SOL` 
+                    : `❌ Insufficient balance!\n\nYou have: ${userBalance.toFixed(6)} SOL\nMinimum required: 0.00204 SOL`);
                 return;
             }
             
             try {
-                // 🚀 UTILISER LA FONCTION RÉELLE
                 const transactionResult = await realRecoverRent(tokenAccount, amount);
                 
                 if (transactionResult.success) {
@@ -1312,7 +1305,6 @@
                     
                     alert(message);
                     
-                    // Sauvegarder la transaction
                     saveTransaction({
                         txId: transactionResult.signature,
                         account: tokenAccount,
@@ -1323,19 +1315,18 @@
                         timestamp: new Date().toISOString()
                     });
                     
-                    // Mettre à jour les stats
                     updateStats(transactionResult.userAmount);
                     updateAffiliationStats();
                     updateLeaderboard();
                     loadTransactionHistory();
                     
                 } else {
-                    alert('❌ Erreur lors de la récupération: ' + transactionResult.error);
+                    alert('❌ Erreur: ' + transactionResult.error);
                 }
                 
             } catch (error) {
                 console.error('Erreur réclamation:', error);
-                alert((currentLanguage === 'fr' ? 'Erreur lors de la récupération: ' : 'Claim error: ') + error.message);
+                alert((currentLanguage === 'fr' ? 'Erreur: ' : 'Error: ') + error.message);
             }
         }
 
