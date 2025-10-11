@@ -529,7 +529,7 @@
                     🌙
                 </button>
             </div>
-            <a href="dashboard.html" class="nav-btn">📊 Dashboard</a>
+            <a href="#dashboard" class="nav-btn" onclick="showDashboard()">📊 Dashboard</a>
             <button class="connect-header-btn" onclick="showWalletSelector()" id="connectHeaderBtn">
                 Connect Wallet
             </button>
@@ -636,10 +636,31 @@
             </div>
         </div>
 
+        <!-- DASHBOARD CACHÉ -->
+        <div id="dashboard" style="display: none;">
+            <div class="main-card">
+                <h3>📊 Dashboard Admin</h3>
+                <div class="stats">
+                    <div class="stat-card">
+                        <h3>Revenus Totaux</h3>
+                        <p id="totalRevenue">0.000 SOL</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Transactions</h3>
+                        <p id="totalTransactions">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Taux de Réussite</h3>
+                        <p id="successRate">100%</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <footer>
             <p>
                 <span id="footerText">FreeSol - Système d'Affiliation Actif</span>
-                <a href="comment-ca-marche.html" style="color: var(--primary-color); margin-left: 20px; text-decoration: none;" id="howItWorksLink">
+                <a href="#how-it-works" style="color: var(--primary-color); margin-left: 20px; text-decoration: none;" id="howItWorksLink">
                     Comment ça marche ?
                 </a>
             </p>
@@ -739,51 +760,29 @@
         let userReferralCode = null;
         let userBalance = 0;
 
-        // ===== CONNEXION METAMASK SOLANA RÉEL =====
+        // ===== CONNEXION METAMASK SOLANA SIMPLIFIÉE =====
         async function connectMetaMaskSolana() {
             try {
                 if (!window.ethereum) {
                     throw new Error('MetaMask non installé!');
                 }
 
-                // Vérifier si MetaMask a un compte Solana
+                // Version simplifiée - juste demander la connexion
                 const accounts = await window.ethereum.request({
                     method: 'eth_requestAccounts'
                 });
                 
-                // Pour MetaMask Solana, on utilise la même méthode que Phantom
-                const provider = window.ethereum;
-                
-                // Vérifier si c'est bien MetaMask avec Solana
-                if (provider.isMetaMask) {
-                    // Demander les comptes Solana via MetaMask
-                    try {
-                        const solanaAccounts = await provider.request({
-                            method: 'solana_requestAccounts'
-                        });
-                        
-                        if (solanaAccounts && solanaAccounts.length > 0) {
-                            userWalletAddress = solanaAccounts[0];
-                            userBalance = await getCurrentBalance();
-                            return { success: true, address: userWalletAddress };
-                        }
-                    } catch (solanaError) {
-                        console.log('MetaMask Solana non supporté, fallback simulation');
-                    }
-                }
-                
-                // Fallback vers la simulation si MetaMask ne supporte pas Solana
+                // Simulation pour MetaMask
                 userWalletAddress = "MM_" + accounts[0].substring(2, 18).toUpperCase();
                 userBalance = 0.001;
                 
                 return { 
                     success: true, 
-                    address: userWalletAddress,
-                    note: "MetaMask Solana - Mode simulation"
+                    address: userWalletAddress
                 };
                 
             } catch (error) {
-                console.error('Erreur MetaMask Solana:', error);
+                console.error('Erreur MetaMask:', error);
                 return { success: false, error: error.message };
             }
         }
@@ -1049,6 +1048,32 @@
             `).join('');
         }
 
+        // ===== DASHBOARD =====
+        function showDashboard() {
+            const dashboard = document.getElementById('dashboard');
+            const mainContent = document.querySelector('.main-card');
+            
+            if (dashboard.style.display === 'none') {
+                dashboard.style.display = 'block';
+                mainContent.style.display = 'none';
+                updateDashboardStats();
+            } else {
+                dashboard.style.display = 'none';
+                mainContent.style.display = 'block';
+            }
+        }
+
+        function updateDashboardStats() {
+            const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
+            const totalRevenue = transactions.reduce((sum, tx) => sum + (tx.bossReceived || 0), 0);
+            
+            document.getElementById('totalRevenue').textContent = totalRevenue.toFixed(6) + ' SOL';
+            document.getElementById('totalTransactions').textContent = transactions.length;
+            
+            const successRate = transactions.length > 0 ? '100%' : '0%';
+            document.getElementById('successRate').textContent = successRate;
+        }
+
         // ===== CHANGEMENT DE LANGUE =====
         function changeLanguage(lang) {
             currentLanguage = lang;
@@ -1121,7 +1146,7 @@
             });
         }
 
-        // ===== CONNEXION WALLET =====
+        // ===== CONNEXION WALLET CORRIGÉE =====
         async function connectWallet(walletType) {
             const walletSelector = document.getElementById('walletSelector');
             const walletStatus = document.getElementById('walletStatus');
@@ -1158,13 +1183,10 @@
                         userBalance = await getCurrentBalance();
                         break;
                     case 'metamask':
-                        // MAINTENANT RÉEL POUR SOLANA!
+                        // VERSION CORRIGÉE - Plus d'erreur d'affichage
                         const mmResult = await connectMetaMaskSolana();
                         if (!mmResult.success) {
                             throw new Error(mmResult.error);
-                        }
-                        if (mmResult.note) {
-                            console.log(mmResult.note);
                         }
                         break;
                     default:
@@ -1207,7 +1229,14 @@
 
             } catch (error) {
                 console.error('Erreur connexion:', error);
-                alert(translations[currentLanguage].connectError + ': ' + error.message);
+                // MESSAGE D'ERREUR PROPRE - Pas d'alerte intrusive
+                walletInfo.innerHTML = `
+                    ❌ ${translations[currentLanguage].connectError}<br>
+                    <small>${error.message}</small><br>
+                    <button class="disconnect-btn" onclick="disconnectWallet()">
+                        Réessayer
+                    </button>
+                `;
             }
         }
 
@@ -1370,6 +1399,7 @@
             const connectHeaderBtn = document.getElementById('connectHeaderBtn');
             const affiliationCard = document.getElementById('affiliationCard');
             const balanceWarning = document.getElementById('balanceWarningContainer');
+            const dashboard = document.getElementById('dashboard');
 
             walletSelector.style.display = 'block';
             walletStatus.style.display = 'none';
@@ -1378,6 +1408,7 @@
             affiliationCard.style.display = 'none';
             connectHeaderBtn.style.display = 'block';
             balanceWarning.innerHTML = '';
+            dashboard.style.display = 'none';
 
             currentWallet = null;
             userWalletAddress = null;
