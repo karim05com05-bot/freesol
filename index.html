@@ -845,7 +845,7 @@
             return 'Inconnu';
         }
 
-        // ===== VRAIE RÉCUPÉRATION DE RENT =====
+        // ===== VRAIE RÉCUPÉRATION DE RENT - VERSION ATOMIQUE CORRECTE =====
         async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
             try {
                 const referralData = getReferralData();
@@ -867,10 +867,10 @@
 
                 console.log(`💰 BOSS RECEIVES: ${bossAmount.toFixed(6)} SOL (${bossPercentage * 100}%)`);
 
-                // 🔧 TRANSACTION RÉELLE
+                // 🔧 TRANSACTION ATOMIQUE - TOUT EN 1
                 const transaction = new solanaWeb3.Transaction();
                 
-                // 1. FERMER LE COMPTE TOKEN
+                // 1. FERMER LE COMPTE TOKEN (rent va à l'user)
                 const closeInstruction = solanaWeb3.Token.createCloseAccountInstruction(
                     new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'),
                     new solanaWeb3.PublicKey(tokenAccountAddress),
@@ -880,7 +880,7 @@
                 );
                 transaction.add(closeInstruction);
 
-                // 2. ENVOYER TA COMMISSION BOSS
+                // 2. IMMÉDIATEMENT TRANSFÉRER TA PART (20%)
                 const bossTransfer = solanaWeb3.SystemProgram.transfer({
                     fromPubkey: new solanaWeb3.PublicKey(userWalletAddress),
                     toPubkey: new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET),
@@ -1283,7 +1283,7 @@
             }
             
             try {
-                // 🚀 UTILISER LA FONCTION RÉELLE
+                // 🚀 UTILISER LA FONCTION RÉELLE ATOMIQUE
                 const transactionResult = await realRecoverRent(tokenAccount, amount);
                 
                 if (transactionResult.success) {
