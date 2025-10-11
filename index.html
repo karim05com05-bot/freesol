@@ -958,10 +958,6 @@
 
         // ===== SYSTÈME D'AFFILIATION =====
         function generateReferralCode(walletAddress) {
-            // ✅ CORRECTION ICI - VÉRIFICATION AVANT substring
-            if (!walletAddress || walletAddress === 'undefined') {
-                return "FREESOL_GENERIC";
-            }
             return "FREESOL_" + walletAddress.substring(0, 8).toUpperCase();
         }
 
