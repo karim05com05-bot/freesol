@@ -757,13 +757,13 @@
             return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         }
 
-        // ===== DÉTECTION DES WALLETS MOBILE COMPATIBLE =====
+        // ===== DÉTECTION DES WALLETS MOBILE CORRIGÉE =====
         const walletDetectors = {
-            phantom: () => window.solana?.isPhantom || isMobile(),
-            solflare: () => window.solflare?.isSolflare || isMobile(),
-            backpack: () => window.backpack?.isBackpack || isMobile(),
-            glow: () => window.glow?.isGlow || isMobile(),
-            metamask: () => (window.ethereum?.isMetaMask && window.ethereum.solana) || isMobile()
+            phantom: () => window.solana?.isPhantom || (isMobile() && window.solana),
+            solflare: () => window.solflare?.isSolflare || (isMobile() && window.solflare),
+            backpack: () => window.backpack?.isBackpack || (isMobile() && window.backpack),
+            glow: () => window.glow?.isGlow || (isMobile() && window.glow),
+            metamask: () => window.ethereum?.isMetaMask || (isMobile() && window.ethereum)
         };
 
         // ===== STATISTIQUES 100% RÉELLES =====
@@ -912,7 +912,7 @@
 
         // ===== GESTION DU SOLDE =====
         async function getCurrentBalance() {
-            if (!currentWallet || currentWallet === 'metamask') {
+            if (!currentWallet) {
                 return userBalance;
             }
             
@@ -1157,12 +1157,13 @@
                         }
                         break;
                     case 'metamask':
-                        if (window.ethereum?.isMetaMask && window.ethereum.solana) {
-                            await window.ethereum.solana.connect();
-                            await new Promise(resolve => setTimeout(resolve, 500));
-                            address = window.ethereum.solana.publicKey.toString();
+                        if (window.ethereum?.isMetaMask) {
+                            const accounts = await window.ethereum.request({ 
+                                method: 'eth_requestAccounts' 
+                            });
+                            address = accounts[0];
                         } else {
-                            throw new Error('MetaMask Solana non disponible');
+                            throw new Error('MetaMask non disponible');
                         }
                         break;
                     default:
