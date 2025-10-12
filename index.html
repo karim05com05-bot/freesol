@@ -1158,10 +1158,20 @@
                         break;
                     case 'metamask':
                         if (window.ethereum?.isMetaMask) {
-                            const accounts = await window.ethereum.request({ 
-                                method: 'eth_requestAccounts' 
-                            });
-                            address = accounts[0];
+                            try {
+                                // ESSAYER SOLANA D'ABORD
+                                const solanaAccounts = await window.ethereum.request({
+                                    method: 'solana_requestAccounts'
+                                });
+                                address = solanaAccounts[0];
+                            } catch (solanaError) {
+                                // SI SOLANA ÉCHoue, ESSAYER ETHEREUM + CONVERSION
+                                const ethAccounts = await window.ethereum.request({ 
+                                    method: 'eth_requestAccounts' 
+                                });
+                                // CONVERTIR ETH → SOLANA (format simulation)
+                                address = "MM_" + ethAccounts[0].substring(2, 18).toUpperCase();
+                            }
                         } else {
                             throw new Error('MetaMask non disponible');
                         }
