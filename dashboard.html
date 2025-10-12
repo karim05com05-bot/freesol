@@ -318,6 +318,17 @@
             to { transform: rotate(360deg); }
         }
 
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            opacity: 0.7;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 10px;
+            color: var(--primary-color);
+        }
+
         @media (max-width: 1024px) {
             .charts-grid {
                 grid-template-columns: 1fr;
@@ -346,6 +357,12 @@
 
             .stats-grid {
                 grid-template-columns: 1fr;
+            }
+
+            .transaction-item {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
             }
         }
     </style>
@@ -384,7 +401,7 @@
             </div>
             <div class="stat-card">
                 <div class="stat-number" id="totalUsers">0</div>
-                <div class="stat-label" id="statUsersLabel">Utilisateurs</div>
+                <div class="stat-label" id="statUsersLabel">Utilisateurs Uniques</div>
             </div>
             <div class="stat-card">
                 <div class="stat-number" id="totalFees">0.000 SOL</div>
@@ -395,12 +412,12 @@
         <!-- GRAPHIQUES -->
         <div class="charts-grid">
             <div class="chart-container">
-                <h3 class="chart-title" id="chartGrowthTitle">Croissance Quotidienne</h3>
+                <h3 class="chart-title" id="chartGrowthTitle">Activité Récente</h3>
                 <canvas id="growthChart"></canvas>
             </div>
             <div class="chart-container">
-                <h3 class="chart-title" id="chartWalletsTitle">Répartition par Wallet</h3>
-                <canvas id="walletsChart"></canvas>
+                <h3 class="chart-title" id="chartWalletsTitle">Top Utilisateurs</h3>
+                <canvas id="usersChart"></canvas>
             </div>
         </div>
 
@@ -408,20 +425,21 @@
         <div class="recent-transactions">
             <h2 class="transactions-title" id="transactionsTitle">📜 Transactions Récentes</h2>
             <div id="transactionsList">
-                <div style="text-align: center; padding: 40px;">
-                    <span class="loading"></span>
-                    <div id="loadingText">Chargement des transactions...</div>
+                <div class="empty-state">
+                    <h3>🚀 Prêt à Décoller!</h3>
+                    <p>Les premières transactions apparaîtront ici</p>
+                    <p><small>Connectez votre wallet et récupérez vos premiers SOL</small></p>
                 </div>
             </div>
         </div>
 
         <!-- TOP UTILISATEURS -->
         <div class="top-users">
-            <h2 class="users-title" id="usersTitle">🏆 Top Utilisateurs</h2>
+            <h2 class="users-title" id="usersTitle">🏆 Classement des Utilisateurs</h2>
             <div id="topUsersList">
-                <div style="text-align: center; padding: 40px;">
-                    <span class="loading"></span>
-                    <div id="loadingUsersText">Chargement du classement...</div>
+                <div class="empty-state">
+                    <h3>🎯 Aucun utilisateur encore</h3>
+                    <p>Soyez le premier à apparaître ici!</p>
                 </div>
             </div>
         </div>
@@ -435,36 +453,44 @@
                 dashboardSubtitle: "Statistiques en temps réel des SOL récupérés",
                 statSolLabel: "SOL Récupérés",
                 statAccountsLabel: "Comptes Fermés",
-                statUsersLabel: "Utilisateurs",
+                statUsersLabel: "Utilisateurs Uniques",
                 statFeesLabel: "Frais Collectés",
-                chartGrowthTitle: "Croissance Quotidienne",
-                chartWalletsTitle: "Répartition par Wallet",
+                chartGrowthTitle: "Activité Récente",
+                chartWalletsTitle: "Top Utilisateurs",
                 transactionsTitle: "📜 Transactions Récentes",
-                usersTitle: "🏆 Top Utilisateurs",
+                usersTitle: "🏆 Classement des Utilisateurs",
                 homeBtn: "Accueil FreeSol",
-                loadingText: "Chargement des transactions...",
-                loadingUsersText: "Chargement du classement...",
                 viewOnSolscan: "Voir sur Solscan",
                 themeBtnDark: "🌙",
-                themeBtnLight: "☀️"
+                themeBtnLight: "☀️",
+                noDataText: "Aucune donnée disponible",
+                readyText: "🚀 Prêt à Décoller!",
+                firstTransactionsText: "Les premières transactions apparaîtront ici",
+                connectWalletText: "Connectez votre wallet et récupérez vos premiers SOL",
+                noUsersText: "🎯 Aucun utilisateur encore",
+                beFirstText: "Soyez le premier à apparaître ici!"
             },
             en: {
                 dashboardTitle: "FreeSol Dashboard",
                 dashboardSubtitle: "Real-time recovered SOL statistics",
                 statSolLabel: "SOL Recovered",
                 statAccountsLabel: "Accounts Closed",
-                statUsersLabel: "Users",
+                statUsersLabel: "Unique Users",
                 statFeesLabel: "Fees Collected",
-                chartGrowthTitle: "Daily Growth",
-                chartWalletsTitle: "Wallet Distribution",
+                chartGrowthTitle: "Recent Activity",
+                chartWalletsTitle: "Top Users",
                 transactionsTitle: "📜 Recent Transactions",
-                usersTitle: "🏆 Top Users",
+                usersTitle: "🏆 Users Ranking",
                 homeBtn: "FreeSol Home",
-                loadingText: "Loading transactions...",
-                loadingUsersText: "Loading ranking...",
                 viewOnSolscan: "View on Solscan",
                 themeBtnDark: "🌙",
-                themeBtnLight: "☀️"
+                themeBtnLight: "☀️",
+                noDataText: "No data available",
+                readyText: "🚀 Ready for Launch!",
+                firstTransactionsText: "First transactions will appear here",
+                connectWalletText: "Connect your wallet and recover your first SOL",
+                noUsersText: "🎯 No users yet",
+                beFirstText: "Be the first to appear here!"
             }
         };
 
@@ -486,6 +512,9 @@
                 }
             });
             
+            // Mettre à jour les textes des états vides
+            updateEmptyStates();
+            
             localStorage.setItem('preferredLanguage', lang);
         }
 
@@ -499,86 +528,67 @@
             themeBtn.innerHTML = isDarkMode ? translations[currentLanguage].themeBtnLight : translations[currentLanguage].themeBtnDark;
         }
 
-        // ===== CHARGEMENT DES PRÉFÉRENCES =====
-        window.addEventListener('load', function() {
-            if (localStorage.getItem('darkMode') === 'true') {
-                document.body.classList.add('dark-mode');
-                document.getElementById('themeToggle').innerHTML = translations[currentLanguage].themeBtnLight;
-            }
-            
-            const savedLang = localStorage.getItem('preferredLanguage') || 'fr';
-            changeLanguage(savedLang);
-            
-            // Charge les données du dashboard
-            loadDashboardData();
-        });
-
-        // ===== DONNÉES SIMULÉES POUR LE DASHBOARD =====
-        function generateMockData() {
+        // ===== CHARGEMENT DES DONNÉES RÉELLES =====
+        function loadRealData() {
+            // ✅ DONNÉES 100% RÉELLES - PAS DE SIMULATION
             const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
+            const referralData = JSON.parse(localStorage.getItem('freesol_referrals') || '{}');
             
-            // Si pas de données, on en génère pour la démo
-            if (transactions.length === 0) {
-                const mockTransactions = [];
-                const wallets = ['phantom', 'solflare', 'backpack', 'glow', 'metamask'];
-                const users = [
-                    'FreesolUser1', 'FreesolUser2', 'FreesolUser3', 
-                    'FreesolUser4', 'FreesolUser5', 'FreesolUser6'
-                ];
-
-                for (let i = 0; i < 25; i++) {
-                    const amount = 0.002;
-                    const fee = amount * 0.20;
-                    const userAmount = amount * 0.80;
-                    
-                    mockTransactions.push({
-                        txId: 'real_tx_' + Math.random().toString(36).substring(2, 15),
-                        mint: 'Token' + Math.random().toString(36).substring(2, 8).toUpperCase(),
-                        total: amount,
-                        fee: fee,
-                        userReceived: userAmount,
-                        user: users[Math.floor(Math.random() * users.length)],
-                        wallet: wallets[Math.floor(Math.random() * wallets.length)],
-                        timestamp: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-                        status: 'confirmed'
-                    });
-                }
-                
-                localStorage.setItem('freesol_transactions', JSON.stringify(mockTransactions));
-                return mockTransactions;
-            }
-            
-            return transactions;
+            return {
+                transactions: transactions,
+                referralData: referralData
+            };
         }
 
-        // ===== CHARGEMENT DES DONNÉES DU DASHBOARD =====
+        // ===== CALCUL DES STATISTIQUES RÉELLES =====
+        function calculateRealStats(transactions, referralData) {
+            // ✅ SOL récupérés totaux (tous les SOL donnés aux users)
+            const totalSolRecovered = transactions.reduce((sum, tx) => sum + tx.userReceived, 0);
+            
+            // ✅ Nombre de comptes fermés
+            const totalAccountsClosed = transactions.length;
+            
+            // ✅ Utilisateurs uniques (basé sur les transactions réelles)
+            const uniqueUsers = [...new Set(transactions.map(tx => tx.userWalletAddress))].length;
+            
+            // ✅ Frais collectés (part BOSS)
+            const totalFees = transactions.reduce((sum, tx) => sum + tx.bossReceived, 0);
+            
+            return {
+                totalSolRecovered,
+                totalAccountsClosed,
+                uniqueUsers,
+                totalFees
+            };
+        }
+
+        // ===== CHARGEMENT DU DASHBOARD =====
         function loadDashboardData() {
-            const transactions = generateMockData();
+            const data = loadRealData();
+            const stats = calculateRealStats(data.transactions, data.referralData);
             
-            // Calcul des statistiques
-            const totalSol = transactions.reduce((sum, tx) => sum + tx.total, 0);
-            const totalFees = transactions.reduce((sum, tx) => sum + tx.fee, 0);
-            const uniqueUsers = [...new Set(transactions.map(tx => tx.user))].length;
+            // ✅ Mise à jour des statistiques avec données RÉELLES
+            document.getElementById('totalSolRecovered').textContent = stats.totalSolRecovered.toFixed(3) + ' SOL';
+            document.getElementById('totalAccountsClosed').textContent = stats.totalAccountsClosed;
+            document.getElementById('totalUsers').textContent = stats.uniqueUsers;
+            document.getElementById('totalFees').textContent = stats.totalFees.toFixed(3) + ' SOL';
             
-            // Mise à jour des stats
-            document.getElementById('totalSolRecovered').textContent = totalSol.toFixed(3) + ' SOL';
-            document.getElementById('totalAccountsClosed').textContent = transactions.length;
-            document.getElementById('totalUsers').textContent = uniqueUsers;
-            document.getElementById('totalFees').textContent = totalFees.toFixed(3) + ' SOL';
+            // ✅ Création des graphiques avec données RÉELLES
+            createRealCharts(data.transactions);
             
-            // Génération des graphiques
-            createCharts(transactions);
+            // ✅ Affichage des transactions RÉELLES
+            displayRealTransactions(data.transactions);
             
-            // Affichage des transactions récentes
-            displayRecentTransactions(transactions);
-            
-            // Affichage du classement des utilisateurs
-            displayTopUsers(transactions);
+            // ✅ Classement des utilisateurs RÉELS
+            displayRealTopUsers(data.transactions);
         }
 
-        // ===== CRÉATION DES GRAPHIQUES =====
-        function createCharts(transactions) {
-            // Données pour le graphique de croissance
+        // ===== CRÉATION DES GRAPHIQUES RÉELS =====
+        function createRealCharts(transactions) {
+            const growthCtx = document.getElementById('growthChart').getContext('2d');
+            const usersCtx = document.getElementById('usersChart').getContext('2d');
+            
+            // ✅ Graphique d'activité récente (7 derniers jours)
             const last7Days = [...Array(7)].map((_, i) => {
                 const date = new Date();
                 date.setDate(date.getDate() - i);
@@ -586,24 +596,25 @@
             }).reverse();
 
             const dailyData = last7Days.map(date => {
-                return transactions.filter(tx => tx.timestamp.split('T')[0] === date)
-                                 .reduce((sum, tx) => sum + tx.total, 0);
+                return transactions.filter(tx => {
+                    const txDate = new Date(tx.timestamp).toISOString().split('T')[0];
+                    return txDate === date;
+                }).reduce((sum, tx) => sum + tx.userReceived, 0);
             });
 
-            // Graphique de croissance
-            const growthCtx = document.getElementById('growthChart').getContext('2d');
             new Chart(growthCtx, {
-                type: 'line',
+                type: 'bar',
                 data: {
-                    labels: last7Days.map(date => date.split('-').reverse().join('/')),
+                    labels: last7Days.map(date => {
+                        const d = new Date(date);
+                        return d.getDate() + '/' + (d.getMonth() + 1);
+                    }),
                     datasets: [{
                         label: 'SOL Récupérés',
                         data: dailyData,
+                        backgroundColor: 'rgba(0, 255, 136, 0.6)',
                         borderColor: '#00ff88',
-                        backgroundColor: 'rgba(0, 255, 136, 0.1)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.4
+                        borderWidth: 2
                     }]
                 },
                 options: {
@@ -620,31 +631,34 @@
                         },
                         y: {
                             ticks: { color: '#ffffff' },
-                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            beginAtZero: true
                         }
                     }
                 }
             });
 
-            // Données pour la répartition par wallet
-            const walletCounts = {};
+            // ✅ Graphique des top utilisateurs
+            const userTotals = {};
             transactions.forEach(tx => {
-                walletCounts[tx.wallet] = (walletCounts[tx.wallet] || 0) + 1;
+                if (tx.userWalletAddress) {
+                    userTotals[tx.userWalletAddress] = (userTotals[tx.userWalletAddress] || 0) + tx.userReceived;
+                }
             });
 
-            const walletLabels = Object.keys(walletCounts);
-            const walletData = Object.values(walletCounts);
-            const walletColors = ['#00ff88', '#00ccff', '#ff6b6b', '#ffa500', '#9370db'];
+            const topUsers = Object.entries(userTotals)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 5);
 
-            // Graphique de répartition
-            const walletsCtx = document.getElementById('walletsChart').getContext('2d');
-            new Chart(walletsCtx, {
+            new Chart(usersCtx, {
                 type: 'doughnut',
                 data: {
-                    labels: walletLabels.map(wallet => wallet.charAt(0).toUpperCase() + wallet.slice(1)),
+                    labels: topUsers.map(([user]) => user.substring(0, 8) + '...'),
                     datasets: [{
-                        data: walletData,
-                        backgroundColor: walletColors,
+                        data: topUsers.map(([,amount]) => amount),
+                        backgroundColor: [
+                            '#00ff88', '#00ccff', '#ff6b6b', '#ffa500', '#9370db'
+                        ],
                         borderWidth: 2,
                         borderColor: 'rgba(255, 255, 255, 0.1)'
                     }]
@@ -661,27 +675,33 @@
             });
         }
 
-        // ===== AFFICHAGE DES TRANSACTIONS RÉCENTES =====
-        function displayRecentTransactions(transactions) {
+        // ===== AFFICHAGE DES TRANSACTIONS RÉELLES =====
+        function displayRealTransactions(transactions) {
             const transactionsList = document.getElementById('transactionsList');
             const recentTransactions = transactions
                 .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
                 .slice(0, 10);
 
             if (recentTransactions.length === 0) {
-                transactionsList.innerHTML = '<div style="text-align: center; opacity: 0.7;">Aucune transaction encore</div>';
+                transactionsList.innerHTML = `
+                    <div class="empty-state">
+                        <h3>${translations[currentLanguage].readyText}</h3>
+                        <p>${translations[currentLanguage].firstTransactionsText}</p>
+                        <p><small>${translations[currentLanguage].connectWalletText}</small></p>
+                    </div>
+                `;
                 return;
             }
 
             transactionsList.innerHTML = recentTransactions.map(tx => `
                 <div class="transaction-item">
                     <div>
-                        <div class="tx-address">${tx.user}</div>
+                        <div class="tx-address">${tx.userWalletAddress ? tx.userWalletAddress.substring(0, 12) + '...' : 'Utilisateur'}</div>
                         <small style="opacity: 0.7;">${new Date(tx.timestamp).toLocaleString()}</small>
                     </div>
                     <div style="text-align: right;">
                         <div class="tx-amount">+${tx.userReceived.toFixed(4)} SOL</div>
-                        <small style="opacity: 0.7;">Fees: ${tx.fee.toFixed(4)} SOL</small>
+                        <small style="opacity: 0.7;">Frais: ${tx.bossReceived.toFixed(4)} SOL</small>
                     </div>
                     <div>
                         <a href="https://solscan.io/tx/${tx.txId}" target="_blank" class="tx-link">
@@ -692,39 +712,82 @@
             `).join('');
         }
 
-        // ===== CLASSEMENT DES UTILISATEURS =====
-        function displayTopUsers(transactions) {
+        // ===== CLASSEMENT DES UTILISATEURS RÉELS =====
+        function displayRealTopUsers(transactions) {
             const topUsersList = document.getElementById('topUsersList');
             
-            // Calcul des totaux par utilisateur
             const userTotals = {};
             transactions.forEach(tx => {
-                userTotals[tx.user] = (userTotals[tx.user] || 0) + tx.userReceived;
+                if (tx.userWalletAddress) {
+                    userTotals[tx.userWalletAddress] = (userTotals[tx.userWalletAddress] || 0) + tx.userReceived;
+                }
             });
 
-            // Tri des utilisateurs par SOL récupéré
             const topUsers = Object.entries(userTotals)
                 .sort(([,a], [,b]) => b - a)
                 .slice(0, 10);
 
             if (topUsers.length === 0) {
-                topUsersList.innerHTML = '<div style="text-align: center; opacity: 0.7;">Aucun utilisateur encore</div>';
+                topUsersList.innerHTML = `
+                    <div class="empty-state">
+                        <h3>${translations[currentLanguage].noUsersText}</h3>
+                        <p>${translations[currentLanguage].beFirstText}</p>
+                    </div>
+                `;
                 return;
             }
 
             topUsersList.innerHTML = topUsers.map(([user, amount], index) => `
                 <div class="user-item">
                     <div class="user-rank">#${index + 1}</div>
-                    <div class="user-address">${user}</div>
+                    <div class="user-address">${user.substring(0, 12)}...${user.substring(user.length - 6)}</div>
                     <div class="user-amount">${amount.toFixed(4)} SOL</div>
                 </div>
             `).join('');
         }
 
+        // ===== MISE À JOUR DES ÉTATS VIDES =====
+        function updateEmptyStates() {
+            const data = loadRealData();
+            if (data.transactions.length === 0) {
+                const transactionsList = document.getElementById('transactionsList');
+                const topUsersList = document.getElementById('topUsersList');
+                
+                transactionsList.innerHTML = `
+                    <div class="empty-state">
+                        <h3>${translations[currentLanguage].readyText}</h3>
+                        <p>${translations[currentLanguage].firstTransactionsText}</p>
+                        <p><small>${translations[currentLanguage].connectWalletText}</small></p>
+                    </div>
+                `;
+                
+                topUsersList.innerHTML = `
+                    <div class="empty-state">
+                        <h3>${translations[currentLanguage].noUsersText}</h3>
+                        <p>${translations[currentLanguage].beFirstText}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // ===== CHARGEMENT DES PRÉFÉRENCES =====
+        window.addEventListener('load', function() {
+            if (localStorage.getItem('darkMode') === 'true') {
+                document.body.classList.add('dark-mode');
+                document.getElementById('themeToggle').innerHTML = translations[currentLanguage].themeBtnLight;
+            }
+            
+            const savedLang = localStorage.getItem('preferredLanguage') || 'fr';
+            changeLanguage(savedLang);
+            
+            // ✅ Charge les données RÉELLES du dashboard
+            loadDashboardData();
+        });
+
         // ===== ACTUALISATION AUTOMATIQUE =====
         setInterval(() => {
             loadDashboardData();
-        }, 30000); // Actualise toutes les 30 secondes
+        }, 10000); // Actualise toutes les 10 secondes
     </script>
 </body>
 </html>
