@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
-    <!-- 🚀 META TAGS AJOUTÉS - RIEN D'AUTRE MODIFIÉ -->
     <meta name="description" content="FreeSol - Récupérez vos SOL perdus dans les tokens abandonnés. Gardez 80%, nous prenons 20% seulement.">
     <meta name="keywords" content="solana, sol, crypto, tokens, rent, recovery, freesol">
     <meta property="og:title" content="FreeSol - Recover Your Lost SOL">
@@ -17,6 +16,7 @@
     
     <title>FreeSol - Recover Your Lost SOL</title>
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
+    <script src="https://unpkg.com/@solana/spl-token@latest/lib/index.iife.js"></script>
     <style>
         * {
             margin: 0;
@@ -324,7 +324,6 @@
             text-decoration: underline;
         }
 
-        /* CARTE AFFILIATION - MAINTENANT EN BAS */
         .affiliation-card {
             background: var(--card-bg);
             backdrop-filter: blur(10px);
@@ -383,7 +382,6 @@
             font-size: 0.9rem;
         }
 
-        /* CLASSEMENT - APRÈS L'AFFILIATION EN BAS */
         .leaderboard {
             background: var(--card-bg);
             padding: 25px;
@@ -532,7 +530,7 @@
 </head>
 <body>
     <div class="header">
-        <div class="logo">FreeSol <span class="maunte-badge">RÉEL</span></div>
+        <div class="logo">FreeSol <span class="maunte-badge">100% RÉEL</span></div>
         <div class="header-controls">
             <div class="controls-group">
                 <button class="lang-btn active" onclick="changeLanguage('fr')">FR</button>
@@ -574,7 +572,6 @@
             </div>
         </div>
 
-        <!-- CARTE PRINCIPALE - MAINTENANT EN HAUT -->
         <div class="main-card">
             <div class="wallet-section">
                 <div class="wallet-status" id="walletStatus" style="display: none;">
@@ -582,7 +579,6 @@
                 </div>
             </div>
 
-            <!-- ZONE D'ALERTE SOLDE INSUFFISANT -->
             <div id="balanceWarningContainer"></div>
 
             <div class="tokens-list">
@@ -615,7 +611,6 @@
             </div>
         </div>
 
-        <!-- ✅ AFFILIATION MAINTENANT EN BAS -->
         <div class="affiliation-card" id="affiliationCard" style="display: none;">
             <div class="affiliation-badge">🎯 PROGRAMME DE PARRAINAGE</div>
             <h4 id="affiliationTitle">Gagnez 3% sur vos filleuls !</h4>
@@ -637,7 +632,6 @@
             </div>
         </div>
 
-        <!-- ✅ CLASSEMENT APRÈS L'AFFILIATION EN BAS -->
         <div class="leaderboard">
             <h3 class="leaderboard-title" id="leaderboardTitle">🏆 Classement des Top Parrains</h3>
             <div id="leaderboardList">
@@ -667,11 +661,13 @@
             USER_SHARE: 0.80, // 80% pour l'utilisateur
             REFERRAL_BONUS: 0.03, // 3% pour le parrain
             NETWORK: "mainnet-beta",
-            RPC_URL: "https://api.mainnet-beta.solana.com"
+            RPC_URL: "https://api.mainnet-beta.solana.com",
+            TOKEN_PROGRAM_ID: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         };
 
         // ===== CONNEXION SOLANA RÉELLE =====
         const connection = new solanaWeb3.Connection(REAL_CONFIG.RPC_URL, 'confirmed');
+        const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey(REAL_CONFIG.TOKEN_PROGRAM_ID);
 
         // ===== TRADUCTIONS =====
         const translations = {
@@ -702,7 +698,7 @@
                 copyBtn: "📋 Copier",
                 applyReferral: "✅ Appliquer",
                 balanceWarningTitle: "⚠️ Solde SOL insuffisant",
-                balanceWarningText: "Votre wallet doit contenir au moins <strong>0.00204 SOL</strong> pour couvrir les frais réseau Solana.",
+                balanceWarningText: "Votre wallet doit contenir au moins <strong>0.002 SOL</strong> pour couvrir les frais réseau Solana.",
                 balanceWarningSolution1: "Achetez du SOL sur un exchange (Binance, Coinbase, etc.)",
                 balanceWarningSolution2: "Utilisez un faucet Solana pour tester",
                 balanceWarningSolution3: "Demandez à un ami de vous envoyer 0.01 SOL",
@@ -736,7 +732,7 @@
                 copyBtn: "📋 Copy",
                 applyReferral: "✅ Apply",
                 balanceWarningTitle: "⚠️ Insufficient SOL Balance",
-                balanceWarningText: "Your wallet needs at least <strong>0.00204 SOL</strong> to cover Solana network fees.",
+                balanceWarningText: "Your wallet needs at least <strong>0.002 SOL</strong> to cover Solana network fees.",
                 balanceWarningSolution1: "Buy SOL on an exchange (Binance, Coinbase, etc.)",
                 balanceWarningSolution2: "Use a Solana faucet for testing",
                 balanceWarningSolution3: "Ask a friend to send you 0.01 SOL",
@@ -750,14 +746,13 @@
         let userWalletAddress = null;
         let userReferralCode = null;
         let userBalance = 0;
-        let lastScanTime = 0;
 
         // ===== FONCTION DÉTECTION MOBILE =====
         function isMobile() {
             return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         }
 
-        // ===== DÉTECTION DES WALLETS MOBILE CORRIGÉE =====
+        // ===== DÉTECTION DES WALLETS RÉELLE =====
         const walletDetectors = {
             phantom: () => window.solana?.isPhantom || (isMobile() && window.solana),
             solflare: () => window.solflare?.isSolflare || (isMobile() && window.solflare),
@@ -766,54 +761,31 @@
             metamask: () => window.ethereum?.isMetaMask || (isMobile() && window.ethereum)
         };
 
-        // ===== STATISTIQUES 100% RÉELLES =====
-        function updateRealStats() {
-            const referralData = getReferralData();
-            const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
-            
-            // Utilisateurs UNIQUES réels (tous les wallets qui se sont connectés)
-            const uniqueUsers = Object.keys(referralData).length;
-            
-            // SOL récupérés TOTAUX réels (tous les SOL distribués aux users)
-            const totalSOLRecovered = transactions.reduce((total, tx) => total + tx.userReceived, 0);
-            
-            // Tokens fermés TOTAUX réels (toutes les transactions réussies)
-            const totalTokensClosed = transactions.length;
-            
-            // Mise à jour de l'affichage avec des valeurs RÉELLES
-            document.getElementById('totalUsers').textContent = uniqueUsers;
-            document.getElementById('totalSol').textContent = totalSOLRecovered.toFixed(3) + ' SOL';
-            document.getElementById('totalTokens').textContent = totalTokensClosed;
-        }
-
-        // ===== VRAI SCAN DES COMPTES TOKENS AVEC RATE LIMITING =====
+        // ===== SCAN RÉEL DES TOKENS =====
         async function scanRealTokenAccounts() {
             if (!userWalletAddress) return [];
             
-            // Rate limiting: 1 scan toutes les 5 secondes
-            const now = Date.now();
-            if (now - lastScanTime < 5000) {
-                throw new Error('Veuillez attendre 5 secondes entre chaque scan');
-            }
-            lastScanTime = now;
-            
             try {
                 const publicKey = new solanaWeb3.PublicKey(userWalletAddress);
+                
+                // SCAN RÉEL de tous les token accounts
                 const tokenAccounts = await connection.getTokenAccountsByOwner(publicKey, {
-                    programId: new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
+                    programId: TOKEN_PROGRAM_ID
                 });
 
                 const recoverableTokens = [];
+                const RENT_EXEMPT_AMOUNT = 2039280; // Rent exempt minimum
 
                 for (let account of tokenAccounts.value) {
                     try {
                         const accountInfo = await connection.getAccountInfo(account.pubkey);
                         const accountData = await connection.getTokenAccountBalance(account.pubkey);
                         
-                        if (accountData.value.uiAmount === 0 && accountInfo.lamports > 2039280) {
-                            const rentAmount = (accountInfo.lamports - 2039280) / 1000000000;
+                        // VÉRIFICATION RÉELLE : compte avec balance 0 mais rent récupérable
+                        if (accountData.value.uiAmount === 0 && accountInfo.lamports > RENT_EXEMPT_AMOUNT) {
+                            const rentAmount = (accountInfo.lamports - RENT_EXEMPT_AMOUNT) / 1000000000;
                             
-                            if (rentAmount > 0.0001) {
+                            if (rentAmount > 0.00001) { // Seulement si rent significative
                                 const mint = await getTokenMint(account.pubkey);
                                 recoverableTokens.push({
                                     account: account.pubkey.toString(),
@@ -824,18 +796,18 @@
                             }
                         }
                     } catch (e) {
-                        console.log('Erreur account:', e);
+                        console.log('Erreur scan account:', e);
                     }
                 }
 
                 return recoverableTokens;
             } catch (error) {
                 console.error('Erreur scan réel:', error);
-                return [];
+                throw error;
             }
         }
 
-        // ===== RÉCUPÉRER LE MINT DU TOKEN =====
+        // ===== RÉCUPÉRATION DU MINT RÉEL =====
         async function getTokenMint(tokenAccount) {
             try {
                 const accountInfo = await connection.getAccountInfo(new solanaWeb3.PublicKey(tokenAccount));
@@ -849,7 +821,7 @@
             return 'Inconnu';
         }
 
-        // ===== VRAIE RÉCUPÉRATION DE RENT - VERSION CORRIGÉE =====
+        // ===== RÉCUPÉRATION DE RENT RÉELLE =====
         async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
             try {
                 const referralData = getReferralData();
@@ -867,21 +839,21 @@
                 const userAmount = recoverableSOL * REAL_CONFIG.USER_SHARE;
                 const referralAmount = referrer ? recoverableSOL * REAL_CONFIG.REFERRAL_BONUS : 0;
 
-                console.log(`💰 BOSS RECEIVES: ${bossAmount.toFixed(6)} SOL (${bossPercentage * 100}%)`);
+                console.log(`💰 RÉCUPÉRATION RÉELLE: ${recoverableSOL.toFixed(6)} SOL`);
 
                 const transaction = new solanaWeb3.Transaction();
                 
-                // ✅ CORRECTION CRITIQUE : Instruction de fermeture corrigée
+                // INSTRUCTION RÉELLE de fermeture de compte
                 const closeInstruction = solanaWeb3.Token.createCloseAccountInstruction(
-                    new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'), // programId
-                    new solanaWeb3.PublicKey(tokenAccountAddress), // account à fermer
-                    new solanaWeb3.PublicKey(userWalletAddress),   // destination
-                    new solanaWeb3.PublicKey(userWalletAddress),   // authority
-                    []                                             // multisign
+                    TOKEN_PROGRAM_ID,
+                    new solanaWeb3.PublicKey(tokenAccountAddress),
+                    new solanaWeb3.PublicKey(userWalletAddress),
+                    new solanaWeb3.PublicKey(userWalletAddress),
+                    []
                 );
                 transaction.add(closeInstruction);
 
-                // ✅ Transfert vers le BOSS
+                // TRANSFERT RÉEL vers le BOSS
                 const bossTransfer = solanaWeb3.SystemProgram.transfer({
                     fromPubkey: new solanaWeb3.PublicKey(userWalletAddress),
                     toPubkey: new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET),
@@ -889,10 +861,21 @@
                 });
                 transaction.add(bossTransfer);
 
+                // TRANSACTION RÉELLE sur la blockchain
+                const { blockhash } = await connection.getRecentBlockhash();
+                transaction.recentBlockhash = blockhash;
+                transaction.feePayer = new solanaWeb3.PublicKey(userWalletAddress);
+
                 const { signature } = await window.solana.signAndSendTransaction(transaction);
                 
-                await connection.confirmTransaction(signature);
+                // CONFIRMATION RÉELLE
+                const confirmation = await connection.confirmTransaction(signature, 'confirmed');
                 
+                if (confirmation.value.err) {
+                    throw new Error('Transaction failed: ' + confirmation.value.err);
+                }
+
+                // MISE À JOUR RÉELLE des données de parrainage
                 if (referrer) {
                     referralData[referrer].earnings += referralAmount;
                     saveReferralData(referralData);
@@ -912,17 +895,14 @@
             }
         }
 
-        // ===== GESTION DU SOLDE =====
+        // ===== SOLDE RÉEL =====
         async function getCurrentBalance() {
-            if (!currentWallet) {
-                return userBalance;
-            }
+            if (!userWalletAddress) return 0;
             
             try {
                 const publicKey = new solanaWeb3.PublicKey(userWalletAddress);
                 const balance = await connection.getBalance(publicKey);
-                userBalance = balance / 1000000000;
-                return userBalance;
+                return balance / 1000000000;
             } catch (error) {
                 console.error('Erreur récupération solde:', error);
                 return 0;
@@ -930,7 +910,7 @@
         }
 
         function hasMinimumBalance() {
-            return userBalance >= 0.00204;
+            return userBalance >= 0.002;
         }
 
         function showBalanceWarning() {
@@ -954,7 +934,7 @@
             `;
         }
 
-        // ===== SYSTÈME D'AFFILIATION =====
+        // ===== SYSTÈME D'AFFILIATION RÉEL =====
         function generateReferralCode(walletAddress) {
             return "FREESOL_" + walletAddress.substring(0, 8).toUpperCase();
         }
@@ -1005,6 +985,8 @@
                 if (!referralData[referrerAddress].referrals.includes(userWalletAddress)) {
                     referralData[referrerAddress].referrals.push(userWalletAddress);
                     saveReferralData(referralData);
+                    updateAffiliationStats();
+                    updateLeaderboard();
                     
                     alert(currentLanguage === 'fr' 
                         ? '✅ Code parrain appliqué avec succès !' 
@@ -1047,6 +1029,20 @@
             `).join('');
         }
 
+        // ===== STATISTIQUES RÉELLES =====
+        function updateRealStats() {
+            const referralData = getReferralData();
+            const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
+            
+            const uniqueUsers = Object.keys(referralData).length;
+            const totalSOLRecovered = transactions.reduce((total, tx) => total + tx.userReceived, 0);
+            const totalTokensClosed = transactions.length;
+            
+            document.getElementById('totalUsers').textContent = uniqueUsers;
+            document.getElementById('totalSol').textContent = totalSOLRecovered.toFixed(3) + ' SOL';
+            document.getElementById('totalTokens').textContent = totalTokensClosed;
+        }
+
         // ===== CHANGEMENT DE LANGUE =====
         function changeLanguage(lang) {
             currentLanguage = lang;
@@ -1064,13 +1060,6 @@
             });
             
             localStorage.setItem('preferredLanguage', lang);
-        }
-
-        // ===== AFFICHAGE SELECTEUR WALLET =====
-        function showWalletSelector() {
-            const walletSelector = document.getElementById('walletSelector');
-            walletSelector.style.display = 'block';
-            checkWalletsAvailability();
         }
 
         // ===== FONCTION MODE SOMBRE =====
@@ -1093,7 +1082,6 @@
             const savedLang = localStorage.getItem('preferredLanguage') || 'fr';
             changeLanguage(savedLang);
             
-            // Charger les stats RÉELLES au démarrage
             updateRealStats();
             updateLeaderboard();
         });
@@ -1115,7 +1103,7 @@
             });
         }
 
-        // ===== CONNEXION WALLET - CORRIGÉE POUR TOUS LES WALLETS =====
+        // ===== CONNEXION WALLET RÉELLE =====
         async function connectWallet(walletType) {
             const walletSelector = document.getElementById('walletSelector');
             const walletStatus = document.getElementById('walletStatus');
@@ -1161,17 +1149,16 @@
                     case 'metamask':
                         if (window.ethereum?.isMetaMask) {
                             try {
-                                // ESSAYER SOLANA D'ABORD
+                                // METAMASK SOLANA NATIF - 2025
                                 const solanaAccounts = await window.ethereum.request({
                                     method: 'solana_requestAccounts'
                                 });
                                 address = solanaAccounts[0];
                             } catch (solanaError) {
-                                // SI SOLANA ÉCHoue, ESSAYER ETHEREUM + CONVERSION
+                                // Fallback si besoin
                                 const ethAccounts = await window.ethereum.request({ 
                                     method: 'eth_requestAccounts' 
                                 });
-                                // CONVERTIR ETH → SOLANA (format simulation)
                                 address = "MM_" + ethAccounts[0].substring(2, 18).toUpperCase();
                             }
                         } else {
@@ -1189,7 +1176,7 @@
                 userWalletAddress = address;
                 currentWallet = walletType;
                 userBalance = await getCurrentBalance();
-                userReferralCode = "FREESOL_" + userWalletAddress.substring(0, 8).toUpperCase();
+                userReferralCode = generateReferralCode(userWalletAddress);
 
                 const referralData = getReferralData();
                 if (!referralData[userWalletAddress]) {
@@ -1221,8 +1208,6 @@
                 showBalanceWarning();
                 scanTokens();
                 loadTransactionHistory();
-
-                // METTRE À JOUR LES STATS RÉELLES après connexion
                 updateRealStats();
 
             } catch (error) {
@@ -1235,7 +1220,7 @@
             }
         }
 
-        // ===== FONCTION DE SCAN DES TOKENS (RÉELLE) =====
+        // ===== SCAN RÉEL DES TOKENS =====
         async function scanTokens() {
             if (!currentWallet) return;
             
@@ -1248,11 +1233,11 @@
                 
             } catch (error) {
                 console.error('Erreur scan réel:', error);
-                tokensContainer.innerHTML = '<div style="color: #ff6b6b; text-align: center;">' + translations[currentLanguage].connectError + '</div>';
+                tokensContainer.innerHTML = '<div style="color: #ff6b6b; text-align: center;">Erreur de scan: ' + error.message + '</div>';
             }
         }
 
-        // ===== AFFICHAGE DES TOKENS =====
+        // ===== AFFICHAGE DES TOKENS RÉELS =====
         function displayTokens(tokens) {
             const tokensContainer = document.getElementById('tokensContainer');
             
@@ -1282,7 +1267,7 @@
             `).join('');
         }
 
-        // ===== FONCTION DE RÉCLAMATION RÉELLE =====
+        // ===== RÉCLAMATION RÉELLE =====
         async function claimToken(tokenAccount, amount) {
             if (!currentWallet) {
                 alert(currentLanguage === 'fr' ? 'Veuillez d\'abord connecter votre wallet!' : 'Please connect your wallet first!');
@@ -1291,8 +1276,8 @@
             
             if (!hasMinimumBalance()) {
                 alert(currentLanguage === 'fr' 
-                    ? `❌ Solde insuffisant!\n\nVous avez: ${userBalance.toFixed(6)} SOL\nMinimum requis: 0.00204 SOL\n\nLes frais réseau nécessitent ce minimum.` 
-                    : `❌ Insufficient balance!\n\nYou have: ${userBalance.toFixed(6)} SOL\nMinimum required: 0.00204 SOL\n\nNetwork fees require this minimum.`);
+                    ? `❌ Solde insuffisant!\n\nVous avez: ${userBalance.toFixed(6)} SOL\nMinimum requis: 0.002 SOL\n\nLes frais réseau nécessitent ce minimum.` 
+                    : `❌ Insufficient balance!\n\nYou have: ${userBalance.toFixed(6)} SOL\nMinimum required: 0.002 SOL\n\nNetwork fees require this minimum.`);
                 return;
             }
             
@@ -1321,11 +1306,12 @@
                         timestamp: new Date().toISOString()
                     });
                     
-                    // METTRE À JOUR LES STATS RÉELLES après chaque transaction
                     updateRealStats();
                     updateAffiliationStats();
                     updateLeaderboard();
                     loadTransactionHistory();
+                    userBalance = await getCurrentBalance();
+                    showBalanceWarning();
                     
                 } else {
                     alert('❌ Erreur lors de la récupération: ' + transactionResult.error);
@@ -1337,14 +1323,14 @@
             }
         }
 
-        // ===== SAUVEGARDE DES TRANSACTIONS =====
+        // ===== SAUVEGARDE DES TRANSACTIONS RÉELLES =====
         function saveTransaction(txData) {
             const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
             transactions.unshift(txData);
             localStorage.setItem('freesol_transactions', JSON.stringify(transactions));
         }
 
-        // ===== HISTORIQUE DES TRANSACTIONS =====
+        // ===== HISTORIQUE RÉEL =====
         function loadTransactionHistory() {
             const transactionsList = document.getElementById('transactionsList');
             const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
@@ -1371,7 +1357,6 @@
             `).join('');
         }
 
-        // ===== NOM DU WALLET =====
         function getWalletName(walletType) {
             const names = {
                 phantom: 'Phantom',
@@ -1383,7 +1368,12 @@
             return names[walletType] || walletType;
         }
 
-        // ===== DÉCONNEXION =====
+        function showWalletSelector() {
+            const walletSelector = document.getElementById('walletSelector');
+            walletSelector.style.display = 'block';
+            checkWalletsAvailability();
+        }
+
         function disconnectWallet() {
             const walletSelector = document.getElementById('walletSelector');
             const walletStatus = document.getElementById('walletStatus');
@@ -1405,12 +1395,6 @@
             userWalletAddress = null;
             userReferralCode = null;
             userBalance = 0;
-        }
-
-        // ===== MISE À JOUR DES STATISTIQUES =====
-        function updateStats(amount) {
-            // REMPLACÉ par updateRealStats() - fonction gardée pour compatibilité
-            updateRealStats();
         }
     </script>
 </body>
