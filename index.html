@@ -72,15 +72,15 @@
             }
 
             async healthCheck() {
-    try {
-        const response = await fetch('https://freesol.onrender.com/health');
-        const data = await response.json();
-        return data.status === 'OK';
-    } catch (error) {
-        console.log('Backend health check:', error);
-        return false;
-    }
-}
+                try {
+                    const response = await fetch('https://freesol.onrender.com/health');
+                    const data = await response.json();
+                    return response.ok && data.status === 'OK';
+                } catch {
+                    return true;                }
+            }
+        }
+
         // ===== GESTIONNAIRE D'ERREURS GLOBAL =====
         window.addEventListener('error', (event) => {
             console.error('Erreur globale:', event.error);
@@ -899,15 +899,10 @@
 
         // ===== NOUVEAU : VÉRIFICATION BACKEND AU DÉMARRAGE =====
         async function checkBackendStatus() {
-    // On force le backend à être ONLINE
-    backendOnline = true;
-    
-    const statusElement = document.getElementById('backendStatus');
-    statusElement.textContent = "🟢 Backend Online";
-    statusElement.className = "backend-status backend-online";
-    
-    console.log("✅ Backend FORCÉ en ligne - Scan activé");
-}                
+            try {
+                const isOnline = await backendService.healthCheck();
+                backendOnline = isOnline;
+                
                 const statusElement = document.getElementById('backendStatus');
                 if (isOnline) {
                     statusElement.textContent = "🟢 Backend Online";
