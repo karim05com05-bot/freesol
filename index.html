@@ -73,11 +73,11 @@
 
             async healthCheck() {
                 try {
-                    const response = await fetch('https://freesol.onrender.com/health');
+                    const response = await fetch('https://freesol.onrender.com/api/health');
                     const data = await response.json();
                     return response.ok && data.status === 'OK';
                 } catch {
-                    return true;                }
+                    return false;                }
             }
         }
 
