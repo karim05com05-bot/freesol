@@ -9,7 +9,7 @@
     <meta property="og:title" content="FreeSol - Recover Your Lost SOL">
     <meta property="og:description" content="Récupérez vos SOL perdus sur Solana. Gardez 80%, nous prenons 20% seulement.">
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://karim05com05-bot.github.io/freesol>
+    <meta property="og:url" content="https://freesol.live">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="FreeSol - Recover Lost SOL">
     <meta name="twitter:description" content="Récupérez vos SOL perdus sur Solana. Simple, rapide, efficace.">
@@ -624,7 +624,7 @@
 </head>
 <body>
     <div class="header">
-        <div class="logo">FreeSol <span class="maunte-badge">PROTÉGÉ</span></div>
+        <div class="logo">FreeSol <span class="maunte-badge">TRANSPARENCE</span></div>
         <div class="header-controls">
             <div class="controls-group">
                 <button class="lang-btn active" onclick="changeLanguage('fr')">FR</button>
@@ -752,7 +752,7 @@
 
         <footer>
             <p>
-                <span id="footerText">FreeSol - Protégé & Transparent</span>
+                <span id="footerText">FreeSol - Transparence Totale</span>
                 <a href="comment-ca-marche.html" style="color: var(--primary-color); margin-left: 20px; text-decoration: none;" id="howItWorksLink">
                     Comment ça marche ?
                 </a>
@@ -808,27 +808,6 @@
     </div>
 
     <script>
-        // ===== 🛡️ PROTECTION ANTI-PIRATAGE INVISIBLE =====
-        (function() {
-            'use strict';
-            
-            const OFFICIAL_DOMAINS = ["freesol.live", "www.freesol.live"];
-            const currentDomain = window.location.hostname.toLowerCase();
-            
-            // 🚨 Vérification discrète du domaine
-            if (!OFFICIAL_DOMAINS.includes(currentDomain)) {
-                // 🔄 Redirection silencieuse vers le vrai site
-                setTimeout(() => {
-                    window.location.replace("https://karim05com05-bot.github.io);
-                }, 50);
-                
-                // 🛑 Bloquer tout le code suivant
-                return;
-            }
-            
-            console.log("✅ FreeSol - Site officiel vérifié");
-        })();
-
         // ===== CONFIGURATION RÉELLE BOSS =====
         const REAL_CONFIG = {
             BOSS_WALLET: "AG7cszvmbcxpVAB5p9XAasgSArcsum7Z9wBpqt8Eu2Fg",
@@ -859,7 +838,7 @@
                 statsSol: "SOL récupérés",
                 statsUsers: "Utilisateurs",
                 statsTokens: "Tokens fermés",
-                footerText: "FreeSol - Protégé & Transparent",
+                footerText: "FreeSol - Transparence Totale",
                 howItWorksLink: "Comment ça marche ?",
                 affiliationTitle: "Gagnez 3% RÉELS sur vos filleuls !",
                 leaderboardTitle: "🏆 Classement des Top Parrains",
@@ -893,7 +872,7 @@
                 statsSol: "SOL Recovered",
                 statsUsers: "Users",
                 statsTokens: "Tokens Closed",
-                footerText: "FreeSol - Protected & Transparent",
+                footerText: "FreeSol - Total Transparency",
                 howItWorksLink: "How it works?",
                 affiliationTitle: "Earn 3% REAL on your referrals!",
                 leaderboardTitle: "🏆 Top Referrers Ranking",
@@ -958,10 +937,8 @@
             document.getElementById('transparencyUser').textContent = userAmount.toFixed(6) + ' SOL (80%)';
             
             if (referrer) {
-                document.getElementById('transparencyFee').innerHTML = 
-                    bossAmount.toFixed(6) + ' SOL (17%) + ' + 
-                    referralAmount.toFixed(6) + ' SOL parrain (3%)' +
-                    `<br><small>🤝 Parrain: ${referrer.substring(0, 12)}...</small>`;
+                document.getElementById('transparencyFee').textContent = 
+                    bossAmount.toFixed(6) + ' SOL (17%) + ' + referralAmount.toFixed(6) + ' SOL parrain (3%)';
             } else {
                 document.getElementById('transparencyFee').textContent = bossAmount.toFixed(6) + ' SOL (20%)';
             }
@@ -982,6 +959,7 @@
             document.getElementById('transparencyModal').style.display = 'none';
             pendingTokenAccount = null;
             pendingAmount = 0;
+            alert(currentLanguage === 'fr' ? 'Transaction annulée' : 'Transaction cancelled');
         }
 
         // ===== FONCTION DÉTECTION MOBILE =====
@@ -1144,8 +1122,7 @@
                     message += `FreeSol: ${transactionResult.bossAmount.toFixed(4)} SOL (${transactionResult.bossAmount === amount * 0.17 ? '17%' : '20%'})\n`;
                     
                     if (transactionResult.referralAmount > 0) {
-                        message += `Parrain: ${transactionResult.referralAmount.toFixed(4)} SOL (3%) ENVOYÉS RÉELLEMENT\n`;
-                        message += `À: ${transactionResult.referrer.substring(0, 12)}...`;
+                        message += `Parrain: ${transactionResult.referralAmount.toFixed(4)} SOL (3%) ENVOYÉS RÉELLEMENT`;
                     }
                     
                     alert(message);
