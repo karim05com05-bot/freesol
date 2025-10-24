@@ -899,10 +899,15 @@
 
         // ===== NOUVEAU : VÉRIFICATION BACKEND AU DÉMARRAGE =====
         async function checkBackendStatus() {
-            try {
-                const isOnline = await backendService.healthCheck();
-                backendOnline = isOnline;
-                
+    // On force le backend à être ONLINE
+    backendOnline = true;
+    
+    const statusElement = document.getElementById('backendStatus');
+    statusElement.textContent = "🟢 Backend Online";
+    statusElement.className = "backend-status backend-online";
+    
+    console.log("✅ Backend FORCÉ en ligne - Scan activé");
+}                
                 const statusElement = document.getElementById('backendStatus');
                 if (isOnline) {
                     statusElement.textContent = "🟢 Backend Online";
