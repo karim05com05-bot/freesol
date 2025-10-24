@@ -1,90 +1,19 @@
-const express = require('express');
-const cors = require('cors');
-const app = express();
-
-app.use(cors());
-app.use(express.json());
-
-// Route santé
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    message: 'FreeSol Backend Pro',
-    version: '1.0.0',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Scan des tokens (version simplifiée pour l'instant)
-app.post('/api/tokens/scan', async (req, res) => {
-  try {
-    const { walletAddress } = req.body;
-    
-    if (!walletAddress) {
-      return res.status(400).json({ error: 'Adresse wallet requise' });
-    }
-
-    // Pour l'instant on retourne un tableau vide
-    // Mais le backend est prêt pour les vraies données
-    const mockTokens = [
-      {
-        account: 'mock_account_1',
-        recoverable: 0.005432,
-        mint: 'TOKEN1...',
-        type: 'TOKEN_ACCOUNT_RENT'
-      }
-    ];
-
-    res.json({
-      success: true,
-      data: mockTokens,
-      cached: false,
-      timestamp: new Date().toISOString(),
-      message: 'Backend Pro - Prêt pour les scans réels'
-    });
-
-  } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      error: 'Erreur temporaire' 
-    });
-  }
-});
-
-// Vérification de transaction
-app.post('/api/transactions/verify', async (req, res) => {
-  try {
-    const { signature, expectedAmount } = req.body;
-    
-    res.json({
-      success: true,
-      verified: true,
-      signature: signature,
-      message: 'Transaction vérifiée par FreeSol Pro',
-      timestamp: new Date().toISOString()
-    });
-
-  } catch (error) {
-    res.status(500).json({ error: 'Erreur de vérification' });
-  }
-});
-
-// Statistiques
-app.get('/api/stats', (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      totalUsers: 0,
-      totalSOL: 0,
-      totalTokens: 0,
-      online: true,
-      timestamp: new Date().toISOString()
-    }
-  });
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 FreeSol Backend PRO running on port ${PORT}`);
-  console.log(`📊 Health: http://localhost:${PORT}/health`);
-});
+{
+  "name": "freesol-backend",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "@solana/web3.js": "^1.70.0",
+    "@solana/spl-token": "^0.3.8",
+    "node-cache": "^5.1.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT"
+}
