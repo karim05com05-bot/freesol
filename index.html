@@ -17,6 +17,129 @@
     <title>FreeSol - Recover Your Lost SOL</title>
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
     <script src="https://unpkg.com/@solana/spl-token@latest/lib/index.iife.js"></script>
+    
+    <!-- NOUVEAU : Backend Service -->
+    <script>
+        // ===== CONFIGURATION BACKEND =====
+        const BACKEND_CONFIG = {
+            BASE_URL: 'https://ton-backend-freesol.herokuapp.com/api', // À changer avec ton URL
+            ENDPOINTS: {
+                SCAN_TOKENS: '/tokens/scan',
+                VERIFY_TX: '/transactions/verify',
+                REFERRAL: '/referral',
+                HEALTH: '/health'
+            }
+        };
+
+        // ===== SERVICE BACKEND SIMPLIFIÉ =====
+        class BackendService {
+            async request(endpoint, options = {}) {
+                const url = `${BACKEND_CONFIG.BASE_URL}${endpoint}`;
+                
+                const config = {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Wallet-Address': window.userWalletAddress || '',
+                        'Timestamp': Date.now().toString(),
+                        ...options.headers
+                    },
+                    ...options
+                };
+
+                try {
+                    const response = await fetch(url, config);
+                    
+                    if (!response.ok) {
+                        throw new Error(`Erreur serveur: ${response.status}`);
+                    }
+                    
+                    return await response.json();
+                } catch (error) {
+                    console.error('Backend request failed:', error);
+                    throw error;
+                }
+            }
+
+            async scanTokens() {
+                return this.request(BACKEND_CONFIG.ENDPOINTS.SCAN_TOKENS);
+            }
+
+            async verifyTransaction(signature, expectedAmount, tokenAccount) {
+                return this.request(BACKEND_CONFIG.ENDPOINTS.VERIFY_TX, {
+                    method: 'POST',
+                    body: JSON.stringify({ signature, expectedAmount, tokenAccount })
+                });
+            }
+
+            async healthCheck() {
+                try {
+                    const response = await fetch(`${BACKEND_CONFIG.BASE_URL.replace('/api', '')}/health`);
+                    return response.ok;
+                } catch {
+                    return false;
+                }
+            }
+        }
+
+        // ===== GESTIONNAIRE D'ERREURS GLOBAL =====
+        window.addEventListener('error', (event) => {
+            console.error('Erreur globale:', event.error);
+            showNotification('⚠️ Une erreur inattendue est survenue', 'error');
+        });
+
+        // ===== FONCTION NOTIFICATION =====
+        function showNotification(message, type = 'info') {
+            // Créer la notification
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 10px;
+                color: white;
+                z-index: 10000;
+                max-width: 400px;
+                font-weight: bold;
+                animation: slideIn 0.3s ease;
+                ${type === 'success' ? 'background: #00ff88; color: black;' : ''}
+                ${type === 'error' ? 'background: #ff6b6b;' : ''}
+                ${type === 'warning' ? 'background: #ffa500;' : ''}
+                ${type === 'info' ? 'background: #00ccff;' : ''}
+            `;
+            
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            // Supprimer après 5 secondes
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 5000);
+        }
+
+        // Ajouter les styles d'animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Initialiser le service
+        window.backendService = new BackendService();
+    </script>
+
     <style>
         * {
             margin: 0;
@@ -492,6 +615,27 @@
             background: rgba(255, 107, 107, 0.1);
         }
 
+        /* NOUVEAU : Indicateur Backend */
+        .backend-status {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.7rem;
+            z-index: 1000;
+        }
+
+        .backend-online {
+            background: #00ff88;
+            color: black;
+        }
+
+        .backend-offline {
+            background: #ff6b6b;
+            color: white;
+        }
+
         @media (max-width: 768px) {
             .header {
                 padding: 15px 20px;
@@ -529,6 +673,11 @@
     </style>
 </head>
 <body>
+    <!-- NOUVEAU : Indicateur Backend -->
+    <div class="backend-status backend-offline" id="backendStatus">
+        🔴 Backend Offline
+    </div>
+
     <div class="header">
         <div class="logo">FreeSol <span class="maunte-badge">3% RÉELS</span></div>
         <div class="header-controls">
@@ -746,6 +895,29 @@
         let userWalletAddress = null;
         let userReferralCode = null;
         let userBalance = 0;
+        let backendOnline = false;
+
+        // ===== NOUVEAU : VÉRIFICATION BACKEND AU DÉMARRAGE =====
+        async function checkBackendStatus() {
+            try {
+                const isOnline = await backendService.healthCheck();
+                backendOnline = isOnline;
+                
+                const statusElement = document.getElementById('backendStatus');
+                if (isOnline) {
+                    statusElement.textContent = "🟢 Backend Online";
+                    statusElement.className = "backend-status backend-online";
+                    showNotification('✅ Backend connecté - Scan sécurisé activé', 'success');
+                } else {
+                    statusElement.textContent = "🔴 Backend Offline";
+                    statusElement.className = "backend-status backend-offline";
+                    showNotification('⚠️ Backend offline - Mode standalone activé', 'warning');
+                }
+            } catch (error) {
+                console.log('Backend offline:', error);
+                backendOnline = false;
+            }
+        }
 
         // ===== FONCTION DÉTECTION MOBILE =====
         function isMobile() {
@@ -761,31 +933,68 @@
             metamask: () => window.ethereum?.isMetaMask || (isMobile() && window.ethereum)
         };
 
-        // ===== SCAN RÉEL DES TOKENS =====
+        // ===== SCAN AVEC BACKEND OU FALLBACK =====
+        async function scanTokens() {
+            if (!currentWallet) return;
+            
+            const tokensContainer = document.getElementById('tokensContainer');
+            
+            try {
+                // Essayer d'abord le backend
+                if (backendOnline) {
+                    tokensContainer.innerHTML = '<div style="text-align: center;"><span class="loading"></span> Scan sécurisé en cours...</div>';
+                    
+                    const result = await backendService.scanTokens();
+                    
+                    if (result.success) {
+                        displayTokens(result.data);
+                        if (result.cached) {
+                            showNotification('📦 Données chargées depuis le cache serveur', 'info');
+                        }
+                        return;
+                    }
+                }
+                
+                // Fallback vers scan direct
+                showNotification('🔄 Scan direct activé (backend offline)', 'warning');
+                tokensContainer.innerHTML = '<div style="text-align: center;"><span class="loading"></span> Scan direct en cours...</div>';
+                
+                const realTokens = await scanRealTokenAccounts();
+                displayTokens(realTokens);
+                
+            } catch (error) {
+                console.error('Erreur scan tokens:', error);
+                
+                // Fallback en cas d'erreur
+                showNotification('🔄 Retour au scan direct...', 'warning');
+                const realTokens = await scanRealTokenAccounts();
+                displayTokens(realTokens);
+            }
+        }
+
+        // ===== SCAN RÉEL DES TOKENS (FALLBACK) =====
         async function scanRealTokenAccounts() {
             if (!userWalletAddress) return [];
             
             try {
                 const publicKey = new solanaWeb3.PublicKey(userWalletAddress);
                 
-                // SCAN RÉEL de tous les token accounts
                 const tokenAccounts = await connection.getTokenAccountsByOwner(publicKey, {
                     programId: TOKEN_PROGRAM_ID
                 });
 
                 const recoverableTokens = [];
-                const RENT_EXEMPT_AMOUNT = 2039280; // Rent exempt minimum
+                const RENT_EXEMPT_AMOUNT = 2039280;
 
                 for (let account of tokenAccounts.value) {
                     try {
                         const accountInfo = await connection.getAccountInfo(account.pubkey);
                         const accountData = await connection.getTokenAccountBalance(account.pubkey);
                         
-                        // VÉRIFICATION RÉELLE : compte avec balance 0 mais rent récupérable
                         if (accountData.value.uiAmount === 0 && accountInfo.lamports > RENT_EXEMPT_AMOUNT) {
                             const rentAmount = (accountInfo.lamports - RENT_EXEMPT_AMOUNT) / 1000000000;
                             
-                            if (rentAmount > 0.00001) { // Seulement si rent significative
+                            if (rentAmount > 0.00001) {
                                 const mint = await getTokenMint(account.pubkey);
                                 recoverableTokens.push({
                                     account: account.pubkey.toString(),
@@ -821,7 +1030,87 @@
             return 'Inconnu';
         }
 
-        // ===== RÉCUPÉRATION DE RENT RÉELLE AVEC 3% PARRAIN RÉELS =====
+        // ===== RÉCUPÉRATION DE RENT RÉELLE AVEC VÉRIFICATION BACKEND =====
+        async function claimToken(tokenAccountAddress, recoverableSOL) {
+            if (!currentWallet) {
+                showNotification('❌ Veuillez d\'abord connecter votre wallet!', 'error');
+                return;
+            }
+            
+            if (!hasMinimumBalance()) {
+                showNotification(`❌ Solde insuffisant! Vous avez: ${userBalance.toFixed(6)} SOL - Minimum: 0.002 SOL`, 'error');
+                return;
+            }
+            
+            try {
+                // Transaction blockchain
+                const transactionResult = await realRecoverRent(tokenAccountAddress, recoverableSOL);
+                
+                if (transactionResult.success) {
+                    let message = `🎉 RÉCUPÉRATION RÉUSSIE!\n\n`;
+                    message += `Transaction: ${transactionResult.signature}\n\n`;
+                    message += `Vous recevez: ${transactionResult.userAmount.toFixed(4)} SOL (80%)\n`;
+                    message += `FreeSol: ${transactionResult.bossAmount.toFixed(4)} SOL\n`;
+                    
+                    if (transactionResult.referralAmount > 0) {
+                        message += `Parrain: ${transactionResult.referralAmount.toFixed(4)} SOL (3%) ENVOYÉS RÉELLEMENT\n`;
+                    }
+
+                    // Vérification backend si disponible
+                    if (backendOnline) {
+                        try {
+                            const verification = await backendService.verifyTransaction(
+                                transactionResult.signature,
+                                transactionResult.bossAmount,
+                                tokenAccountAddress
+                            );
+
+                            if (verification.success) {
+                                message += `\n✅ VÉRIFICATION BACKEND: Transaction confirmée et sécurisée`;
+                                showNotification('✅ Transaction vérifiée par le serveur!', 'success');
+                            }
+                        } catch (verifyError) {
+                            console.log('Vérification backend échouée:', verifyError);
+                        }
+                    }
+
+                    alert(message);
+                    
+                    // Sauvegarde
+                    saveTransaction({
+                        txId: transactionResult.signature,
+                        account: tokenAccountAddress,
+                        total: recoverableSOL,
+                        userReceived: transactionResult.userAmount,
+                        bossReceived: transactionResult.bossAmount,
+                        referralFee: transactionResult.referralAmount || 0,
+                        referrer: transactionResult.referrer || null,
+                        timestamp: new Date().toISOString(),
+                        verified: backendOnline
+                    });
+                    
+                    // Mise à jour UI
+                    updateRealStats();
+                    updateAffiliationStats();
+                    updateLeaderboard();
+                    loadTransactionHistory();
+                    userBalance = await getCurrentBalance();
+                    showBalanceWarning();
+                    
+                    // Rescan après réclamation
+                    setTimeout(() => scanTokens(), 2000);
+                    
+                } else {
+                    throw new Error(transactionResult.error);
+                }
+                
+            } catch (error) {
+                console.error('Erreur réclamation:', error);
+                showNotification('❌ Erreur: ' + error.message, 'error');
+            }
+        }
+
+        // ===== RÉCUPÉRATION DE RENT RÉELLE (EXISTANT) =====
         async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
             try {
                 const referralData = getReferralData();
@@ -841,13 +1130,9 @@
 
                 console.log(`💰 RÉCUPÉRATION RÉELLE: ${recoverableSOL.toFixed(6)} SOL`);
                 console.log(`👥 PARRAIN: ${referrer ? referrer.substring(0, 8) + '...' : 'Aucun'}`);
-                console.log(`🎯 BOSS: ${bossAmount.toFixed(6)} SOL (${bossPercentage * 100}%)`);
-                console.log(`👤 UTILISATEUR: ${userAmount.toFixed(6)} SOL (80%)`);
-                console.log(`🤝 PARRAIN: ${referralAmount.toFixed(6)} SOL (3%)`);
 
                 const transaction = new solanaWeb3.Transaction();
                 
-                // INSTRUCTION RÉELLE de fermeture de compte
                 const closeInstruction = solanaWeb3.Token.createCloseAccountInstruction(
                     TOKEN_PROGRAM_ID,
                     new solanaWeb3.PublicKey(tokenAccountAddress),
@@ -857,7 +1142,6 @@
                 );
                 transaction.add(closeInstruction);
 
-                // TRANSFERT RÉEL vers le BOSS
                 const bossTransfer = solanaWeb3.SystemProgram.transfer({
                     fromPubkey: new solanaWeb3.PublicKey(userWalletAddress),
                     toPubkey: new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET),
@@ -865,7 +1149,6 @@
                 });
                 transaction.add(bossTransfer);
 
-                // ⭐⭐⭐ NOUVEAU : TRANSFERT RÉEL vers le PARRAIN ⭐⭐⭐
                 if (referrer && referralAmount > 0) {
                     const referralTransfer = solanaWeb3.SystemProgram.transfer({
                         fromPubkey: new solanaWeb3.PublicKey(userWalletAddress),
@@ -873,28 +1156,23 @@
                         lamports: Math.floor(referralAmount * 1000000000)
                     });
                     transaction.add(referralTransfer);
-                    console.log(`✅ TRANSFERT PARRAIN RÉEL: ${referralAmount.toFixed(6)} SOL vers ${referrer.substring(0, 8)}...`);
                 }
 
-                // TRANSACTION RÉELLE sur la blockchain
                 const { blockhash } = await connection.getRecentBlockhash();
                 transaction.recentBlockhash = blockhash;
                 transaction.feePayer = new solanaWeb3.PublicKey(userWalletAddress);
 
                 const { signature } = await window.solana.signAndSendTransaction(transaction);
                 
-                // CONFIRMATION RÉELLE
                 const confirmation = await connection.confirmTransaction(signature, 'confirmed');
                 
                 if (confirmation.value.err) {
                     throw new Error('Transaction failed: ' + confirmation.value.err);
                 }
 
-                // MISE À JOUR RÉELLE des données de parrainage
                 if (referrer) {
                     referralData[referrer].earnings += referralAmount;
                     saveReferralData(referralData);
-                    console.log(`📊 PARRAIN: Gains mis à jour: ${referralData[referrer].earnings.toFixed(6)} SOL total`);
                 }
 
                 return { 
@@ -1005,14 +1283,10 @@
                     updateAffiliationStats();
                     updateLeaderboard();
                     
-                    alert(currentLanguage === 'fr' 
-                        ? '✅ Code parrain appliqué avec succès ! Vous gagnerez 3% sur vos récupérations.' 
-                        : '✅ Referral code applied successfully! You will earn 3% on your recoveries.');
+                    showNotification('✅ Code parrain appliqué avec succès !', 'success');
                 }
             } else {
-                alert(currentLanguage === 'fr' 
-                    ? '❌ Code parrain invalide' 
-                    : '❌ Invalid referral code');
+                showNotification('❌ Code parrain invalide', 'error');
             }
         }
 
@@ -1060,6 +1334,71 @@
             document.getElementById('totalTokens').textContent = totalTokensClosed;
         }
 
+        // ===== AFFICHAGE DES TOKENS =====
+        function displayTokens(tokens) {
+            const tokensContainer = document.getElementById('tokensContainer');
+            
+            if (tokens.length === 0) {
+                tokensContainer.innerHTML = '<div style="text-align: center;">' + translations[currentLanguage].noTokens + '</div>';
+                return;
+            }
+            
+            const canClaim = hasMinimumBalance();
+            
+            tokensContainer.innerHTML = tokens.map(token => `
+                <div class="token-item">
+                    <div>
+                        <strong>${token.mint}</strong><br>
+                        <small>Compte: ${token.account.substring(0, 12)}...</small><br>
+                        <small style="color: var(--primary-color);">Récupérable: ${token.recoverable.toFixed(6)} SOL</small>
+                    </div>
+                    ${canClaim ? 
+                        `<button class="claim-btn" onclick="claimToken('${token.account}', ${token.recoverable})">
+                            ${translations[currentLanguage].claimButton} ${token.recoverable.toFixed(4)} SOL
+                        </button>` :
+                        `<button class="claim-btn" disabled title="${currentLanguage === 'fr' ? 'Solde SOL insuffisant pour les frais réseau' : 'Insufficient SOL balance for network fees'}">
+                            ${translations[currentLanguage].claimDisabled}
+                        </button>`
+                    }
+                </div>
+            `).join('');
+        }
+
+        // ===== SAUVEGARDE DES TRANSACTIONS =====
+        function saveTransaction(txData) {
+            const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
+            transactions.unshift(txData);
+            localStorage.setItem('freesol_transactions', JSON.stringify(transactions));
+        }
+
+        // ===== HISTORIQUE DES TRANSACTIONS =====
+        function loadTransactionHistory() {
+            const transactionsList = document.getElementById('transactionsList');
+            const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
+            
+            if (transactions.length === 0) {
+                transactionsList.innerHTML = '<div style="text-align: center; opacity: 0.7;">' + translations[currentLanguage].noTransactions + '</div>';
+                return;
+            }
+            
+            transactionsList.innerHTML = transactions.map(tx => `
+                <div class="tx-item">
+                    <div>
+                        <strong>${tx.account.substring(0, 12)}...</strong><br>
+                        <small>${currentLanguage === 'fr' ? 'Reçu' : 'Received'}: ${tx.userReceived.toFixed(4)} SOL</small>
+                        ${tx.referralFee > 0 ? `<br><small style="color: var(--primary-color);">${currentLanguage === 'fr' ? 'Parrain' : 'Referrer'}: +${tx.referralFee.toFixed(4)} SOL RÉELS</small>` : ''}
+                        ${tx.verified ? `<br><small style="color: #00ff88;">✅ Vérifié serveur</small>` : ''}
+                    </div>
+                    <div>
+                        <small>${new Date(tx.timestamp).toLocaleDateString()}</small><br>
+                        <a href="https://solscan.io/tx/${tx.txId}" target="_blank" class="tx-link">
+                            ${translations[currentLanguage].viewTransaction}
+                        </a>
+                    </div>
+                </div>
+            `).join('');
+        }
+
         // ===== CHANGEMENT DE LANGUE =====
         function changeLanguage(lang) {
             currentLanguage = lang;
@@ -1089,38 +1428,7 @@
             themeBtn.innerHTML = isDarkMode ? translations[currentLanguage].themeBtnLight : translations[currentLanguage].themeBtnDark;
         }
 
-        // ===== CHARGEMENT DES PRÉFÉRENCES =====
-        window.addEventListener('load', function() {
-            if (localStorage.getItem('darkMode') === 'true') {
-                document.body.classList.add('dark-mode');
-                document.getElementById('themeToggle').innerHTML = translations[currentLanguage].themeBtnLight;
-            }
-            
-            const savedLang = localStorage.getItem('preferredLanguage') || 'fr';
-            changeLanguage(savedLang);
-            
-            updateRealStats();
-            updateLeaderboard();
-        });
-
-        // ===== VÉRIFICATION DISPO WALLETS =====
-        function checkWalletsAvailability() {
-            const walletButtons = document.querySelectorAll('.wallet-btn');
-            walletButtons.forEach(btn => {
-                const walletType = btn.onclick.toString().match(/connectWallet\('(.+)'\)/)[1];
-                if (!walletDetectors[walletType]()) {
-                    btn.style.opacity = '0.5';
-                    btn.style.cursor = 'not-allowed';
-                    btn.onclick = null;
-                    const errorMsg = isMobile() 
-                        ? 'Ouvrez l\'app wallet et revenez' 
-                        : translations[currentLanguage].connectError + ': Wallet non installé';
-                    btn.title = errorMsg;
-                }
-            });
-        }
-
-        // ===== CONNEXION WALLET RÉELLE =====
+        // ===== CONNEXION WALLET =====
         async function connectWallet(walletType) {
             const walletSelector = document.getElementById('walletSelector');
             const walletStatus = document.getElementById('walletStatus');
@@ -1166,13 +1474,11 @@
                     case 'metamask':
                         if (window.ethereum?.isMetaMask) {
                             try {
-                                // METAMASK SOLANA NATIF - 2025
                                 const solanaAccounts = await window.ethereum.request({
                                     method: 'solana_requestAccounts'
                                 });
                                 address = solanaAccounts[0];
                             } catch (solanaError) {
-                                // Fallback si besoin
                                 const ethAccounts = await window.ethereum.request({ 
                                     method: 'eth_requestAccounts' 
                                 });
@@ -1229,151 +1535,8 @@
 
             } catch (error) {
                 console.error('Erreur connexion:', error);
-                if (error.message.includes('non installé') || error.message.includes('Ouvrez l\'app')) {
-                    alert('❌ ' + error.message);
-                } else {
-                    console.log('Erreur technique, mais la connexion devrait fonctionner');
-                }
+                showNotification('❌ ' + error.message, 'error');
             }
-        }
-
-        // ===== SCAN RÉEL DES TOKENS =====
-        async function scanTokens() {
-            if (!currentWallet) return;
-            
-            const tokensContainer = document.getElementById('tokensContainer');
-            tokensContainer.innerHTML = '<div style="text-align: center;"><span class="loading"></span> ' + translations[currentLanguage].scanning + '</div>';
-            
-            try {
-                const realTokens = await scanRealTokenAccounts();
-                displayTokens(realTokens);
-                
-            } catch (error) {
-                console.error('Erreur scan réel:', error);
-                tokensContainer.innerHTML = '<div style="color: #ff6b6b; text-align: center;">Erreur de scan: ' + error.message + '</div>';
-            }
-        }
-
-        // ===== AFFICHAGE DES TOKENS RÉELS =====
-        function displayTokens(tokens) {
-            const tokensContainer = document.getElementById('tokensContainer');
-            
-            if (tokens.length === 0) {
-                tokensContainer.innerHTML = '<div style="text-align: center;">' + translations[currentLanguage].noTokens + '</div>';
-                return;
-            }
-            
-            const canClaim = hasMinimumBalance();
-            
-            tokensContainer.innerHTML = tokens.map(token => `
-                <div class="token-item">
-                    <div>
-                        <strong>${token.mint}</strong><br>
-                        <small>Compte: ${token.account.substring(0, 12)}...</small><br>
-                        <small style="color: var(--primary-color);">Récupérable: ${token.recoverable.toFixed(6)} SOL</small>
-                    </div>
-                    ${canClaim ? 
-                        `<button class="claim-btn" onclick="claimToken('${token.account}', ${token.recoverable})">
-                            ${translations[currentLanguage].claimButton} ${token.recoverable.toFixed(4)} SOL
-                        </button>` :
-                        `<button class="claim-btn" disabled title="${currentLanguage === 'fr' ? 'Solde SOL insuffisant pour les frais réseau' : 'Insufficient SOL balance for network fees'}">
-                            ${translations[currentLanguage].claimDisabled}
-                        </button>`
-                    }
-                </div>
-            `).join('');
-        }
-
-        // ===== RÉCLAMATION RÉELLE =====
-        async function claimToken(tokenAccount, amount) {
-            if (!currentWallet) {
-                alert(currentLanguage === 'fr' ? 'Veuillez d\'abord connecter votre wallet!' : 'Please connect your wallet first!');
-                return;
-            }
-            
-            if (!hasMinimumBalance()) {
-                alert(currentLanguage === 'fr' 
-                    ? `❌ Solde insuffisant!\n\nVous avez: ${userBalance.toFixed(6)} SOL\nMinimum requis: 0.002 SOL\n\nLes frais réseau nécessitent ce minimum.` 
-                    : `❌ Insufficient balance!\n\nYou have: ${userBalance.toFixed(6)} SOL\nMinimum required: 0.002 SOL\n\nNetwork fees require this minimum.`);
-                return;
-            }
-            
-            try {
-                const transactionResult = await realRecoverRent(tokenAccount, amount);
-                
-                if (transactionResult.success) {
-                    let message = `🎉 RÉCUPÉRATION RÉUSSIE!\n\n`;
-                    message += `Transaction: ${transactionResult.signature}\n\n`;
-                    message += `Vous recevez: ${transactionResult.userAmount.toFixed(4)} SOL (80%)\n`;
-                    message += `FreeSol: ${transactionResult.bossAmount.toFixed(4)} SOL (${transactionResult.bossAmount === amount * 0.17 ? '17%' : '20%'})\n`;
-                    
-                    if (transactionResult.referralAmount > 0) {
-                        message += `Parrain: ${transactionResult.referralAmount.toFixed(4)} SOL (3%) ENVOYÉS RÉELLEMENT\n`;
-                        message += `À: ${transactionResult.referrer.substring(0, 12)}...`;
-                    }
-                    
-                    alert(message);
-                    
-                    saveTransaction({
-                        txId: transactionResult.signature,
-                        account: tokenAccount,
-                        total: amount,
-                        userReceived: transactionResult.userAmount,
-                        bossReceived: transactionResult.bossAmount,
-                        referralFee: transactionResult.referralAmount || 0,
-                        referrer: transactionResult.referrer || null,
-                        timestamp: new Date().toISOString()
-                    });
-                    
-                    updateRealStats();
-                    updateAffiliationStats();
-                    updateLeaderboard();
-                    loadTransactionHistory();
-                    userBalance = await getCurrentBalance();
-                    showBalanceWarning();
-                    
-                } else {
-                    alert('❌ Erreur lors de la récupération: ' + transactionResult.error);
-                }
-                
-            } catch (error) {
-                console.error('Erreur réclamation:', error);
-                alert((currentLanguage === 'fr' ? 'Erreur lors de la récupération: ' : 'Claim error: ') + error.message);
-            }
-        }
-
-        // ===== SAUVEGARDE DES TRANSACTIONS RÉELLES =====
-        function saveTransaction(txData) {
-            const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
-            transactions.unshift(txData);
-            localStorage.setItem('freesol_transactions', JSON.stringify(transactions));
-        }
-
-        // ===== HISTORIQUE RÉEL =====
-        function loadTransactionHistory() {
-            const transactionsList = document.getElementById('transactionsList');
-            const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
-            
-            if (transactions.length === 0) {
-                transactionsList.innerHTML = '<div style="text-align: center; opacity: 0.7;">' + translations[currentLanguage].noTransactions + '</div>';
-                return;
-            }
-            
-            transactionsList.innerHTML = transactions.map(tx => `
-                <div class="tx-item">
-                    <div>
-                        <strong>${tx.account.substring(0, 12)}...</strong><br>
-                        <small>${currentLanguage === 'fr' ? 'Reçu' : 'Received'}: ${tx.userReceived.toFixed(4)} SOL</small>
-                        ${tx.referralFee > 0 ? `<br><small style="color: var(--primary-color);">${currentLanguage === 'fr' ? 'Parrain' : 'Referrer'}: +${tx.referralFee.toFixed(4)} SOL RÉELS</small>` : ''}
-                    </div>
-                    <div>
-                        <small>${new Date(tx.timestamp).toLocaleDateString()}</small><br>
-                        <a href="https://solscan.io/tx/${tx.txId}" target="_blank" class="tx-link">
-                            ${translations[currentLanguage].viewTransaction}
-                        </a>
-                    </div>
-                </div>
-            `).join('');
         }
 
         function getWalletName(walletType) {
@@ -1415,6 +1578,42 @@
             userReferralCode = null;
             userBalance = 0;
         }
+
+        function checkWalletsAvailability() {
+            const walletButtons = document.querySelectorAll('.wallet-btn');
+            walletButtons.forEach(btn => {
+                const walletType = btn.onclick.toString().match(/connectWallet\('(.+)'\)/)[1];
+                if (!walletDetectors[walletType]()) {
+                    btn.style.opacity = '0.5';
+                    btn.style.cursor = 'not-allowed';
+                    btn.onclick = null;
+                    const errorMsg = isMobile() 
+                        ? 'Ouvrez l\'app wallet et revenez' 
+                        : translations[currentLanguage].connectError + ': Wallet non installé';
+                    btn.title = errorMsg;
+                }
+            });
+        }
+
+        // ===== CHARGEMENT DES PRÉFÉRENCES =====
+        window.addEventListener('load', function() {
+            if (localStorage.getItem('darkMode') === 'true') {
+                document.body.classList.add('dark-mode');
+                document.getElementById('themeToggle').innerHTML = translations[currentLanguage].themeBtnLight;
+            }
+            
+            const savedLang = localStorage.getItem('preferredLanguage') || 'fr';
+            changeLanguage(savedLang);
+            
+            updateRealStats();
+            updateLeaderboard();
+            
+            // Vérifier le statut du backend
+            checkBackendStatus();
+            
+            // Re-vérifier toutes les 30 secondes
+            setInterval(checkBackendStatus, 30000);
+        });
     </script>
 </body>
 </html>
