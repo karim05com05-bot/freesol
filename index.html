@@ -77,7 +77,7 @@
                     const data = await response.json();
                     return response.ok && data.status === 'OK';
                 } catch {
-                    return true;                }
+                    return false;}
             }
         }
 
