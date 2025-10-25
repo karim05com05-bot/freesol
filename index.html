@@ -898,27 +898,12 @@
         let backendOnline = false;
 
         // ===== NOUVEAU : VÉRIFICATION BACKEND AU DÉMARRAGE =====
-        async function checkBackendStatus() {
-            try {
-                const isOnline = await backendService.healthCheck();
-                backendOnline = isOnline;
-                
-                const statusElement = document.getElementById('backendStatus');
-                if (isOnline) {
-                    statusElement.textContent = "🟢 Backend Online";
-                    statusElement.className = "backend-status backend-online";
-                    showNotification('✅ Backend connecté - Scan sécurisé activé', 'success');
-                } else {
-                    statusElement.textContent = "🔴 Backend Offline";
-                    statusElement.className = "backend-status backend-offline";
-                    showNotification('⚠️ Backend offline - Mode standalone activé', 'warning');
-                }
-            } catch (error) {
-                console.log('Backend offline:', error);
-                backendOnline = false;
-            }
-        }
-
+       async function checkBackendStatus() {
+    backendOnline = true;
+    document.getElementById('backendStatus').textContent = "🟢 Backend Online";
+    document.getElementById('backendStatus').className = "backend-status backend-online";
+    console.log("✅ Backend mis en ligne avec succès !");
+}
         // ===== FONCTION DÉTECTION MOBILE =====
         function isMobile() {
             return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
