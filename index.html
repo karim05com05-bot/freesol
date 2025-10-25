@@ -945,8 +945,7 @@
             } catch (error) {
                 console.error('Erreur scan tokens:', error);
                 
-                // Fallback en cas d'erreur - UNE SEULE NOTIFICATION
-                showNotification('🔄 Nouvelle tentative de scan...', 'warning');
+               
                 const realTokens = await scanRealTokenAccounts();
                 displayTokens(realTokens);
             }
