@@ -75,8 +75,16 @@
             }
         }
 
-        // FONCTION NOTIFICATION
+        // ===== NOTIFICATION SYSTEM CORRIGÉ =====
+        let currentNotification = null;
+
         function showNotification(message, type = 'info') {
+            // Supprimer la notification existante
+            if (currentNotification) {
+                currentNotification.remove();
+            }
+            
+            // Créer la nouvelle notification
             const notification = document.createElement('div');
             notification.style.cssText = `
                 position: fixed;
@@ -98,14 +106,21 @@
             notification.textContent = message;
             document.body.appendChild(notification);
             
+            // Sauvegarder la référence
+            currentNotification = notification;
+            
+            // Supprimer après 4 secondes
             setTimeout(() => {
-                notification.style.animation = 'slideOut 0.3s ease';
-                setTimeout(() => {
-                    if (notification.parentNode) {
-                        notification.parentNode.removeChild(notification);
-                    }
-                }, 300);
-            }, 5000);
+                if (notification.parentNode) {
+                    notification.style.animation = 'slideOut 0.3s ease';
+                    setTimeout(() => {
+                        if (notification.parentNode) {
+                            notification.parentNode.removeChild(notification);
+                            currentNotification = null;
+                        }
+                    }, 300);
+                }
+            }, 4000);
         }
 
         // Styles d'animation
@@ -124,7 +139,7 @@
 
         // Initialiser le service
         window.backendService = new BackendService();
-        window.backendOnline = true; // TOUJOURS ONLINE
+        window.backendOnline = true;
     </script>
 
     <style>
@@ -686,9 +701,6 @@
                 <button class="wallet-btn" onclick="connectWallet('glow')">
                     <span>✨</span> Glow
                 </button>
-                <button class="wallet-btn" onclick="connectWallet('metamask')">
-                    <span>🦊</span> MetaMask
-                </button>
             </div>
         </div>
 
@@ -776,10 +788,10 @@
         // ===== CONFIGURATION RÉELLE BOSS =====
         const REAL_CONFIG = {
             BOSS_WALLET: "AG7cszvmbcxpVAB5p9XAasgSArcsum7Z9wBpqt8Eu2Fg",
-            BOSS_FEE: 0.20, // 20% pour le BOSS
-            BOSS_FEE_REFERRAL: 0.17, // 17% quand y a parrain
-            USER_SHARE: 0.80, // 80% pour l'utilisateur
-            REFERRAL_BONUS: 0.03, // 3% pour le parrain
+            BOSS_FEE: 0.20,
+            BOSS_FEE_REFERRAL: 0.17,
+            USER_SHARE: 0.80,
+            REFERRAL_BONUS: 0.03,
             NETWORK: "mainnet-beta",
             RPC_URL: "https://api.mainnet-beta.solana.com",
             TOKEN_PROGRAM_ID: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
@@ -866,7 +878,7 @@
         let userWalletAddress = null;
         let userReferralCode = null;
         let userBalance = 0;
-        let backendOnline = true; // TOUJOURS ONLINE
+        let backendOnline = true;
 
         // ===== FONCTION DÉTECTION MOBILE =====
         function isMobile() {
@@ -878,9 +890,30 @@
             phantom: () => window.solana?.isPhantom || (isMobile() && window.solana),
             solflare: () => window.solflare?.isSolflare || (isMobile() && window.solflare),
             backpack: () => window.backpack?.isBackpack || (isMobile() && window.backpack),
-            glow: () => window.glow?.isGlow || (isMobile() && window.glow),
-            metamask: () => window.ethereum?.isMetaMask || (isMobile() && window.ethereum)
+            glow: () => window.glow?.isGlow || (isMobile() && window.glow)
         };
+
+        // ===== VÉRIFICATION BACKEND SIMPLIFIÉE =====
+        async function checkBackendStatus() {
+            try {
+                const isOnline = await backendService.healthCheck();
+                backendOnline = isOnline;
+                
+                const statusElement = document.getElementById('backendStatus');
+                if (isOnline) {
+                    statusElement.textContent = "🟢 Backend Online";
+                    statusElement.className = "backend-status backend-online";
+                    // PLUS DE NOTIFICATION AUTOMATIQUE
+                } else {
+                    statusElement.textContent = "🔴 Backend Offline";
+                    statusElement.className = "backend-status backend-offline";
+                    // PLUS DE NOTIFICATION AUTOMATIQUE
+                }
+            } catch (error) {
+                console.log('Backend offline:', error);
+                backendOnline = false;
+            }
+        }
 
         // ===== SCAN AVEC BACKEND OU FALLBACK =====
         async function scanTokens() {
@@ -897,15 +930,13 @@
                     
                     if (result.success) {
                         displayTokens(result.data);
-                        if (result.cached) {
-                            showNotification('📦 Données chargées depuis le cache serveur', 'info');
-                        }
+                        // PLUS DE NOTIFICATION POUR LE CACHE
                         return;
                     }
                 }
                 
-                // Fallback vers scan direct
-                showNotification('🔄 Scan direct activé (backend offline)', 'warning');
+                // Fallback vers scan direct - UNE SEULE NOTIFICATION
+                showNotification('🔄 Scan des tokens en cours...', 'info');
                 tokensContainer.innerHTML = '<div style="text-align: center;"><span class="loading"></span> Scan direct en cours...</div>';
                 
                 const realTokens = await scanRealTokenAccounts();
@@ -914,8 +945,8 @@
             } catch (error) {
                 console.error('Erreur scan tokens:', error);
                 
-                // Fallback en cas d'erreur
-                showNotification('🔄 Retour au scan direct...', 'warning');
+                // Fallback en cas d'erreur - UNE SEULE NOTIFICATION
+                showNotification('🔄 Nouvelle tentative de scan...', 'warning');
                 const realTokens = await scanRealTokenAccounts();
                 displayTokens(realTokens);
             }
@@ -1420,23 +1451,6 @@
                             throw new Error('Glow wallet non disponible');
                         }
                         break;
-                    case 'metamask':
-                        if (window.ethereum?.isMetaMask) {
-                            try {
-                                const solanaAccounts = await window.ethereum.request({
-                                    method: 'solana_requestAccounts'
-                                });
-                                address = solanaAccounts[0];
-                            } catch (solanaError) {
-                                const ethAccounts = await window.ethereum.request({ 
-                                    method: 'eth_requestAccounts' 
-                                });
-                                address = "MM_" + ethAccounts[0].substring(2, 18).toUpperCase();
-                            }
-                        } else {
-                            throw new Error('MetaMask non disponible');
-                        }
-                        break;
                     default:
                         throw new Error('Wallet non supporté');
                 }
@@ -1493,8 +1507,7 @@
                 phantom: 'Phantom',
                 solflare: 'Solflare',
                 backpack: 'Backpack',
-                glow: 'Glow',
-                metamask: 'MetaMask'
+                glow: 'Glow'
             };
             return names[walletType] || walletType;
         }
