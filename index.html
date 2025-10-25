@@ -898,12 +898,31 @@
         let backendOnline = false;
 
         // ===== NOUVEAU : VÉRIFICATION BACKEND AU DÉMARRAGE =====
-       async function checkBackendStatus() {
-    backendOnline = true;
-    document.getElementById('backendStatus').textContent = "🟢 Backend Online";
-    document.getElementById('backendStatus').className = "backend-status backend-online";
-    console.log("✅ Backend mis en ligne avec succès !");
-}
+     async function checkBackendStatus() {
+    try {
+        const isOnline = await backendService.healthCheck();
+        console.log("🔄 HealthCheck result:", isOnline);
+        
+        // METTRE À JOUR LA VARIABLE !
+        backendOnline = isOnline;
+        
+        const statusElement = document.getElementById('backendStatus');
+        if (isOnline) {
+            statusElement.textContent = "🟢 Backend Online";
+            statusElement.className = "backend-status backend-online";
+            showNotification('✅ Backend connecté - Scan sécurisé activé', 'success');
+        } else {
+            statusElement.textContent = "🔴 Backend Offline";
+            statusElement.className = "backend-status backend-offline";
+            showNotification('⚠️ Backend offline - Mode standalone activé', 'warning');
+        }
+        
+        console.log("✅ BackendOnline après mise à jour:", backendOnline);
+    } catch (error) {
+        console.log('Backend offline:', error);
+        backendOnline = false;
+    }
+}        
         // ===== FONCTION DÉTECTION MOBILE =====
         function isMobile() {
             return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
