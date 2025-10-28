@@ -24,7 +24,9 @@
             BASE_URL: 'https://freesol.onrender.com/api',
             ENDPOINTS: {
                 SCAN_TOKENS: '/tokens/scan',
-                VERIFY_TX: '/transactions/verify'
+                VERIFY_TX: '/transactions/verify',
+                GLOBAL_TRANSACTIONS: '/transactions/global',
+                ADD_TRANSACTION: '/transactions/add'
             }
         };
 
@@ -60,6 +62,17 @@
                 return this.request(BACKEND_CONFIG.ENDPOINTS.VERIFY_TX, {
                     method: 'POST',
                     body: JSON.stringify({ signature, expectedAmount, tokenAccount })
+                });
+            }
+
+            async getGlobalTransactions() {
+                return this.request(BACKEND_CONFIG.ENDPOINTS.GLOBAL_TRANSACTIONS);
+            }
+
+            async addGlobalTransaction(txData) {
+                return this.request(BACKEND_CONFIG.ENDPOINTS.ADD_TRANSACTION, {
+                    method: 'POST',
+                    body: JSON.stringify(txData)
                 });
             }
 
@@ -178,7 +191,8 @@
         body.dark-mode .tx-history,
         body.dark-mode .wallet-selector,
         body.dark-mode .affiliation-card,
-        body.dark-mode .leaderboard {
+        body.dark-mode .leaderboard,
+        body.dark-mode .transactions-card {
             background: var(--dark-card-bg);
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
@@ -320,6 +334,13 @@
             transform: translateY(-2px);
         }
 
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 30px;
+            margin: 40px 0;
+        }
+
         .main-card {
             background: var(--card-bg);
             backdrop-filter: blur(10px);
@@ -447,6 +468,31 @@
 
         .tx-link:hover {
             text-decoration: underline;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .transactions-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .transaction-item {
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .transaction-item:last-child {
+            border-bottom: none;
         }
 
         .affiliation-card {
@@ -646,6 +692,10 @@
                 grid-template-columns: 1fr;
             }
 
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+
             .leader-item {
                 flex-direction: column;
                 text-align: center;
@@ -674,7 +724,7 @@
                     🌙
                 </button>
             </div>
-            <a href="dashboard.html" class="nav-btn">📊 Dashboard</a>
+            <!-- DASHBOARD SUPPRIMÉ -->
             <button class="connect-header-btn" onclick="showWalletSelector()" id="connectHeaderBtn">
                 Connect Wallet
             </button>
@@ -704,26 +754,72 @@
             </div>
         </div>
 
-        <div class="main-card">
-            <div class="wallet-section">
-                <div class="wallet-status" id="walletStatus" style="display: none;">
-                    <div id="walletInfo"></div>
+        <div class="main-grid">
+            <div class="main-card">
+                <div class="wallet-section">
+                    <div class="wallet-status" id="walletStatus" style="display: none;">
+                        <div id="walletInfo"></div>
+                    </div>
+                </div>
+
+                <div id="balanceWarningContainer"></div>
+
+                <div class="tokens-list">
+                    <h3 id="tokensTitle">Tokens récupérables</h3>
+                    <div id="tokensContainer">
+                        <!-- Les tokens apparaîtront ici -->
+                    </div>
+                </div>
+
+                <div class="tx-history" id="txHistory" style="display: none;">
+                    <h3 id="txHistoryTitle">📜 Historique de tes transactions</h3>
+                    <div id="transactionsList">
+                        <!-- Les transactions apparaîtront ici -->
+                    </div>
                 </div>
             </div>
 
-            <div id="balanceWarningContainer"></div>
-
-            <div class="tokens-list">
-                <h3 id="tokensTitle">Tokens récupérables</h3>
-                <div id="tokensContainer">
-                    <!-- Les tokens apparaîtront ici -->
+            <div class="sidebar">
+                <!-- NOUVELLE SECTION TRANSACTIONS GLOBALES -->
+                <div class="transactions-card">
+                    <h3>📜 Transactions Récentes</h3>
+                    <div id="globalTransactionsList">
+                        <div style="text-align: center; padding: 20px;">
+                            <span class="loading"></span>
+                            <div style="margin-top: 10px;">Chargement des transactions...</div>
+                        </div>
+                    </div>
                 </div>
-            </div>
 
-            <div class="tx-history" id="txHistory" style="display: none;">
-                <h3 id="txHistoryTitle">📜 Historique des transactions</h3>
-                <div id="transactionsList">
-                    <!-- Les transactions apparaîtront ici -->
+                <div class="affiliation-card" id="affiliationCard" style="display: none;">
+                    <div class="affiliation-badge">🎯 PROGRAMME DE PARRAINAGE</div>
+                    <h4 id="affiliationTitle">Gagnez 3% RÉELS sur vos filleuls !</h4>
+                    
+                    <div class="referral-code" id="referralCode">
+                        Chargement...
+                    </div>
+                    <button class="copy-btn" onclick="copyReferralCode()" id="copyBtn">📋 Copier</button>
+                    
+                    <div style="margin: 15px 0; padding: 12px; background: rgba(0, 255, 136, 0.1); border-radius: 8px; font-size: 0.9rem;">
+                        <p>👥 <strong>Filleuls:</strong> <span id="referralCount">0</span></p>
+                        <p>💰 <strong>Gains RÉELS:</strong> <span id="referralEarnings">0.000 SOL</span></p>
+                    </div>
+
+                    <div style="margin-top: 15px;">
+                        <h5>👋 Code parrain d'un ami</h5>
+                        <input type="text" class="referral-input" id="friendReferralInput" placeholder="Code parrain (optionnel)">
+                        <button class="copy-btn" onclick="applyReferralCode()">✅ Appliquer</button>
+                    </div>
+                </div>
+
+                <div class="leaderboard">
+                    <h3 class="leaderboard-title" id="leaderboardTitle">🏆 Classement des Top Parrains</h3>
+                    <div id="leaderboardList">
+                        <div style="text-align: center; padding: 20px;">
+                            <span class="loading"></span>
+                            <div>Chargement du classement...</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -740,37 +836,6 @@
             <div class="stat-card">
                 <h3 id="statsTokens">Tokens fermés</h3>
                 <p id="totalTokens">0</p>
-            </div>
-        </div>
-
-        <div class="affiliation-card" id="affiliationCard" style="display: none;">
-            <div class="affiliation-badge">🎯 PROGRAMME DE PARRAINAGE</div>
-            <h4 id="affiliationTitle">Gagnez 3% RÉELS sur vos filleuls !</h4>
-            
-            <div class="referral-code" id="referralCode">
-                Chargement...
-            </div>
-            <button class="copy-btn" onclick="copyReferralCode()" id="copyBtn">📋 Copier</button>
-            
-            <div style="margin: 15px 0; padding: 12px; background: rgba(0, 255, 136, 0.1); border-radius: 8px; font-size: 0.9rem;">
-                <p>👥 <strong>Filleuls:</strong> <span id="referralCount">0</span></p>
-                <p>💰 <strong>Gains RÉELS:</strong> <span id="referralEarnings">0.000 SOL</span></p>
-            </div>
-
-            <div style="margin-top: 15px;">
-                <h5>👋 Code parrain d'un ami</h5>
-                <input type="text" class="referral-input" id="friendReferralInput" placeholder="Code parrain (optionnel)">
-                <button class="copy-btn" onclick="applyReferralCode()">✅ Appliquer</button>
-            </div>
-        </div>
-
-        <div class="leaderboard">
-            <h3 class="leaderboard-title" id="leaderboardTitle">🏆 Classement des Top Parrains</h3>
-            <div id="leaderboardList">
-                <div style="text-align: center; padding: 20px;">
-                    <span class="loading"></span>
-                    <div>Chargement du classement...</div>
-                </div>
             </div>
         </div>
 
@@ -808,7 +873,7 @@
                 walletTitle: "Choisissez votre wallet",
                 connectHeaderBtn: "Connecter Wallet",
                 tokensTitle: "Tokens récupérables",
-                txHistoryTitle: "📜 Historique des transactions",
+                txHistoryTitle: "📜 Historique de tes transactions",
                 statsSol: "SOL récupérés",
                 statsUsers: "Utilisateurs",
                 statsTokens: "Tokens fermés",
@@ -842,7 +907,7 @@
                 walletTitle: "Choose your wallet",
                 connectHeaderBtn: "Connect Wallet",
                 tokensTitle: "Recoverable tokens",
-                txHistoryTitle: "📜 Transaction History",
+                txHistoryTitle: "📜 Your Transaction History",
                 statsSol: "SOL Recovered",
                 statsUsers: "Users",
                 statsTokens: "Tokens Closed",
@@ -880,6 +945,36 @@
         let userBalance = 0;
         let backendOnline = true;
 
+        // ===== CHARGEMENT DES TRANSACTIONS GLOBALES AU DÉMARRAGE =====
+        async function loadGlobalTransactions() {
+            const transactionsList = document.getElementById('globalTransactionsList');
+            
+            try {
+                const result = await backendService.getGlobalTransactions();
+                
+                if (result.success && result.transactions.length > 0) {
+                    transactionsList.innerHTML = result.transactions.map(tx => `
+                        <div class="transaction-item">
+                            <div>
+                                <strong>+${tx.userReceived.toFixed(4)} SOL</strong><br>
+                                <small>${tx.userWallet} • ${new Date(tx.timestamp).toLocaleDateString()}</small>
+                            </div>
+                            <div>
+                                <a href="https://solscan.io/tx/${tx.txId}" target="_blank" class="tx-link">
+                                    🔗 Voir
+                                </a>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    transactionsList.innerHTML = '<div style="text-align: center; opacity: 0.7;">Aucune transaction globale pour le moment</div>';
+                }
+            } catch (error) {
+                console.error('Erreur chargement transactions globales:', error);
+                transactionsList.innerHTML = '<div style="text-align: center; opacity: 0.7;">Chargement des transactions...</div>';
+            }
+        }
+
         // ===== FONCTION DÉTECTION MOBILE =====
         function isMobile() {
             return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -903,11 +998,9 @@
                 if (isOnline) {
                     statusElement.textContent = "🟢 Backend Online";
                     statusElement.className = "backend-status backend-online";
-                    // PLUS DE NOTIFICATION AUTOMATIQUE
                 } else {
                     statusElement.textContent = "🔴 Backend Offline";
                     statusElement.className = "backend-status backend-offline";
-                    // PLUS DE NOTIFICATION AUTOMATIQUE
                 }
             } catch (error) {
                 console.log('Backend offline:', error);
@@ -930,12 +1023,11 @@
                     
                     if (result.success) {
                         displayTokens(result.data);
-                        // PLUS DE NOTIFICATION POUR LE CACHE
                         return;
                     }
                 }
                 
-                // Fallback vers scan direct - UNE SEULE NOTIFICATION
+                // Fallback vers scan direct
                 showNotification('🔄 Scan des tokens en cours...', 'info');
                 tokensContainer.innerHTML = '<div style="text-align: center;"><span class="loading"></span> Scan direct en cours...</div>';
                 
@@ -945,7 +1037,7 @@
             } catch (error) {
                 console.error('Erreur scan tokens:', error);
                 
-               
+                // Fallback en cas d'erreur
                 const realTokens = await scanRealTokenAccounts();
                 displayTokens(realTokens);
             }
@@ -1055,8 +1147,8 @@
 
                     alert(message);
                     
-                    // Sauvegarde
-                    saveTransaction({
+                    // Données de la transaction
+                    const txData = {
                         txId: transactionResult.signature,
                         account: tokenAccountAddress,
                         total: recoverableSOL,
@@ -1066,7 +1158,25 @@
                         referrer: transactionResult.referrer || null,
                         timestamp: new Date().toISOString(),
                         verified: backendOnline
-                    });
+                    };
+
+                    // Sauvegarde LOCALE
+                    saveTransaction(txData);
+                    
+                    // Sauvegarde GLOBALE dans MongoDB
+                    try {
+                        await backendService.addGlobalTransaction({
+                            txId: transactionResult.signature,
+                            userReceived: transactionResult.userAmount,
+                            userWallet: userWalletAddress.substring(0, 8) + '...', // Anonymisé
+                            bossReceived: transactionResult.bossAmount
+                        });
+                        
+                        // Recharger les transactions globales
+                        loadGlobalTransactions();
+                    } catch (globalError) {
+                        console.log('Erreur sauvegarde globale:', globalError);
+                    }
                     
                     // Mise à jour UI
                     updateRealStats();
@@ -1568,6 +1678,9 @@
             
             updateRealStats();
             updateLeaderboard();
+            
+            // Charger les transactions globales au démarrage
+            loadGlobalTransactions();
             
             // Backend toujours considéré comme online
             backendOnline = true;
