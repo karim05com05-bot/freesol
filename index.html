@@ -26,7 +26,8 @@
                 SCAN_TOKENS: '/tokens/scan',
                 VERIFY_TX: '/transactions/verify',
                 GLOBAL_TRANSACTIONS: '/transactions/global',
-                ADD_TRANSACTION: '/transactions/add'
+                ADD_TRANSACTION: '/transactions/add',
+                GLOBAL_STATS: '/global-stats'
             }
         };
 
@@ -74,6 +75,10 @@
                     method: 'POST',
                     body: JSON.stringify(txData)
                 });
+            }
+
+            async getGlobalStats() {
+                return this.request(BACKEND_CONFIG.ENDPOINTS.GLOBAL_STATS);
             }
 
             async healthCheck() {
@@ -251,24 +256,7 @@
             color: black;
         }
 
-        .nav-btn {
-            background: transparent;
-            border: 1px solid var(--primary-color);
-            color: var(--primary-color);
-            padding: 10px 20px;
-            border-radius: 20px;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-decoration: none;
-            display: inline-block;
-            font-size: 0.9rem;
-        }
-
-        .nav-btn:hover {
-            background: rgba(0, 255, 136, 0.1);
-            transform: translateY(-2px);
-        }
-
+        /* DASHBOARD SUPPRIMÉ */
         .connect-header-btn {
             background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
             border: none;
@@ -332,13 +320,6 @@
         .wallet-btn:hover {
             background: rgba(255, 255, 255, 0.2);
             transform: translateY(-2px);
-        }
-
-        .main-grid {
-            display: grid;
-            grid-template-columns: 1fr 400px;
-            gap: 30px;
-            margin: 40px 0;
         }
 
         .main-card {
@@ -441,6 +422,27 @@
             transition: all 0.3s ease;
         }
 
+        /* NOUVELLE SECTION TRANSACTIONS GLOBALES */
+        .transactions-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .transaction-item {
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .transaction-item:last-child {
+            border-bottom: none;
+        }
+
         .tx-history {
             background: var(--card-bg);
             padding: 20px;
@@ -468,31 +470,6 @@
 
         .tx-link:hover {
             text-decoration: underline;
-        }
-
-        .sidebar {
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-        }
-
-        .transactions-card {
-            background: var(--card-bg);
-            padding: 20px;
-            border-radius: 15px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .transaction-item {
-            padding: 12px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .transaction-item:last-child {
-            border-bottom: none;
         }
 
         .affiliation-card {
@@ -692,10 +669,6 @@
                 grid-template-columns: 1fr;
             }
 
-            .main-grid {
-                grid-template-columns: 1fr;
-            }
-
             .leader-item {
                 flex-direction: column;
                 text-align: center;
@@ -754,76 +727,31 @@
             </div>
         </div>
 
-        <div class="main-grid">
-            <div class="main-card">
-                <div class="wallet-section">
-                    <div class="wallet-status" id="walletStatus" style="display: none;">
-                        <div id="walletInfo"></div>
-                    </div>
-                </div>
-
-                <div id="balanceWarningContainer"></div>
-
-                <div class="tokens-list">
-                    <h3 id="tokensTitle">Tokens récupérables</h3>
-                    <div id="tokensContainer">
-                        <!-- Les tokens apparaîtront ici -->
-                    </div>
-                </div>
-
-                <div class="tx-history" id="txHistory" style="display: none;">
-                    <h3 id="txHistoryTitle">📜 Historique de tes transactions</h3>
-                    <div id="transactionsList">
-                        <!-- Les transactions apparaîtront ici -->
-                    </div>
+        <div class="main-card">
+            <div class="wallet-section">
+                <div class="wallet-status" id="walletStatus" style="display: none;">
+                    <div id="walletInfo"></div>
                 </div>
             </div>
 
-            <div class="sidebar">
-                <!-- NOUVELLE SECTION TRANSACTIONS GLOBALES -->
-                <div class="transactions-card">
-                    <h3>📜 Transactions Récentes</h3>
-                    <div id="globalTransactionsList">
-                        <div style="text-align: center; padding: 20px;">
-                            <span class="loading"></span>
-                            <div style="margin-top: 10px;">Chargement des transactions...</div>
-                        </div>
-                    </div>
+            <div id="balanceWarningContainer"></div>
+
+            <div class="tokens-list">
+                <h3 id="tokensTitle">Tokens récupérables</h3>
+                <div id="tokensContainer">
+                    <!-- Les tokens apparaîtront ici -->
                 </div>
+            </div>
 
-                <div class="affiliation-card" id="affiliationCard" style="display: none;">
-                    <div class="affiliation-badge">🎯 PROGRAMME DE PARRAINAGE</div>
-                    <h4 id="affiliationTitle">Gagnez 3% RÉELS sur vos filleuls !</h4>
-                    
-                    <div class="referral-code" id="referralCode">
-                        Chargement...
-                    </div>
-                    <button class="copy-btn" onclick="copyReferralCode()" id="copyBtn">📋 Copier</button>
-                    
-                    <div style="margin: 15px 0; padding: 12px; background: rgba(0, 255, 136, 0.1); border-radius: 8px; font-size: 0.9rem;">
-                        <p>👥 <strong>Filleuls:</strong> <span id="referralCount">0</span></p>
-                        <p>💰 <strong>Gains RÉELS:</strong> <span id="referralEarnings">0.000 SOL</span></p>
-                    </div>
-
-                    <div style="margin-top: 15px;">
-                        <h5>👋 Code parrain d'un ami</h5>
-                        <input type="text" class="referral-input" id="friendReferralInput" placeholder="Code parrain (optionnel)">
-                        <button class="copy-btn" onclick="applyReferralCode()">✅ Appliquer</button>
-                    </div>
-                </div>
-
-                <div class="leaderboard">
-                    <h3 class="leaderboard-title" id="leaderboardTitle">🏆 Classement des Top Parrains</h3>
-                    <div id="leaderboardList">
-                        <div style="text-align: center; padding: 20px;">
-                            <span class="loading"></span>
-                            <div>Chargement du classement...</div>
-                        </div>
-                    </div>
+            <div class="tx-history" id="txHistory" style="display: none;">
+                <h3 id="txHistoryTitle">📜 Historique de tes transactions</h3>
+                <div id="transactionsList">
+                    <!-- Les transactions apparaîtront ici -->
                 </div>
             </div>
         </div>
 
+        <!-- STATISTIQUES -->
         <div class="stats">
             <div class="stat-card">
                 <h3 id="statsSol">SOL récupérés</h3>
@@ -836,6 +764,50 @@
             <div class="stat-card">
                 <h3 id="statsTokens">Tokens fermés</h3>
                 <p id="totalTokens">0</p>
+            </div>
+        </div>
+
+        <!-- NOUVELLE SECTION : TRANSACTIONS GLOBALES -->
+        <div class="transactions-card">
+            <h3>📜 Transactions Récentes</h3>
+            <div id="globalTransactionsList">
+                <div style="text-align: center; padding: 20px;">
+                    <span class="loading"></span>
+                    <div style="margin-top: 10px;">Chargement des transactions...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PROGRAMME DE PARRAINAGE -->
+        <div class="affiliation-card" id="affiliationCard" style="display: none;">
+            <div class="affiliation-badge">🎯 PROGRAMME DE PARRAINAGE</div>
+            <h4 id="affiliationTitle">Gagnez 3% RÉELS sur vos filleuls !</h4>
+            
+            <div class="referral-code" id="referralCode">
+                Chargement...
+            </div>
+            <button class="copy-btn" onclick="copyReferralCode()" id="copyBtn">📋 Copier</button>
+            
+            <div style="margin: 15px 0; padding: 12px; background: rgba(0, 255, 136, 0.1); border-radius: 8px; font-size: 0.9rem;">
+                <p>👥 <strong>Filleuls:</strong> <span id="referralCount">0</span></p>
+                <p>💰 <strong>Gains RÉELS:</strong> <span id="referralEarnings">0.000 SOL</span></p>
+            </div>
+
+            <div style="margin-top: 15px;">
+                <h5>👋 Code parrain d'un ami</h5>
+                <input type="text" class="referral-input" id="friendReferralInput" placeholder="Code parrain (optionnel)">
+                <button class="copy-btn" onclick="applyReferralCode()">✅ Appliquer</button>
+            </div>
+        </div>
+
+        <!-- CLASSEMENT -->
+        <div class="leaderboard">
+            <h3 class="leaderboard-title" id="leaderboardTitle">🏆 Classement des Top Parrains</h3>
+            <div id="leaderboardList">
+                <div style="text-align: center; padding: 20px;">
+                    <span class="loading"></span>
+                    <div>Chargement du classement...</div>
+                </div>
             </div>
         </div>
 
@@ -945,7 +917,7 @@
         let userBalance = 0;
         let backendOnline = true;
 
-        // ===== CHARGEMENT DES TRANSACTIONS GLOBALES AU DÉMARRAGE =====
+        // ===== CHARGEMENT DES TRANSACTIONS GLOBALES =====
         async function loadGlobalTransactions() {
             const transactionsList = document.getElementById('globalTransactionsList');
             
@@ -972,6 +944,46 @@
             } catch (error) {
                 console.error('Erreur chargement transactions globales:', error);
                 transactionsList.innerHTML = '<div style="text-align: center; opacity: 0.7;">Chargement des transactions...</div>';
+            }
+        }
+
+        // ===== STATISTIQUES GLOBALES RÉELLES =====
+        async function updateRealStats() {
+            try {
+                // Essaie d'abord les stats globales du backend
+                const result = await backendService.getGlobalStats();
+                
+                if (result.success) {
+                    // Stats RÉELLES depuis MongoDB
+                    document.getElementById('totalUsers').textContent = result.stats.totalUsers;
+                    document.getElementById('totalSol').textContent = result.stats.totalSOL.toFixed(3) + ' SOL';
+                    document.getElementById('totalTokens').textContent = result.stats.totalTokens;
+                } else {
+                    // Fallback vers stats locales
+                    const referralData = getReferralData();
+                    const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
+                    
+                    const uniqueUsers = Object.keys(referralData).length;
+                    const totalSOLRecovered = transactions.reduce((total, tx) => total + tx.userReceived, 0);
+                    const totalTokensClosed = transactions.length;
+                    
+                    document.getElementById('totalUsers').textContent = uniqueUsers;
+                    document.getElementById('totalSol').textContent = totalSOLRecovered.toFixed(3) + ' SOL';
+                    document.getElementById('totalTokens').textContent = totalTokensClosed;
+                }
+            } catch (error) {
+                console.error('Erreur stats globales:', error);
+                // Fallback local
+                const referralData = getReferralData();
+                const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
+                
+                const uniqueUsers = Object.keys(referralData).length;
+                const totalSOLRecovered = transactions.reduce((total, tx) => total + tx.userReceived, 0);
+                const totalTokensClosed = transactions.length;
+                
+                document.getElementById('totalUsers').textContent = uniqueUsers;
+                document.getElementById('totalSol').textContent = totalSOLRecovered.toFixed(3) + ' SOL';
+                document.getElementById('totalTokens').textContent = totalTokensClosed;
             }
         }
 
@@ -1172,14 +1184,14 @@
                             bossReceived: transactionResult.bossAmount
                         });
                         
-                        // Recharger les transactions globales
+                        // Recharger les transactions globales et stats
                         loadGlobalTransactions();
+                        updateRealStats();
                     } catch (globalError) {
                         console.log('Erreur sauvegarde globale:', globalError);
                     }
                     
                     // Mise à jour UI
-                    updateRealStats();
                     updateAffiliationStats();
                     updateLeaderboard();
                     loadTransactionHistory();
@@ -1407,20 +1419,6 @@
                     </div>
                 </div>
             `).join('');
-        }
-
-        // ===== STATISTIQUES RÉELLES =====
-        function updateRealStats() {
-            const referralData = getReferralData();
-            const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
-            
-            const uniqueUsers = Object.keys(referralData).length;
-            const totalSOLRecovered = transactions.reduce((total, tx) => total + tx.userReceived, 0);
-            const totalTokensClosed = transactions.length;
-            
-            document.getElementById('totalUsers').textContent = uniqueUsers;
-            document.getElementById('totalSol').textContent = totalSOLRecovered.toFixed(3) + ' SOL';
-            document.getElementById('totalTokens').textContent = totalTokensClosed;
         }
 
         // ===== AFFICHAGE DES TOKENS =====
@@ -1676,11 +1674,10 @@
             const savedLang = localStorage.getItem('preferredLanguage') || 'fr';
             changeLanguage(savedLang);
             
+            // Charger les stats globales et transactions au démarrage
             updateRealStats();
-            updateLeaderboard();
-            
-            // Charger les transactions globales au démarrage
             loadGlobalTransactions();
+            updateLeaderboard();
             
             // Backend toujours considéré comme online
             backendOnline = true;
