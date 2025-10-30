@@ -1487,23 +1487,27 @@
         }
 
         // ===== CHANGEMENT DE LANGUE =====
-        function changeLanguage(lang) {
-            currentLanguage = lang;
-            
-            document.querySelectorAll('.lang-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            event.target.classList.add('active');
-            
-            Object.keys(translations[lang]).forEach(key => {
-                const element = document.getElementById(key);
-                if (element) {
-                    element.textContent = translations[lang][key];
-                }
-            });
-            
-            localStorage.setItem('preferredLanguage', lang);
+       function changeLanguage(lang) {
+    currentLanguage = lang;
+    
+    // Met à jour les boutons langue
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.textContent.trim() === lang.toUpperCase()) {
+            btn.classList.add('active');
         }
+    });
+    
+    // Met à jour tous les textes
+    Object.keys(translations[lang]).forEach(key => {
+        const element = document.getElementById(key);
+        if (element) {
+            element.textContent = translations[lang][key];
+        }
+    });
+    
+    localStorage.setItem('preferredLanguage', lang);
+}
 
         // ===== FONCTION MODE SOMBRE =====
         function toggleDarkMode() {
