@@ -1056,48 +1056,57 @@
         }
 
         // ===== SCAN RÉEL DES TOKENS (FALLBACK) =====
-        async function scanRealTokenAccounts() {
-            if (!userWalletAddress) return [];
-            
+       async function scanRealTokenAccounts() {
+    if (!userWalletAddress) return [];
+    
+    try {
+        const publicKey = new solanaWeb3.PublicKey(userWalletAddress);
+        
+        const tokenAccounts = await connection.getTokenAccountsByOwner(publicKey, {
+            programId: TOKEN_PROGRAM_ID
+        });
+
+        const recoverableTokens = [];
+        const RENT_EXEMPT_AMOUNT = 2039280;
+
+        console.log("🔍 Scan de", tokenAccounts.value.length, "comptes tokens...");
+
+        for (let account of tokenAccounts.value) {
             try {
-                const publicKey = new solanaWeb3.PublicKey(userWalletAddress);
+                const accountInfo = await connection.getAccountInfo(account.pubkey);
+                const accountData = await connection.getTokenAccountBalance(account.pubkey);
                 
-                const tokenAccounts = await connection.getTokenAccountsByOwner(publicKey, {
-                    programId: TOKEN_PROGRAM_ID
-                });
-
-                const recoverableTokens = [];
-                const RENT_EXEMPT_AMOUNT = 2039280;
-
-                for (let account of tokenAccounts.value) {
-                    try {
-                        const accountInfo = await connection.getAccountInfo(account.pubkey);
-                        const accountData = await connection.getTokenAccountBalance(account.pubkey);
-                        
-                        if (accountData.value.uiAmount === 0 && accountInfo.lamports > RENT_EXEMPT_AMOUNT) {
-                            const rentAmount = (accountInfo.lamports - RENT_EXEMPT_AMOUNT) / 1000000000;
-                            
-                            if (rentAmount > 0.00001) {
-                                const mint = await getTokenMint(account.pubkey);
-                                recoverableTokens.push({
-                                    account: account.pubkey.toString(),
-                                    recoverable: rentAmount,
-                                    mint: mint,
-                                    type: 'TOKEN_ACCOUNT_RENT'
-                                });
-                            }
-                        }
-                    } catch (e) {
-                        console.log('Erreur scan account:', e);
+                // ⚠️ SUPPRIME cette condition restrictive :
+                // if (accountData.value.uiAmount === 0 && accountInfo.lamports > RENT_EXEMPT_AMOUNT) {
+                
+                // ⚡ REMPLACE par cette condition plus large :
+                if (accountInfo.lamports > RENT_EXEMPT_AMOUNT) {
+                    const rentAmount = (accountInfo.lamports - RENT_EXEMPT_AMOUNT) / 1000000000;
+                    
+                    // Baisser le seuil pour attraper plus de tokens
+                    if (rentAmount > 0.000001) {
+                        const mint = await getTokenMint(account.pubkey);
+                        recoverableTokens.push({
+                            account: account.pubkey.toString(),
+                            recoverable: rentAmount,
+                            mint: mint,
+                            type: 'TOKEN_ACCOUNT_RENT',
+                            tokenBalance: accountData.value.uiAmount || 0
+                        });
                     }
                 }
-
-                return recoverableTokens;
-            } catch (error) {
-                console.error('Erreur scan réel:', error);
-                throw error;
+            } catch (e) {
+                console.log('Erreur scan account:', e);
             }
         }
+
+        console.log("✅ Tokens récupérables trouvés:", recoverableTokens.length);
+        return recoverableTokens;
+    } catch (error) {
+        console.error('Erreur scan réel:', error);
+        throw error;
+    }
+}
 
         // ===== RÉCUPÉRATION DU MINT RÉEL =====
         async function getTokenMint(tokenAccount) {
