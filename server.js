@@ -191,3 +191,18 @@ app.post('/api/transactions/verify', (req, res) => {
 app.listen(PORT, () => {
   console.log(`FreeSol backend running on port ${PORT}`);
 });
+app.get('/api/tokens/scan', async (req, res) => {
+    try {
+        console.log("🔍 SCAN RÉEL GET - En attente d'adresse...");
+        
+        res.json({ 
+            success: true, 
+            data: [],
+            message: "Backend prêt - Connectez votre wallet sur freesol.live pour scan réel"
+        });
+
+    } catch (error) {
+        console.error('❌ ERREUR:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
