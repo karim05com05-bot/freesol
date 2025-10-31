@@ -1056,96 +1056,52 @@
         }
 
         // ===== SCAN RÉEL DES TOKENS (FALLBACK) =====
-     async function scanRealTokenAccounts() {
+    async function scanRealTokenAccounts() {
     if (!userWalletAddress) return [];
     
     try {
-        const publicKey = new solanaWeb3.PublicKey(userWalletAddress);
+        console.log("🔍 UTILISATION API SOLSCAN POUR DONNÉES RÉELLES...");
+
+        // API Solscan pour avoir les VRAIES données
+        const response = await fetch(`https://public-api.solscan.io/account/tokens?account=${userWalletAddress}`);
+        const data = await response.json();
+        
         const recoverableTokens = [];
         const RENT_EXEMPT_AMOUNT = 2039280;
 
-        console.log("🔍 SCAN COMPLET RÉEL EN COURS...");
+        console.log("📊 Données Solscan reçues:", data);
 
-        // TYPE 1 : COMPTES ACTIFS AVEC BALANCE = 0
-        console.log("📊 Scan des comptes actifs...");
-        const tokenAccounts = await connection.getTokenAccountsByOwner(publicKey, {
-            programId: TOKEN_PROGRAM_ID
-        });
-
-        for (let account of tokenAccounts.value) {
-            try {
-                const accountInfo = await connection.getAccountInfo(account.pubkey);
-                if (!accountInfo) continue;
-                
-                const accountData = await connection.getTokenAccountBalance(account.pubkey);
-                const rentAmount = (accountInfo.lamports - RENT_EXEMPT_AMOUNT) / 1000000000;
-                
-                // TYPE 1: Comptes actifs avec balance = 0
-                if (accountData.value.uiAmount === 0 && accountInfo.lamports > RENT_EXEMPT_AMOUNT && rentAmount > 0.000001) {
-                    const mint = await getTokenMint(account.pubkey);
-                    recoverableTokens.push({
-                        account: account.pubkey.toString(),
-                        recoverable: rentAmount,
-                        mint: mint,
-                        type: 'ACTIVE_EMPTY_ACCOUNT'
-                    });
-                    console.log("🎯 TYPE 1 RÉEL TROUVÉ:", rentAmount, "SOL");
-                }
-            } catch (e) {
-                console.log('Erreur scan actif:', e);
-            }
-        }
-
-        // TYPE 2 : COMPTES FERMÉS - SCAN DES TRANSACTIONS
-        console.log("📊 Scan des comptes fermés...");
-        try {
-            const signatures = await connection.getSignaturesForAddress(publicKey, { limit: 50 });
-            
-            for (let sig of signatures) {
+        if (data && data.data) {
+            for (let token of data.data) {
                 try {
-                    const tx = await connection.getTransaction(sig.signature, {
-                        maxSupportedTransactionVersion: 0
-                    });
-
-                    if (tx && tx.meta && tx.meta.preTokenBalances) {
-                        // Chercher les comptes qui avaient des tokens avant mais plus maintenant
-                        for (let preBalance of tx.meta.preTokenBalances) {
-                            const account = preBalance.account;
-                            try {
-                                // Vérifier si le compte existe encore
-                                const currentInfo = await connection.getAccountInfo(new solanaWeb3.PublicKey(account));
-                                if (!currentInfo) {
-                                    // COMPTE FERMÉ - calculer la rent récupérable
-                                    const rentAmount = 0.0018; // Estimation standard pour compte fermé
-                                    recoverableTokens.push({
-                                        account: account,
-                                        recoverable: rentAmount,
-                                        mint: "Closed Account",
-                                        type: 'CLOSED_ACCOUNT'
-                                    });
-                                    console.log("🎯 TYPE 2 RÉEL TROUVÉ - Compte fermé: 0.0018 SOL");
-                                }
-                            } catch (e) {
-                                // Compte probablement fermé
-                            }
+                    // Vérifier si le compte a une balance de 0 mais existe encore
+                    const accountInfo = await connection.getAccountInfo(new solanaWeb3.PublicKey(token.tokenAddress));
+                    
+                    if (accountInfo) {
+                        const rentAmount = (accountInfo.lamports - RENT_EXEMPT_AMOUNT) / 1000000000;
+                        
+                        if (token.tokenAmount.uiAmount === 0 && rentAmount > 0.000001) {
+                            recoverableTokens.push({
+                                account: token.tokenAddress,
+                                recoverable: rentAmount,
+                                mint: token.tokenSymbol || token.tokenName,
+                                type: 'REAL_SOLSCAN_DATA'
+                            });
+                            console.log("🎯 RÉEL TROUVÉ via Solscan:", rentAmount, "SOL");
                         }
                     }
                 } catch (e) {
-                    // Continuer avec la prochaine transaction
+                    console.log('Erreur token:', e);
                 }
             }
-        } catch (e) {
-            console.log("Scan fermé échoué:", e);
         }
 
-        console.log("✅ SCAN 100% RÉEL TERMINÉ - Total:", recoverableTokens.length);
-        
-        // 100% RÉEL - RETOURNE CE QU'ON A VRAIMENT TROUVÉ
+        console.log("✅ SCAN API TERMINÉ - Tokens réels:", recoverableTokens.length);
         return recoverableTokens;
 
     } catch (error) {
-        console.error('Erreur scan réel:', error);
-        return []; // 100% RÉEL - retourne vide si erreur
+        console.error('Erreur API Solscan:', error);
+        return [];
     }
 }
         // ===== RÉCUPÉRATION DE RENT RÉELLE AVEC VÉRIFICATION BACKEND =====
