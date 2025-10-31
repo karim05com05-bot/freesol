@@ -1020,40 +1020,48 @@
             }
         }
 
-        // ===== SCAN AVEC BACKEND OU FALLBACK =====
-        async function scanTokens() {
-            if (!currentWallet) return;
-            
-            const tokensContainer = document.getElementById('tokensContainer');
-            
-            try {
-                // Essayer d'abord le backend
-                if (backendOnline) {
-                    tokensContainer.innerHTML = '<div style="text-align: center;"><span class="loading"></span> Scan sécurisé en cours...</div>';
-                    
-                    const result = await backendService.scanTokens();
-                    
-                    if (result.success) {
-                        displayTokens(result.data);
-                        return;
-                    }
-                }
-                
-                // Fallback vers scan direct
-                showNotification('🔄 Scan des tokens en cours...', 'info');
-                tokensContainer.innerHTML = '<div style="text-align: center;"><span class="loading"></span> Scan direct en cours...</div>';
-                
-                const realTokens = await scanRealTokenAccounts();
-                displayTokens(realTokens);
-                
-            } catch (error) {
-                console.error('Erreur scan tokens:', error);
-                
-                // Fallback en cas d'erreur
-                const realTokens = await scanRealTokenAccounts();
-                displayTokens(realTokens);
+     // ===== SCAN AVEC BACKEND PROFESSIONNEL =====
+async function scanTokens() {
+    if (!currentWallet) return;
+    
+    const tokensContainer = document.getElementById('tokensContainer');
+    
+    try {
+        showNotification('🔍 Scan professionnel en cours...', 'info');
+        tokensContainer.innerHTML = '<div style="text-align: center;"><span class="loading"></span> Scan des tokens abandonnés...</div>';
+        
+        // API BACKEND PROFESSIONNEL
+        const response = await fetch('https://freesol-scanner.onrender.com/api/scan-tokens', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                walletAddress: userWalletAddress
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            if (result.tokens && result.tokens.length > 0) {
+                showNotification(`🎯 ${result.tokens.length} token(s) récupérable(s) trouvé(s)!`, 'success');
+                displayTokens(result.tokens);
+            } else {
+                showNotification('✅ Aucun token abandonné trouvé - Votre wallet est propre!', 'info');
+                tokensContainer.innerHTML = '<div style="text-align: center; padding: 20px;">🎉 Aucun token abandonné trouvé<br><small>Votre wallet est optimisé</small></div>';
             }
+        } else {
+            showNotification('❌ Erreur lors du scan', 'error');
+            tokensContainer.innerHTML = '<div style="text-align: center; color: #ff6b6b;">Erreur de scan</div>';
         }
+        
+    } catch (error) {
+        console.error('Erreur scan:', error);
+        showNotification('❌ Problème de connexion au scanner', 'error');
+        tokensContainer.innerHTML = '<div style="text-align: center; color: #ff6b6b;">Erreur de connexion</div>';
+    }
+}
 
         // ===== SCAN RÉEL DES TOKENS (FALLBACK) =====
     async function scanRealTokenAccounts() {
