@@ -1159,49 +1159,103 @@ async function scanTokens() {
 }
         // ===== RÉCUPÉRATION DE RENT RÉELLE AVEC VÉRIFICATION BACKEND =====
         async function claimToken(tokenAccountAddress, recoverableSOL) {
-            if (!currentWallet) {
-                showNotification('❌ Veuillez d\'abord connecter votre wallet!', 'error');
-                return;
-            }
+    if (!currentWallet) {
+        showNotification('❌ Veuillez d\'abord connecter votre wallet!', 'error');
+        return;
+    }
+    
+    if (!hasMinimumBalance()) {
+        showNotification(`❌ Solde insuffisant! Vous avez: ${userBalance.toFixed(6)} SOL - Minimum: 0.002 SOL`, 'error');
+        return;
+    }
+    
+    try {
+        console.log("🔄 Début réclamation...");
+        
+        // Transaction blockchain
+        const transactionResult = await realRecoverRent(tokenAccountAddress, recoverableSOL);
+        
+        if (transactionResult.success) {
+            let message = `🎉 RÉCUPÉRATION RÉUSSIE!\n\n`;
+            message += `Transaction: ${transactionResult.signature}\n\n`;
+            message += `Vous recevez: ${transactionResult.userAmount.toFixed(4)} SOL (80%)\n`;
+            message += `FreeSol: ${transactionResult.bossAmount.toFixed(4)} SOL\n`;
             
-            if (!hasMinimumBalance()) {
-                showNotification(`❌ Solde insuffisant! Vous avez: ${userBalance.toFixed(6)} SOL - Minimum: 0.002 SOL`, 'error');
-                return;
+            if (transactionResult.referralAmount > 0) {
+                message += `Parrain: ${transactionResult.referralAmount.toFixed(4)} SOL (3%) ENVOYÉS RÉELLEMENT\n`;
             }
+
+            // Vérification backend si disponible
+            if (backendOnline) {
+                try {
+                    const verification = await backendService.verifyTransaction(
+                        transactionResult.signature,
+                        transactionResult.bossAmount,
+                        tokenAccountAddress
+                    );
+
+                    if (verification.success) {
+                        message += `\n✅ VÉRIFICATION BACKEND: Transaction confirmée et sécurisée`;
+                        showNotification('✅ Transaction vérifiée par le serveur!', 'success');
+                    }
+                } catch (verifyError) {
+                    console.log('Vérification backend échouée:', verifyError);
+                }
+            }
+
+            alert(message);
             
+            // Données de la transaction
+            const txData = {
+                txId: transactionResult.signature,
+                account: tokenAccountAddress,
+                total: recoverableSOL,
+                userReceived: transactionResult.userAmount,
+                bossReceived: transactionResult.bossAmount,
+                referralFee: transactionResult.referralAmount || 0,
+                referrer: transactionResult.referrer || null,
+                timestamp: new Date().toISOString(),
+                verified: backendOnline
+            };
+
+            // Sauvegarde LOCALE
+            saveTransaction(txData);
+            
+            // Sauvegarde GLOBALE dans MongoDB
             try {
-                // Transaction blockchain
-                const transactionResult = await realRecoverRent(tokenAccountAddress, recoverableSOL);
+                await backendService.addGlobalTransaction({
+                    txId: transactionResult.signature,
+                    userReceived: transactionResult.userAmount,
+                    userWallet: userWalletAddress.substring(0, 8) + '...',
+                    bossReceived: transactionResult.bossAmount
+                });
                 
-                if (transactionResult.success) {
-                    let message = `🎉 RÉCUPÉRATION RÉUSSIE!\n\n`;
-                    message += `Transaction: ${transactionResult.signature}\n\n`;
-                    message += `Vous recevez: ${transactionResult.userAmount.toFixed(4)} SOL (80%)\n`;
-                    message += `FreeSol: ${transactionResult.bossAmount.toFixed(4)} SOL\n`;
-                    
-                    if (transactionResult.referralAmount > 0) {
-                        message += `Parrain: ${transactionResult.referralAmount.toFixed(4)} SOL (3%) ENVOYÉS RÉELLEMENT\n`;
-                    }
-
-                    // Vérification backend si disponible
-                    if (backendOnline) {
-                        try {
-                            const verification = await backendService.verifyTransaction(
-                                transactionResult.signature,
-                                transactionResult.bossAmount,
-                                tokenAccountAddress
-                            );
-
-                            if (verification.success) {
-                                message += `\n✅ VÉRIFICATION BACKEND: Transaction confirmée et sécurisée`;
-                                showNotification('✅ Transaction vérifiée par le serveur!', 'success');
-                            }
-                        } catch (verifyError) {
-                            console.log('Vérification backend échouée:', verifyError);
-                        }
-                    }
-
-                    alert(message);
+                // Recharger les transactions globales et stats
+                loadGlobalTransactions();
+                updateRealStats();
+            } catch (globalError) {
+                console.log('Erreur sauvegarde globale:', globalError);
+            }
+            
+            // Mise à jour UI
+            updateAffiliationStats();
+            updateLeaderboard();
+            loadTransactionHistory();
+            userBalance = await getCurrentBalance();
+            showBalanceWarning();
+            
+            // Rescan après réclamation
+            setTimeout(() => scanTokens(), 2000);
+            
+        } else {
+            throw new Error(transactionResult.error || "Erreur inconnue");
+        }
+        
+    } catch (error) {
+        console.error('Erreur réclamation:', error);
+        showNotification('❌ Erreur: ' + error.message, 'error');
+    }
+}
                     
                     // Données de la transaction
                     const txData = {
