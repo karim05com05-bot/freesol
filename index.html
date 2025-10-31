@@ -1077,7 +1077,7 @@
                 const accountData = await connection.getTokenAccountBalance(account.pubkey);
                 
                 // ⚠️ SUPPRIME cette condition restrictive :
-                // if (accountData.value.uiAmount === 0 && accountInfo.lamports > RENT_EXEMPT_AMOUNT) {
+                // if (accountInfo.lamports > RENT_EXEMPT_AMOUNT) {
                 
                 // ⚡ REMPLACE par cette condition plus large :
                 if (accountInfo.lamports > RENT_EXEMPT_AMOUNT) {
