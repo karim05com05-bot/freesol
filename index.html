@@ -1075,7 +1075,10 @@
             try {
                 const accountInfo = await connection.getAccountInfo(account.pubkey);
                 const accountData = await connection.getTokenAccountBalance(account.pubkey);
-                
+                // ⚠️ AJOUTE CES 3 LIGNES EXACTEMENT ICI :
+console.log("🔍 COMPTE:", account.pubkey.toString().substring(0, 15) + "...");
+console.log("  Balance tokens:", accountData.value.uiAmount);
+console.log("  Rent récupérable:", (accountInfo.lamports - 2039280) / 1000000000);
                 // ⚠️ SUPPRIME cette condition restrictive :
                 // if (accountInfo.lamports > RENT_EXEMPT_AMOUNT) {
                 
