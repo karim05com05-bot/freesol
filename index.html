@@ -1063,7 +1063,7 @@
         console.log("🔍 UTILISATION API SOLSCAN POUR DONNÉES RÉELLES...");
 
         // API Solscan pour avoir les VRAIES données
-        const response = await fetch(`https://public-api.solscan.io/account/tokens?account=${userWalletAddress}`);
+        const response =  await fetch(`https://api.solscan.io/v2/account/tokens?address=${userWalletAddress}`);
         const data = await response.json();
         
         const recoverableTokens = [];
