@@ -1238,7 +1238,7 @@ async function scanTokens() {
             }
         }
 
-        // ===== RÉCUPÉRATION DE RENT RÉELLE (EXISTANT) =====
+      
         // ===== RÉCUPÉRATION CORRIGÉE =====
 async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
@@ -1272,7 +1272,7 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
                 { pubkey: new solanaWeb3.PublicKey(userWalletAddress), isSigner: false, isWritable: true },
             ],
             programId: TOKEN_PROGRAM_ID,
-            data: Buffer.from([10]) // Instruction code for CloseAccount
+            data: new Uint8Array([10]) // Instruction code for CloseAccount
         };
         transaction.add(closeInstruction);
 
