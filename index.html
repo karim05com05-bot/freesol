@@ -837,11 +837,11 @@
         // ===== CONNEXION SOLANA RÉELLE =====
         const connection = new solanaWeb3.Connection(REAL_CONFIG.RPC_URL, 'confirmed');
         const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey(REAL_CONFIG.TOKEN_PROGRAM_ID);
-        function createCloseAccountInstruction(
+        // ===== FONCTION CORRECTE POUR FERMER UN COMPTE TOKEN =====
+function createCloseAccountInstruction(
     account,
     destination,
-    authority,
-    programId = TOKEN_PROGRAM_ID
+    authority
 ) {
     const keys = [
         { pubkey: account, isSigner: false, isWritable: true },
@@ -851,10 +851,10 @@
 
     return new solanaWeb3.TransactionInstruction({
         keys,
-        programId,
-        data: new Uint8Array([10, 0, 0, 0, 0, 0, 0, 0]), // CloseAccount instruction
+        programId: TOKEN_PROGRAM_ID, // Utilise la variable globale
+        data: new Uint8Array([10]), // Juste le code instruction, pas besoin de padding
     });
-}
+}  
         // ===== TRADUCTIONS =====
         const translations = {
             fr: {
@@ -1256,43 +1256,29 @@ async function scanTokens() {
         }
 
       
-
-// ===== RÉCUPÉRATION AVEC INSTRUCTION CORRECTE =====
+// ===== RÉCUPÉRATION SIMPLIFIÉE =====
 async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🚀 Récupération avec instruction correcte...");
+        console.log("🚀 Début récupération...");
         
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
 
-        // CRÉER LA TRANSACTION
         const transaction = new solanaWeb3.Transaction();
 
-        // UTILISER LA BONNE INSTRUCTION
+        // INSTRUCTION DE FERMETURE CORRECTE
         const closeInstruction = createCloseAccountInstruction(
-            tokenPublicKey,      // compte à fermer
-            userPublicKey,       // destination des SOL
-            userPublicKey        // autorité
+            tokenPublicKey,
+            userPublicKey, 
+            userPublicKey
         );
         transaction.add(closeInstruction);
 
-        // AJOUTER LES TRANSFERTS
-        const referralData = getReferralData();
-        let referrer = null;
-        
-        for (const [address, data] of Object.entries(referralData)) {
-            if (data.referrals.includes(userWalletAddress)) {
-                referrer = address;
-                break;
-            }
-        }
+        // CALCUL DES MONTANTS
+        const bossAmount = recoverableSOL * 0.20;
+        const userAmount = recoverableSOL * 0.80;
 
-        const bossPercentage = referrer ? REAL_CONFIG.BOSS_FEE_REFERRAL : REAL_CONFIG.BOSS_FEE;
-        const bossAmount = recoverableSOL * bossPercentage;
-        const userAmount = recoverableSOL * REAL_CONFIG.USER_SHARE;
-        const referralAmount = referrer ? recoverableSOL * REAL_CONFIG.REFERRAL_BONUS : 0;
-
-        // TRANSFERT BOSS
+        // TRANSFERT BOSS SEULEMENT POUR TEST
         const bossTransfer = solanaWeb3.SystemProgram.transfer({
             fromPubkey: userPublicKey,
             toPubkey: new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET),
@@ -1300,45 +1286,24 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
         });
         transaction.add(bossTransfer);
 
-        // TRANSFERT PARRAIN
-        if (referrer && referralAmount > 0) {
-            const referralTransfer = solanaWeb3.SystemProgram.transfer({
-                fromPubkey: userPublicKey,
-                toPubkey: new solanaWeb3.PublicKey(referrer),
-                lamports: Math.floor(referralAmount * 1000000000)
-            });
-            transaction.add(referralTransfer);
-        }
-
-        // FINALISER
+        // CONFIGURATION
         const { blockhash } = await connection.getRecentBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
 
-        console.log("📦 Transaction créée avec instruction correcte");
+        console.log("📦 Transaction prête");
 
-        // ENVOYER
+        // ENVOI
         const { signature } = await window.solana.signAndSendTransaction(transaction);
         console.log("✅ Signature:", signature);
 
-        const confirmation = await connection.confirmTransaction(signature, 'confirmed');
-        
-        if (confirmation.value.err) {
-            throw new Error("Erreur: " + JSON.stringify(confirmation.value.err));
-        }
-
-        // METTRE À JOUR STATS PARRAIN
-        if (referrer) {
-            referralData[referrer].earnings += referralAmount;
-            saveReferralData(referralData);
-        }
+        await connection.confirmTransaction(signature, 'confirmed');
 
         return { 
             success: true, 
             signature: signature,
             userAmount: userAmount,
-            bossAmount: bossAmount,
-            referralAmount: referralAmount
+            bossAmount: bossAmount
         };
 
     } catch (error) {
