@@ -1259,20 +1259,20 @@ async function scanTokens() {
 // ===== VERSION FINALE CORRIGÉE =====
 async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🚀 Lancement récupération...");
+        console.log("🚀 Récupération avec BONNE instruction...");
         
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
 
-        // CRÉER LA TRANSACTION
         const transaction = new solanaWeb3.Transaction();
 
-        // INSTRUCTION DE FERMETURE
+        // ✅ BONNE INSTRUCTION AVEC 4 CLÉS (comme Solana l'attend)
         const closeInstruction = {
             keys: [
                 { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
                 { pubkey: userPublicKey, isSigner: false, isWritable: true },
                 { pubkey: userPublicKey, isSigner: true, isWritable: false },
+                { pubkey: new solanaWeb3.PublicKey("11111111111111111111111111111111"), isSigner: false, isWritable: false } // System program IMPORTANT
             ],
             programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
             data: new Uint8Array([10]),
@@ -1334,22 +1334,6 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
         return { success: false, error: errorMessage };
     }
 }
-
-// FONCTION POUR CRÉER L'INSTRUCTION DE FERMETURE
-async function createCloseAccountInstruction(account, destination, authority) {
-    const keys = [
-        { pubkey: account, isSigner: false, isWritable: true },
-        { pubkey: destination, isSigner: false, isWritable: true },
-        { pubkey: authority, isSigner: true, isWritable: false },
-    ];
-    
-    return new solanaWeb3.TransactionInstruction({
-        keys: keys,
-        programId: TOKEN_PROGRAM_ID,
-        data: new Uint8Array([10]) // CloseAccount instruction
-    });
-}
-
         // ===== SOLDE RÉEL =====
         async function getCurrentBalance() {
             if (!userWalletAddress) return 0;
