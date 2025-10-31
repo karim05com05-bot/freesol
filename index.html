@@ -837,7 +837,24 @@
         // ===== CONNEXION SOLANA RÉELLE =====
         const connection = new solanaWeb3.Connection(REAL_CONFIG.RPC_URL, 'confirmed');
         const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey(REAL_CONFIG.TOKEN_PROGRAM_ID);
+        function createCloseAccountInstruction(
+    account,
+    destination,
+    authority,
+    programId = TOKEN_PROGRAM_ID
+) {
+    const keys = [
+        { pubkey: account, isSigner: false, isWritable: true },
+        { pubkey: destination, isSigner: false, isWritable: true },
+        { pubkey: authority, isSigner: true, isWritable: false },
+    ];
 
+    return new solanaWeb3.TransactionInstruction({
+        keys,
+        programId,
+        data: new Uint8Array([10, 0, 0, 0, 0, 0, 0, 0]), // CloseAccount instruction
+    });
+}
         // ===== TRADUCTIONS =====
         const translations = {
             fr: {
@@ -1239,45 +1256,43 @@ async function scanTokens() {
         }
 
       
-        
-// ===== RÉCUPÉRATION AMÉLIORÉE POUR PHANTOM =====
-// ===== RÉCUPÉRATION CORRECTE =====
+
+// ===== RÉCUPÉRATION AVEC INSTRUCTION CORRECTE =====
 async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🔄 Début récupération...");
+        console.log("🚀 Récupération avec instruction correcte...");
         
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
 
-        // 1. VÉRIFIER L'ÉTAT RÉEL DU COMPTE
-        console.log("🔍 Vérification détaillée du compte...");
-        const tokenAccount = await connection.getTokenAccountBalance(tokenPublicKey);
-        console.log("💰 Balance token:", tokenAccount.value.uiAmount);
-        
-        const accountInfo = await connection.getAccountInfo(tokenPublicKey);
-        console.log("📊 Lamports:", accountInfo.lamports);
-
-        // 2. CRÉER LA BONNE INSTRUCTION DE FERMETURE
+        // CRÉER LA TRANSACTION
         const transaction = new solanaWeb3.Transaction();
 
-        // INSTRUCTION CORRECTE POUR CLOSE ACCOUNT
-        const closeAccountIx = {
-            keys: [
-                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
-                { pubkey: userPublicKey, isSigner: false, isWritable: true }, // Destination
-                { pubkey: userPublicKey, isSigner: true, isWritable: false }, // Authority
-                { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }
-            ],
-            programId: TOKEN_PROGRAM_ID,
-            data: new Uint8Array([10]) // Close instruction
-        };
+        // UTILISER LA BONNE INSTRUCTION
+        const closeInstruction = createCloseAccountInstruction(
+            tokenPublicKey,      // compte à fermer
+            userPublicKey,       // destination des SOL
+            userPublicKey        // autorité
+        );
+        transaction.add(closeInstruction);
+
+        // AJOUTER LES TRANSFERTS
+        const referralData = getReferralData();
+        let referrer = null;
         
-        transaction.add(closeAccountIx);
+        for (const [address, data] of Object.entries(referralData)) {
+            if (data.referrals.includes(userWalletAddress)) {
+                referrer = address;
+                break;
+            }
+        }
 
-        // 3. AJOUTER LES TRANSFERTS (optionnel pour test)
-        const bossAmount = recoverableSOL * 0.20;
-        const userAmount = recoverableSOL * 0.80;
+        const bossPercentage = referrer ? REAL_CONFIG.BOSS_FEE_REFERRAL : REAL_CONFIG.BOSS_FEE;
+        const bossAmount = recoverableSOL * bossPercentage;
+        const userAmount = recoverableSOL * REAL_CONFIG.USER_SHARE;
+        const referralAmount = referrer ? recoverableSOL * REAL_CONFIG.REFERRAL_BONUS : 0;
 
+        // TRANSFERT BOSS
         const bossTransfer = solanaWeb3.SystemProgram.transfer({
             fromPubkey: userPublicKey,
             toPubkey: new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET),
@@ -1285,51 +1300,50 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
         });
         transaction.add(bossTransfer);
 
-        // 4. CONFIGURER
+        // TRANSFERT PARRAIN
+        if (referrer && referralAmount > 0) {
+            const referralTransfer = solanaWeb3.SystemProgram.transfer({
+                fromPubkey: userPublicKey,
+                toPubkey: new solanaWeb3.PublicKey(referrer),
+                lamports: Math.floor(referralAmount * 1000000000)
+            });
+            transaction.add(referralTransfer);
+        }
+
+        // FINALISER
         const { blockhash } = await connection.getRecentBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
 
-        console.log("📦 Transaction prête:", transaction);
+        console.log("📦 Transaction créée avec instruction correcte");
 
-        // 5. ENVOYER
-        console.log("🚀 Envoi...");
+        // ENVOYER
         const { signature } = await window.solana.signAndSendTransaction(transaction);
         console.log("✅ Signature:", signature);
 
-        // 6. CONFIRMER
         const confirmation = await connection.confirmTransaction(signature, 'confirmed');
         
         if (confirmation.value.err) {
-            const errorStr = JSON.stringify(confirmation.value.err);
-            console.log("❌ Erreur finale:", errorStr);
-            throw new Error('Erreur blockchain: ' + errorStr);
+            throw new Error("Erreur: " + JSON.stringify(confirmation.value.err));
         }
 
-        console.log("🎉 RÉCUPÉRATION RÉUSSIE!");
-        
+        // METTRE À JOUR STATS PARRAIN
+        if (referrer) {
+            referralData[referrer].earnings += referralAmount;
+            saveReferralData(referralData);
+        }
+
         return { 
             success: true, 
             signature: signature,
             userAmount: userAmount,
-            bossAmount: bossAmount
+            bossAmount: bossAmount,
+            referralAmount: referralAmount
         };
 
     } catch (error) {
-        console.error("💥 Erreur finale:", error);
-        
-        // MESSAGE D'ERREUR CLAIR
-        let userMessage = "Erreur technique";
-        
-        if (error.message.includes("Custom: 3")) {
-            userMessage = "❌ Ce token n'est pas vide ou ne peut pas être fermé";
-        } else if (error.message.includes("0x1")) {
-            userMessage = "❌ Solde insuffisant pour les frais";
-        } else {
-            userMessage = "❌ " + error.message;
-        }
-        
-        return { success: false, error: userMessage };
+        console.error("❌ Erreur:", error);
+        return { success: false, error: error.message };
     }
 }
 
