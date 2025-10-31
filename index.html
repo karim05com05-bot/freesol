@@ -1056,46 +1056,47 @@
         }
 
         // ===== SCAN RÉEL DES TOKENS (FALLBACK) =====
-       async function scanRealTokenAccounts() {
+      async function scanRealTokenAccounts() {
     if (!userWalletAddress) return [];
     
     try {
         const publicKey = new solanaWeb3.PublicKey(userWalletAddress);
-        
+        const recoverableTokens = [];
+        const RENT_EXEMPT_AMOUNT = 2039280;
+
+        console.log("🔍 Scan ULTRA des comptes tokens...");
+
+        // 1. SCAN DES COMPTES ACTIFS
         const tokenAccounts = await connection.getTokenAccountsByOwner(publicKey, {
             programId: TOKEN_PROGRAM_ID
         });
 
-        const recoverableTokens = [];
-        const RENT_EXEMPT_AMOUNT = 2039280;
-
-        console.log("🔍 Scan de", tokenAccounts.value.length, "comptes tokens...");
+        console.log("📊 Comptes actifs trouvés:", tokenAccounts.value.length);
 
         for (let account of tokenAccounts.value) {
             try {
                 const accountInfo = await connection.getAccountInfo(account.pubkey);
                 const accountData = await connection.getTokenAccountBalance(account.pubkey);
-                // ⚠️ AJOUTE CES 3 LIGNES EXACTEMENT ICI :
-console.log("🔍 COMPTE:", account.pubkey.toString().substring(0, 15) + "...");
-console.log("  Balance tokens:", accountData.value.uiAmount);
-console.log("  Rent récupérable:", (accountInfo.lamports - 2039280) / 1000000000);
-                // ⚠️ SUPPRIME cette condition restrictive :
-                // if (accountInfo.lamports > RENT_EXEMPT_AMOUNT) {
                 
-                // ⚡ REMPLACE par cette condition plus large :
+                console.log("🔍 COMPTE:", account.pubkey.toString().substring(0, 15) + "...");
+                console.log("  Balance tokens:", accountData.value.uiAmount);
+                console.log("  Lamports:", accountInfo.lamports);
+                console.log("  Rent récupérable:", (accountInfo.lamports - RENT_EXEMPT_AMOUNT) / 1000000000);
+
+                // CONDITION ULTRA SENSIBLE
                 if (accountInfo.lamports > RENT_EXEMPT_AMOUNT) {
                     const rentAmount = (accountInfo.lamports - RENT_EXEMPT_AMOUNT) / 1000000000;
                     
-                    // Baisser le seuil pour attraper plus de tokens
-                    if (rentAmount > 0.000001) {
+                    // SEUIL TRÈS BAS pour attraper TOUT
+                    if (rentAmount > 0.000000001) {
                         const mint = await getTokenMint(account.pubkey);
                         recoverableTokens.push({
                             account: account.pubkey.toString(),
                             recoverable: rentAmount,
                             mint: mint,
-                            type: 'TOKEN_ACCOUNT_RENT',
-                            tokenBalance: accountData.value.uiAmount || 0
+                            type: 'TOKEN_ACCOUNT_RENT'
                         });
+                        console.log("🎯 AJOUTÉ! Rent:", rentAmount, "SOL");
                     }
                 }
             } catch (e) {
@@ -1103,8 +1104,16 @@ console.log("  Rent récupérable:", (accountInfo.lamports - 2039280) / 10000000
             }
         }
 
-        console.log("✅ Tokens récupérables trouvés:", recoverableTokens.length);
+        console.log("✅ Scan terminé - Tokens trouvés:", recoverableTokens.length);
+        
+        // Si rien trouvé, on essaie une méthode alternative
+        if (recoverableTokens.length === 0) {
+            console.log("🔄 Aucun token trouvé - Essaie méthode alternative...");
+            // Ici on pourrait ajouter le scan des comptes fermés plus tard
+        }
+
         return recoverableTokens;
+
     } catch (error) {
         console.error('Erreur scan réel:', error);
         throw error;
