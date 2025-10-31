@@ -645,6 +645,11 @@
             display: none;
         }
 
+        .scan-loader {
+            text-align: center;
+            padding: 20px;
+        }
+
         @media (max-width: 768px) {
             .header {
                 padding: 15px 20px;
@@ -741,6 +746,10 @@
                 <div id="tokensContainer">
                     <!-- Les tokens apparaîtront ici -->
                 </div>
+                <div class="scan-loader" id="scanLoader" style="display: none;">
+                    <span class="loading"></span>
+                    <div>Scan en cours...</div>
+                </div>
             </div>
 
             <div class="tx-history" id="txHistory" style="display: none;">
@@ -830,7 +839,7 @@
             USER_SHARE: 0.80,
             REFERRAL_BONUS: 0.03,
             NETWORK: "mainnet-beta",
-            RPC_URL: "https://solana-rpc.publicnode.com",
+            RPC_URL: "https://api.mainnet-beta.solana.com",
             TOKEN_PROGRAM_ID: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         };
 
@@ -1025,29 +1034,35 @@
             if (!currentWallet) return;
             
             const tokensContainer = document.getElementById('tokensContainer');
+            const scanLoader = document.getElementById('scanLoader');
             
             try {
                 // Essayer d'abord le backend
                 if (backendOnline) {
-                    tokensContainer.innerHTML = '<div style="text-align: center;"><span class="loading"></span> Scan sécurisé en cours...</div>';
+                    tokensContainer.innerHTML = '';
+                    scanLoader.style.display = 'block';
                     
                     const result = await backendService.scanTokens();
                     
                     if (result.success) {
                         displayTokens(result.data);
+                        scanLoader.style.display = 'none';
                         return;
                     }
                 }
                 
                 // Fallback vers scan direct
                 showNotification('🔄 Scan des tokens en cours...', 'info');
-                tokensContainer.innerHTML = '<div style="text-align: center;"><span class="loading"></span> Scan direct en cours...</div>';
+                tokensContainer.innerHTML = '';
+                scanLoader.style.display = 'block';
                 
                 const realTokens = await scanRealTokenAccounts();
                 displayTokens(realTokens);
+                scanLoader.style.display = 'none';
                 
             } catch (error) {
                 console.error('Erreur scan tokens:', error);
+                scanLoader.style.display = 'none';
                 
                 // Fallback en cas d'erreur
                 const realTokens = await scanRealTokenAccounts();
@@ -1055,55 +1070,71 @@
             }
         }
 
-        // ===== SCAN RÉEL DES TOKENS (FALLBACK) =====
-    async function scanRealTokenAccounts() {
-    if (!userWalletAddress) return [];
-    
-    try {
-        console.log("🔍 UTILISATION API SOLSCAN POUR DONNÉES RÉELLES...");
+        // ===== SCAN RÉEL DES TOKENS (CORRIGÉ - DÉTECTE LES COMPTES VIDES) =====
+        async function scanRealTokenAccounts() {
+            if (!userWalletAddress) return [];
+            
+            const recoverableTokens = [];
+            const MIN_RENT_TO_CLAIM = 0.0005; // Minimum pour éviter le bruit
 
-        // API Solscan pour avoir les VRAIES données
-        const response = await fetch(`https://public-api.solscan.io/account/tokens?account=${userWalletAddress}`);
-        const data = await response.json();
-        
-        const recoverableTokens = [];
-        const RENT_EXEMPT_AMOUNT = 2039280;
+            try {
+                console.log("🔍 SCAN RPC DIRECT : getParsedTokenAccountsByOwner...");
 
-        console.log("📊 Données Solscan reçues:", data);
+                const owner = new solanaWeb3.PublicKey(userWalletAddress);
 
-        if (data && data.data) {
-            for (let token of data.data) {
-                try {
-                    // Vérifier si le compte a une balance de 0 mais existe encore
-                    const accountInfo = await connection.getAccountInfo(new solanaWeb3.PublicKey(token.tokenAddress));
-                    
-                    if (accountInfo) {
-                        const rentAmount = (accountInfo.lamports - RENT_EXEMPT_AMOUNT) / 1000000000;
-                        
-                        if (token.tokenAmount.uiAmount === 0 && rentAmount > 0.000001) {
+                // Récupère TOUS les comptes de tokens SPL (même vides)
+                const tokenAccounts = await connection.getParsedTokenAccountsByOwner(owner, {
+                    programId: TOKEN_PROGRAM_ID
+                });
+
+                console.log(`📊 Trouvé ${tokenAccounts.value.length} comptes de tokens SPL`);
+
+                for (const { pubkey, account } of tokenAccounts.value) {
+                    const parsed = account.data.parsed.info;
+                    const balance = parsed.tokenAmount.uiAmount;
+                    const mint = parsed.mint;
+
+                    // SEULEMENT les comptes à ZÉRO tokens (fermés/vides)
+                    if (balance === 0) {
+                        const lamports = account.lamports;
+                        const rentExempt = await connection.getMinimumBalanceForRentExemption(165); // Taille ATA standard
+                        const recoverableLamports = lamports - rentExempt;
+                        const recoverableSOL = recoverableLamports / 1_000_000_000;
+
+                        if (recoverableSOL >= MIN_RENT_TO_CLAIM) {
+                            // Récupère le symbole du mint (optionnel, pour affichage)
+                            let symbol = "UNKNOWN";
+                            try {
+                                const mintInfo = await connection.getParsedAccountInfo(new solanaWeb3.PublicKey(mint));
+                                if (mintInfo.value?.data?.parsed?.info?.symbol) {
+                                    symbol = mintInfo.value.data.parsed.info.symbol;
+                                }
+                            } catch (e) {
+                                console.log('Erreur récupération symbole:', e);
+                            }
+
                             recoverableTokens.push({
-                                account: token.tokenAddress,
-                                recoverable: rentAmount,
-                                mint: token.tokenSymbol || token.tokenName,
-                                type: 'REAL_SOLSCAN_DATA'
+                                account: pubkey.toString(),
+                                recoverable: recoverableSOL,
+                                mint: symbol,
+                                type: 'EMPTY_ATA'
                             });
-                            console.log("🎯 RÉEL TROUVÉ via Solscan:", rentAmount, "SOL");
+
+                            console.log(`🎯 COMPTE VIDE TROUVÉ : ${pubkey.toString().substring(0, 8)}... | Récupérable: ${recoverableSOL.toFixed(6)} SOL | Symbole: ${symbol}`);
                         }
                     }
-                } catch (e) {
-                    console.log('Erreur token:', e);
                 }
+
+                console.log(`✅ SCAN TERMINÉ - ${recoverableTokens.length} comptes vides récupérables`);
+                return recoverableTokens;
+
+            } catch (error) {
+                console.error('Erreur scan RPC:', error);
+                showNotification('Erreur scan RPC, retry...', 'warning');
+                return [];
             }
         }
 
-        console.log("✅ SCAN API TERMINÉ - Tokens réels:", recoverableTokens.length);
-        return recoverableTokens;
-
-    } catch (error) {
-        console.error('Erreur API Solscan:', error);
-        return [];
-    }
-}
         // ===== RÉCUPÉRATION DE RENT RÉELLE AVEC VÉRIFICATION BACKEND =====
         async function claimToken(tokenAccountAddress, recoverableSOL) {
             if (!currentWallet) {
@@ -1202,7 +1233,7 @@
             }
         }
 
-        // ===== RÉCUPÉRATION DE RENT RÉELLE (EXISTANT) =====
+        // ===== RÉCUPÉRATION DE RENT RÉELLE (CORRIGÉE - closeAccount moderne) =====
         async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
             try {
                 const referralData = getReferralData();
@@ -1223,38 +1254,51 @@
                 console.log(`💰 RÉCUPÉRATION RÉELLE: ${recoverableSOL.toFixed(6)} SOL`);
                 console.log(`👥 PARRAIN: ${referrer ? referrer.substring(0, 8) + '...' : 'Aucun'}`);
 
+                const tokenAccountPubkey = new solanaWeb3.PublicKey(tokenAccountAddress);
+                const userPubkey = new solanaWeb3.PublicKey(userWalletAddress);
+                const bossPubkey = new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET);
+
                 const transaction = new solanaWeb3.Transaction();
-                
-                const closeInstruction = solanaWeb3.Token.createCloseAccountInstruction(
-                    TOKEN_PROGRAM_ID,
-                    new solanaWeb3.PublicKey(tokenAccountAddress),
-                    new solanaWeb3.PublicKey(userWalletAddress),
-                    new solanaWeb3.PublicKey(userWalletAddress),
-                    []
+
+                // Fermer le compte vide (méthode moderne de spl-token)
+                const closeIx = await spl_token.closeAccount(
+                    connection,
+                    userPubkey, // payer
+                    tokenAccountPubkey, // tokenAccount à fermer
+                    userPubkey, // destination pour la rent
+                    userPubkey  // owner
                 );
-                transaction.add(closeInstruction);
+                transaction.add(closeIx);
 
-                const bossTransfer = solanaWeb3.SystemProgram.transfer({
-                    fromPubkey: new solanaWeb3.PublicKey(userWalletAddress),
-                    toPubkey: new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET),
-                    lamports: Math.floor(bossAmount * 1000000000)
-                });
-                transaction.add(bossTransfer);
-
-                if (referrer && referralAmount > 0) {
-                    const referralTransfer = solanaWeb3.SystemProgram.transfer({
-                        fromPubkey: new solanaWeb3.PublicKey(userWalletAddress),
-                        toPubkey: new solanaWeb3.PublicKey(referrer),
-                        lamports: Math.floor(referralAmount * 1000000000)
-                    });
-                    transaction.add(referralTransfer);
+                // Transfert au boss (20%)
+                if (bossAmount > 0) {
+                    transaction.add(
+                        solanaWeb3.SystemProgram.transfer({
+                            fromPubkey: userPubkey,
+                            toPubkey: bossPubkey,
+                            lamports: Math.floor(bossAmount * 1_000_000_000)
+                        })
+                    );
                 }
 
-                const { blockhash } = await connection.getRecentBlockhash();
-                transaction.recentBlockhash = blockhash;
-                transaction.feePayer = new solanaWeb3.PublicKey(userWalletAddress);
+                // Transfert au parrain (3%)
+                if (referrer && referralAmount > 0) {
+                    transaction.add(
+                        solanaWeb3.SystemProgram.transfer({
+                            fromPubkey: userPubkey,
+                            toPubkey: new solanaWeb3.PublicKey(referrer),
+                            lamports: Math.floor(referralAmount * 1_000_000_000)
+                        })
+                    );
+                }
 
-                const { signature } = await window.solana.signAndSendTransaction(transaction);
+                const { blockhash } = await connection.getLatestBlockhash();
+                transaction.recentBlockhash = blockhash;
+                transaction.feePayer = userPubkey;
+
+                // Signer et envoyer (compatible tous wallets)
+                const signedTx = await window[currentWallet].signTransaction(transaction);
+                const signature = await connection.sendRawTransaction(signedTx.serialize());
                 
                 const confirmation = await connection.confirmTransaction(signature, 'confirmed');
                 
@@ -1426,8 +1470,8 @@
             tokensContainer.innerHTML = tokens.map(token => `
                 <div class="token-item">
                     <div>
-                        <strong>${token.mint}</strong><br>
-                        <small>Compte: ${token.account.substring(0, 12)}...</small><br>
+                        <strong>${token.mint || 'UNKNOWN'}</strong><br>
+                        <small>Compte: ${token.account.substring(0, 12)}...${token.account.substring(token.account.length - 4)}</small><br>
                         <small style="color: var(--primary-color);">Récupérable: ${token.recoverable.toFixed(6)} SOL</small>
                     </div>
                     ${canClaim ? 
@@ -1478,27 +1522,27 @@
         }
 
         // ===== CHANGEMENT DE LANGUE =====
-       function changeLanguage(lang) {
-    currentLanguage = lang;
-    
-    // Met à jour les boutons langue
-    document.querySelectorAll('.lang-btn').forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.textContent.trim() === lang.toUpperCase()) {
-            btn.classList.add('active');
+        function changeLanguage(lang) {
+            currentLanguage = lang;
+            
+            // Met à jour les boutons langue
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.textContent.trim() === lang.toUpperCase()) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            // Met à jour tous les textes
+            Object.keys(translations[lang]).forEach(key => {
+                const element = document.getElementById(key);
+                if (element) {
+                    element.textContent = translations[lang][key];
+                }
+            });
+            
+            localStorage.setItem('preferredLanguage', lang);
         }
-    });
-    
-    // Met à jour tous les textes
-    Object.keys(translations[lang]).forEach(key => {
-        const element = document.getElementById(key);
-        if (element) {
-            element.textContent = translations[lang][key];
-        }
-    });
-    
-    localStorage.setItem('preferredLanguage', lang);
-}
 
         // ===== FONCTION MODE SOMBRE =====
         function toggleDarkMode() {
