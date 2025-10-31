@@ -1056,86 +1056,47 @@
         }
 
         // ===== SCAN RÉEL DES TOKENS (FALLBACK) =====
+    // ===== SCAN ULTRA SIMPLE =====
 async function scanRealTokenAccounts() {
     if (!userWalletAddress) return [];
     
     try {
-        console.log("🔍 SCAN RÉEL DES TOKENS AVEC getParsedTokenAccountsByOwner...");
+        showNotification('🔍 Scan en cours...', 'info');
         
         const publicKey = new solanaWeb3.PublicKey(userWalletAddress);
-        const RENT_EXEMPT_AMOUNT = 2039280; // Montant minimum pour éviter la rent
-        
-        // Méthode DIRECTE de Solana - Beaucoup plus fiable
-        const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
-            publicKey,
-            { programId: TOKEN_PROGRAM_ID }
-        );
-        
-        console.log("📊 Comptes tokens trouvés:", tokenAccounts.value.length);
+        const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, { programId: TOKEN_PROGRAM_ID });
         
         const recoverableTokens = [];
         
         for (let tokenAccount of tokenAccounts.value) {
-            try {
-                const accountInfo = tokenAccount.account;
-                const parsedInfo = accountInfo.data.parsed.info;
+            const accountInfo = tokenAccount.account;
+            const parsedInfo = accountInfo.data.parsed.info;
+            
+            if (parsedInfo.tokenAmount.uiAmount === 0) {
+                const rentAmount = accountInfo.lamports / 1000000000;
                 
-                // Vérifier si le compte a une balance de 0
-                const tokenAmount = parsedInfo.tokenAmount;
-                
-                if (tokenAmount.uiAmount === 0) {
-                    // Vérifier le solde SOL du compte (rent)
-                    const rentAmount = (accountInfo.lamports - RENT_EXEMPT_AMOUNT) / 1000000000;
-                    
-                    // Si rentAmount > 0, le token est récupérable
-                    if (rentAmount > 0.000001) {
-                        // Récupérer les infos du mint
-                        let mintInfo = "Token Inconnu";
-                        try {
-                            const mintData = await connection.getParsedAccountInfo(
-                                new solanaWeb3.PublicKey(parsedInfo.mint)
-                            );
-                            if (mintData.value && mintData.value.data) {
-                                const mintParsed = mintData.value.data.parsed;
-                                mintInfo = mintParsed.info.name || mintParsed.info.symbol || "Token Sans Nom";
-                            }
-                        } catch (e) {
-                            mintInfo = parsedInfo.mint.substring(0, 8) + "...";
-                        }
-                        
-                        recoverableTokens.push({
-                            account: tokenAccount.pubkey.toString(),
-                            recoverable: rentAmount,
-                            mint: mintInfo,
-                            type: 'REAL_TOKEN_DATA'
-                        });
-                        
-                        console.log("🎯 TOKEN RÉCUPÉRABLE TROUVÉ:", mintInfo, rentAmount.toFixed(6), "SOL");
-                    }
+                if (rentAmount > 0.001) {
+                    recoverableTokens.push({
+                        account: tokenAccount.pubkey.toString(),
+                        recoverable: rentAmount,
+                        mint: "Token SOL Récupérable",
+                        type: 'REAL'
+                    });
                 }
-            } catch (error) {
-                console.log('Erreur analyse token:', error);
-                continue;
             }
         }
         
-        console.log("✅ SCAN TERMINÉ - Tokens récupérables:", recoverableTokens.length);
+        if (recoverableTokens.length > 0) {
+            showNotification(`✅ ${recoverableTokens.length} token(s) trouvé(s)!`, 'success');
+        } else {
+            showNotification('ℹ️ Aucun token récupérable', 'info');
+        }
+        
         return recoverableTokens;
         
     } catch (error) {
-        console.error('❌ Erreur scan tokens:', error);
-        
-        // Fallback simplifié en cas d'erreur
-        showNotification('⚠️ Scan partiel - certaines données peuvent manquer', 'warning');
-        return [];
-    }
-}
-
-        console.log("✅ SCAN API TERMINÉ - Tokens réels:", recoverableTokens.length);
-        return recoverableTokens;
-
-    } catch (error) {
-        console.error('Erreur API Solscan:', error);
+        console.error('Erreur:', error);
+        showNotification('❌ Erreur de scan', 'error');
         return [];
     }
 }
