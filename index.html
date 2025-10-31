@@ -1020,76 +1020,74 @@
             }
         }
 
-     // ===== SCAN AVEC BACKEND PROFESSIONNEL =====
+   
 // ===== SCAN AVEC API HELIUS =====
+// ===== SCAN DIRECT SOLANA SANS API =====
 async function scanTokens() {
     if (!currentWallet) return;
     
     const tokensContainer = document.getElementById('tokensContainer');
     
     try {
-        showNotification('🔍 Scan en cours...', 'info');
-        tokensContainer.innerHTML = '<div style="text-align: center;"><span class="loading"></span> Analyse de votre wallet...</div>';
+        showNotification('🔍 Scan direct Solana...', 'info');
+        tokensContainer.innerHTML = '<div style="text-align: center;"><span class="loading"></span> Connexion à Solana...</div>';
         
-        // API Helius qui marche TOUJOURS
-        const response = await fetch('https://mainnet.helius-rpc.com/?api-key=9d7b1e8a-35e5-4a3a-8b1c-6f8e9a2b4d7c', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                jsonrpc: "2.0",
-                id: 1,
-                method: "getTokenAccountsByOwner",
-                params: [
-                    userWalletAddress,
-                    { programId: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" },
-                    { encoding: "jsonParsed" }
-                ]
-            })
-        });
+        // Méthode DIRECTE sans API externe
+        const publicKey = new solanaWeb3.PublicKey(userWalletAddress);
         
-        const data = await response.json();
+        const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
+            publicKey,
+            { programId: TOKEN_PROGRAM_ID }
+        );
         
-        if (data.result && data.result.value) {
-            const tokens = data.result.value;
-            const recoverableTokens = [];
-            
-            for (let token of tokens) {
-                const accountInfo = token.account;
+        console.log("Tokens trouvés:", tokenAccounts.value.length);
+        
+        const recoverableTokens = [];
+        
+        for (let tokenAccount of tokenAccounts.value) {
+            try {
+                const accountInfo = tokenAccount.account;
                 const parsedInfo = accountInfo.data.parsed.info;
                 
-                // Si le token a 0 balance mais contient du SOL
+                // Vérifier si balance = 0 mais contient du SOL
                 if (parsedInfo.tokenAmount.uiAmount === 0) {
                     const rentAmount = accountInfo.lamports / 1000000000;
                     
+                    // Si plus de 0.001 SOL récupérable
                     if (rentAmount > 0.001) {
                         recoverableTokens.push({
-                            account: token.pubkey,
+                            account: tokenAccount.pubkey.toString(),
                             recoverable: rentAmount,
-                            mint: "Token Abandonné",
-                            type: 'HELIUS_SCAN'
+                            mint: parsedInfo.mint.substring(0, 8) + "...",
+                            type: 'DIRECT_SCAN'
                         });
                     }
                 }
+            } catch (e) {
+                continue;
             }
-            
-            if (recoverableTokens.length > 0) {
-                showNotification(`✅ ${recoverableTokens.length} token(s) récupérable(s) trouvé(s)!`, 'success');
-                displayTokens(recoverableTokens);
-            } else {
-                showNotification('ℹ️ Aucun token abandonné trouvé', 'info');
-                tokensContainer.innerHTML = '<div style="text-align: center; padding: 20px;">🎉 Aucun token abandonné<br><small>Votre wallet est propre</small></div>';
-            }
+        }
+        
+        if (recoverableTokens.length > 0) {
+            showNotification(`🎯 ${recoverableTokens.length} token(s) récupérable(s)!`, 'success');
+            displayTokens(recoverableTokens);
         } else {
-            showNotification('❌ Aucune donnée reçue', 'error');
-            tokensContainer.innerHTML = '<div style="text-align: center; color: #ff6b6b;">Erreur de données</div>';
+            showNotification('✅ Aucun token abandonné', 'info');
+            tokensContainer.innerHTML = `
+                <div style="text-align: center; padding: 20px;">
+                    🎉 Aucun token abandonné trouvé
+                    <br>
+                    <small>Votre wallet est optimisé</small>
+                    <br>
+                    <small style="color: #00ff88;">Tokens scannés: ${tokenAccounts.value.length}</small>
+                </div>
+            `;
         }
         
     } catch (error) {
         console.error('Erreur scan:', error);
-        showNotification('❌ Erreur de connexion', 'error');
-        tokensContainer.innerHTML = '<div style="text-align: center; color: #ff6b6b;">Erreur réseau</div>';
+        showNotification('❌ Erreur de scan', 'error');
+        tokensContainer.innerHTML = '<div style="text-align: center; color: #ff6b6b;">Erreur: ' + error.message + '</div>';
     }
 }
 
