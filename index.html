@@ -1276,7 +1276,7 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
                 { pubkey: userPublicKey, isSigner: false, isWritable: true },     // Destination
                 { pubkey: userPublicKey, isSigner: true, isWritable: false },     // Authority
             ],
-            data: Buffer.from([10]) // CloseAccount instruction
+            data: new Uint8Array([10]) // CloseAccount instruction
         };
 
         transaction.add(closeAccountIx);
