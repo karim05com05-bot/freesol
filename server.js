@@ -1,3 +1,5 @@
+const axios = require('axios');
+const { Connection, PublicKey } = require('@solana/web3.js');
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -104,9 +106,81 @@ app.get('/api/global-stats', async (req, res) => {
 });
 
 // Routes existantes (scan tokens, verify tx)
-app.post('/api/tokens/scan', (req, res) => {
-  // Ton code de scan existant
-  res.json({ success: true, data: [], cached: false });
+app.post('/api/tokens/scan', async (req, res) => {
+    try {
+        const walletAddress = req.headers['wallet-address'] || req.body.walletAddress;
+        
+        if (!walletAddress) {
+            return res.json({ 
+                success: false, 
+                error: "Adresse wallet manquante" 
+            });
+        }
+
+        console.log("🔍 SCAN AVEC SOLSCAN - Wallet:", walletAddress);
+
+        // 1. UTILISER L'API SOLSCAN PUBLIQUE
+        const solscanResponse = await axios.get(
+            `https://public-api.solscan.io/account/tokens?account=${walletAddress}`,
+            {
+                headers: {
+                    'User-Agent': 'FreeSol/1.0',
+                    'Accept': 'application/json'
+                },
+                timeout: 10000
+            }
+        );
+
+        console.log("📊 Données Solscan reçues");
+
+        const recoverableTokens = [];
+        const RENT_EXEMPT_AMOUNT = 2039280;
+
+        // 2. FILTRER LES TOKENS RÉCUPÉRABLES
+        if (solscanResponse.data && solscanResponse.data.data) {
+            for (let token of solscanResponse.data.data) {
+                try {
+                    // Vérifier si le compte existe encore et a de la rent récupérable
+                    const connection = new Connection("https://solana-rpc.publicnode.com");
+                    const accountInfo = await connection.getAccountInfo(new PublicKey(token.tokenAddress));
+                    
+                    if (accountInfo) {
+                        const rentAmount = (accountInfo.lamports - RENT_EXEMPT_AMOUNT) / 1000000000;
+                        
+                        // TOKENS AVEC BALANCE 0 MAIS RENT RÉCUPÉRABLE
+                        if (token.tokenAmount.uiAmount === 0 && rentAmount > 0.000001) {
+                            recoverableTokens.push({
+                                account: token.tokenAddress,
+                                recoverable: rentAmount,
+                                mint: token.tokenSymbol || token.tokenName || "Unknown",
+                                type: 'SOLSCAN_ACTIVE_ACCOUNT'
+                            });
+                            console.log("🎯 TOKEN TROUVÉ:", rentAmount, "SOL");
+                        }
+                    }
+                } catch (e) {
+                    console.log("Erreur token:", token.tokenAddress, e.message);
+                }
+            }
+        }
+
+        console.log("✅ SCAN TERMINÉ - Tokens trouvés:", recoverableTokens.length);
+
+        res.json({ 
+            success: true, 
+            data: recoverableTokens,
+            message: `Scan Solscan complet - ${recoverableTokens.length} tokens trouvés`
+        });
+
+    } catch (error) {
+        console.error('❌ ERREUR SCAN SOLSCAN:', error);
+        
+        res.json({ 
+            success: false, 
+            error: error.message,
+            data: [] 
+        });
+    }
 });
 
 app.post('/api/transactions/verify', (req, res) => {
