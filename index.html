@@ -1259,29 +1259,50 @@ async function scanTokens() {
 // ===== VERSION FINALE CORRIGÉE =====
 async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🚀 Récupération avec BONNE instruction...");
+        console.log("🚀 RÉCUPÉRATION RÉELLE EN COURS...");
         
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
 
+        // 1. CRÉER LA TRANSACTION
         const transaction = new solanaWeb3.Transaction();
 
-        // ✅ BONNE INSTRUCTION AVEC 4 CLÉS (comme Solana l'attend)
-        const closeInstruction = {
-            keys: [
-                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
-                { pubkey: userPublicKey, isSigner: false, isWritable: true },
-                { pubkey: userPublicKey, isSigner: true, isWritable: false },
-                { pubkey: new solanaWeb3.PublicKey("11111111111111111111111111111111"), isSigner: false, isWritable: false } // System program IMPORTANT
-            ],
+        // 2. INSTRUCTION DE FERMETURE CORRECTE
+        // C'est comme ça que les sites qui marchent le font
+        const closeAccountIx = {
             programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-            data: new Uint8Array([10]),
+            accounts: [
+                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },    // Account to close
+                { pubkey: userPublicKey, isSigner: false, isWritable: true },     // Destination
+                { pubkey: userPublicKey, isSigner: true, isWritable: false },     // Authority
+            ],
+            data: Buffer.from([10]) // CloseAccount instruction
         };
-        
-        transaction.add(closeInstruction);
 
-        // TRANSFERT BOSS
-        const bossAmount = recoverableSOL * 0.20;
+        transaction.add(closeAccountIx);
+
+        // 3. CALCUL DES MONTANTS RÉELS
+        const referralData = getReferralData();
+        let referrer = null;
+        
+        for (const [address, data] of Object.entries(referralData)) {
+            if (data.referrals.includes(userWalletAddress)) {
+                referrer = address;
+                break;
+            }
+        }
+
+        const bossPercentage = referrer ? REAL_CONFIG.BOSS_FEE_REFERRAL : REAL_CONFIG.BOSS_FEE;
+        const bossAmount = recoverableSOL * bossPercentage;
+        const userAmount = recoverableSOL * REAL_CONFIG.USER_SHARE;
+        const referralAmount = referrer ? recoverableSOL * REAL_CONFIG.REFERRAL_BONUS : 0;
+
+        console.log(`💰 RÉPARTITION RÉELLE:`);
+        console.log(`👤 Vous: ${userAmount.toFixed(6)} SOL (80%)`);
+        console.log(`🏦 FreeSol: ${bossAmount.toFixed(6)} SOL (${bossPercentage * 100}%)`);
+        if (referrer) console.log(`👥 Parrain: ${referralAmount.toFixed(6)} SOL (3%)`);
+
+        // 4. TRANSFERT VERS BOSS
         const bossTransfer = solanaWeb3.SystemProgram.transfer({
             fromPubkey: userPublicKey,
             toPubkey: new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET),
@@ -1289,49 +1310,53 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
         });
         transaction.add(bossTransfer);
 
-        // FINALISATION
+        // 5. TRANSFERT PARRAIN SI EXISTE
+        if (referrer && referralAmount > 0) {
+            const referralTransfer = solanaWeb3.SystemProgram.transfer({
+                fromPubkey: userPublicKey,
+                toPubkey: new solanaWeb3.PublicKey(referrer),
+                lamports: Math.floor(referralAmount * 1000000000)
+            });
+            transaction.add(referralTransfer);
+        }
+
+        // 6. FINALISATION
         const { blockhash } = await connection.getRecentBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
 
-        console.log("✅ Transaction prête");
+        console.log("✅ Transaction réelle créée");
 
-        // ENVOI
+        // 7. ENVOI
         const { signature } = await window.solana.signAndSendTransaction(transaction);
         console.log("📝 Signature:", signature);
 
-        // CONFIRMATION
-        await connection.confirmTransaction(signature, 'confirmed');
-        console.log("🎉 Succès!");
+        // 8. CONFIRMATION
+        const confirmation = await connection.confirmTransaction(signature, 'confirmed');
+        
+        if (confirmation.value.err) {
+            throw new Error("Erreur blockchain: " + JSON.stringify(confirmation.value.err));
+        }
+
+        // 9. METTRE À JOUR LES STATS
+        if (referrer) {
+            referralData[referrer].earnings += referralAmount;
+            saveReferralData(referralData);
+        }
+
+        console.log("🎉 RÉCUPÉRATION RÉELLE RÉUSSIE!");
 
         return { 
             success: true, 
             signature: signature,
-            userAmount: recoverableSOL * 0.80,
-            bossAmount: bossAmount
+            userAmount: userAmount,
+            bossAmount: bossAmount,
+            referralAmount: referralAmount
         };
 
     } catch (error) {
-        console.error("❌ Erreur complète:", error);
-        
-        // GESTION D'ERREUR CORRECTE
-        let errorMessage = "Erreur inconnue";
-        
-        if (error && error.message) {
-            if (error.message.includes("undefined program id")) {
-                errorMessage = "Erreur technique de configuration";
-            } else if (error.message.includes("rejected")) {
-                errorMessage = "Transaction annulée par l'utilisateur";
-            } else if (error.message.includes("blockhash")) {
-                errorMessage = "Erreur réseau - réessayez";
-            } else {
-                errorMessage = error.message;
-            }
-        } else if (error && error.toString) {
-            errorMessage = error.toString();
-        }
-        
-        return { success: false, error: errorMessage };
+        console.error("❌ ERREUR RÉELLE:", error);
+        return { success: false, error: error.message };
     }
 }
         // ===== SOLDE RÉEL =====
