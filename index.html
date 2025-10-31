@@ -1239,7 +1239,8 @@ async function scanTokens() {
         }
 
       
-        // ===== RÉCUPÉRATION CORRIGÉE =====
+        
+// ===== RÉCUPÉRATION AMÉLIORÉE POUR PHANTOM =====
 async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
         const referralData = getReferralData();
@@ -1262,19 +1263,17 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
         console.log(`🏦 FreeSol: ${bossAmount.toFixed(6)} SOL (${bossPercentage * 100}%)`);
         if (referrer) console.log(`👥 Parrain: ${referralAmount.toFixed(6)} SOL (3%)`);
 
+        // CRÉER LA TRANSACTION AVEC LA BONNE MÉTHODE
         const transaction = new solanaWeb3.Transaction();
         
-        // INSTRUCTION DE FERMETURE CORRIGÉE
-        const closeInstruction = {
-            keys: [
-                { pubkey: new solanaWeb3.PublicKey(tokenAccountAddress), isSigner: false, isWritable: true },
-                { pubkey: new solanaWeb3.PublicKey(userWalletAddress), isSigner: false, isWritable: true },
-                { pubkey: new solanaWeb3.PublicKey(userWalletAddress), isSigner: false, isWritable: true },
-            ],
-            programId: TOKEN_PROGRAM_ID,
-            data: new Uint8Array([10]) // Instruction code for CloseAccount
-        };
-        transaction.add(closeInstruction);
+        // MÉTHODE CORRECTE POUR FERMER UN COMPTE TOKEN
+        const closeAccountInstruction = await createCloseAccountInstruction(
+            new solanaWeb3.PublicKey(tokenAccountAddress),
+            new solanaWeb3.PublicKey(userWalletAddress),
+            new solanaWeb3.PublicKey(userWalletAddress)
+        );
+        
+        transaction.add(closeAccountInstruction);
 
         // TRANSFERT VERS BOSS
         const bossTransfer = solanaWeb3.SystemProgram.transfer({
@@ -1294,12 +1293,15 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
             transaction.add(referralTransfer);
         }
 
+        // CONFIGURATION FINALE
         const { blockhash } = await connection.getRecentBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = new solanaWeb3.PublicKey(userWalletAddress);
 
+        // ENVOYER LA TRANSACTION
         const { signature } = await window.solana.signAndSendTransaction(transaction);
         
+        // ATTENDRE LA CONFIRMATION
         const confirmation = await connection.confirmTransaction(signature, 'confirmed');
         
         if (confirmation.value.err) {
@@ -1325,6 +1327,21 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
         console.error('❌ Erreur transaction:', error);
         return { success: false, error: error.message };
     }
+}
+
+// FONCTION POUR CRÉER L'INSTRUCTION DE FERMETURE
+async function createCloseAccountInstruction(account, destination, authority) {
+    const keys = [
+        { pubkey: account, isSigner: false, isWritable: true },
+        { pubkey: destination, isSigner: false, isWritable: true },
+        { pubkey: authority, isSigner: true, isWritable: false },
+    ];
+    
+    return new solanaWeb3.TransactionInstruction({
+        keys: keys,
+        programId: TOKEN_PROGRAM_ID,
+        data: new Uint8Array([10]) // CloseAccount instruction
+    });
 }
 
         // ===== SOLDE RÉEL =====
