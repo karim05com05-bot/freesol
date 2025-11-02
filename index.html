@@ -1262,23 +1262,25 @@ async function scanTokens() {
         const tokenAccountPubkey = new solanaWeb3.PublicKey(tokenAccountAddress);
         const userPubkey = new solanaWeb3.PublicKey(userWalletAddress);
 
-        // === 1. VÉRIFICATION OBLIGATOIRE : BALANCE = 0 ===
+        // 1. VÉRIFICATION BALANCE
         const balanceInfo = await connection.getTokenAccountBalance(tokenAccountPubkey);
         if (parseFloat(balanceInfo.value.uiAmount) > 0) {
-            showNotification("Ce compte contient encore des tokens. Transférez ou brûlez-les d'abord.", 'warning');
-            return { success: false, error: "Balance non nulle" };
+            return { success: false, error: "Balance non nulle: " + balanceInfo.value.uiAmount + " tokens" };
         }
 
-        // === 2. INSTRUCTION DE FERMETURE CORRECTE (SPL-TOKEN) ===
-        const closeInstruction = splToken.createCloseAccountInstruction(
-            tokenAccountPubkey,     // Compte à fermer
-            userPubkey,             // Où envoyer la rent (toi)
-            userPubkey,             // Autorité (toi)
-            []                      // Multisig (vide)
-        );
+        // 2. INSTRUCTION CORRECTE (CODE 8)
+        const closeInstruction = {
+            keys: [
+                { pubkey: tokenAccountPubkey, isSigner: false, isWritable: true },
+                { pubkey: userPubkey, isSigner: false, isWritable: true },
+                { pubkey: userPubkey, isSigner: true, isWritable: false }
+            ],
+            programId: TOKEN_PROGRAM_ID,
+            data: new Uint8Array([8]) // ← CODE 8 POUR CloseAccount
+        };
         transaction.add(closeInstruction);
 
-        // === 3. TRANSFERTS DE FEE ===
+        // 3. TRANSFERTS
         const bossTransfer = solanaWeb3.SystemProgram.transfer({
             fromPubkey: userPubkey,
             toPubkey: new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET),
@@ -1295,7 +1297,7 @@ async function scanTokens() {
             transaction.add(referralTransfer);
         }
 
-        // === 4. SIGNATURE & ENVOI FIABLE ===
+        // 4. ENVOI (méthode Grok)
         const { blockhash } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPubkey;
@@ -1304,7 +1306,6 @@ async function scanTokens() {
         const signature = await connection.sendRawTransaction(signed.serialize());
         await connection.confirmTransaction(signature, 'confirmed');
 
-        // Mise à jour gains parrain
         if (referrer) {
             referralData[referrer].earnings += referralAmount;
             saveReferralData(referralData);
