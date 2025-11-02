@@ -838,6 +838,7 @@
         const connection = new solanaWeb3.Connection(REAL_CONFIG.RPC_URL, 'confirmed');
         const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey(REAL_CONFIG.TOKEN_PROGRAM_ID);
          const splToken = window.splToken;
+        console.log("SPL Token chargé:", splToken ? "✅ OUI" : "❌ NON");
         // ===== TRADUCTIONS =====
         const translations = {
             fr: {
