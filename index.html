@@ -1276,7 +1276,7 @@ async function scanTokens() {
                 { pubkey: userPubkey, isSigner: true, isWritable: false }
             ],
             programId: TOKEN_PROGRAM_ID,
-            data:Buffer.from([8])  // ← CODE 8 POUR CloseAccount
+            data: new Uint8Array([9])  // ← CODE 8 POUR CloseAccount
         };
         transaction.add(closeInstruction);
 
