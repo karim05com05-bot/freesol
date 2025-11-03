@@ -1283,52 +1283,52 @@ async function scanTokens() {
         transaction.add(closeInstruction);
 
         // === 3. TRANSFERT 20% AU BOSS (depuis ton wallet) ===
-        if (bossAmount > 0) {
-            const bossTransfer = solanaWeb3.SystemProgram.transfer({
-                fromPubkey: userPubkey,
-                toPubkey: bossPubkey,
-                lamports: Math.floor(bossAmount * 1e9)
+    //    if (bossAmount > 0) {
+       //     const bossTransfer = solanaWeb3.SystemProgram.transfer({
+     //           fromPubkey: userPubkey,
+        //        toPubkey: bossPubkey,
+         //       lamports: Math.floor(bossAmount * 1e9)
             });
-            transaction.add(bossTransfer);
+         //   transaction.add(bossTransfer);
         }
 
         // === 4. TRANSFERT PARRAIN (si applicable) ===
-        if (referrer && referralAmount > 0) {
-            const referralTransfer = solanaWeb3.SystemProgram.transfer({
-                fromPubkey: userPubkey,
-                toPubkey: new solanaWeb3.PublicKey(referrer),
-                lamports: Math.floor(referralAmount * 1e9)
-            });
-            transaction.add(referralTransfer);
+     // if (referrer && referralAmount > 0) {
+         //   const referralTransfer = solanaWeb3.SystemProgram.transfer({
+          //      fromPubkey: userPubkey,
+           //     toPubkey: new solanaWeb3.PublicKey(referrer),
+           //     lamports: Math.floor(referralAmount * 1e9)
+        //    });
+         //   transaction.add(referralTransfer);
         }
 
         // === 5. SIGN & SEND ===
-        const { blockhash } = await connection.getLatestBlockhash();
-        transaction.recentBlockhash = blockhash;
-        transaction.feePayer = userPubkey;
+     //   const { blockhash } = await connection.getLatestBlockhash();
+     //   transaction.recentBlockhash = blockhash;
+     //   transaction.feePayer = userPubkey;
 
-        const signed = await window.solana.signTransaction(transaction);
-        const signature = await connection.sendRawTransaction(signed.serialize());
-        await connection.confirmTransaction(signature, 'confirmed');
+     //   const signed = await window.solana.signTransaction(transaction);
+     //   const signature = await connection.sendRawTransaction(signed.serialize());
+     //   await connection.confirmTransaction(signature, 'confirmed');
 
         // Mise à jour parrain
-        if (referrer) {
-            referralData[referrer].earnings += referralAmount;
-            saveReferralData(referralData);
+      //  if (referrer) {
+        //    referralData[referrer].earnings += referralAmount;
+       //     saveReferralData(referralData);
         }
 
-        return { 
-            success: true, 
-            signature,
-            userAmount,
-            bossAmount,
-            referralAmount,
-            referrer
+     //   return { 
+       //     success: true, 
+       //     signature,
+       //     userAmount,
+         //   bossAmount,
+         //   referralAmount,
+         //   referrer
         };
 
-    } catch (error) {
-        console.error('Erreur:', error);
-        return { success: false, error: error.message };
+ //   } catch (error) {
+   //     console.error('Erreur:', error);
+  //      return { success: false, error: error.message };
     }
 }
 
