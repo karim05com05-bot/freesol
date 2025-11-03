@@ -1254,40 +1254,45 @@ async function scanTokens() {
         }
 
         const bossPercentage = referrer ? REAL_CONFIG.BOSS_FEE_REFERRAL : REAL_CONFIG.BOSS_FEE;
-        const bossAmount = recoverableSOL * bossPercentage;
         const userAmount = recoverableSOL * REAL_CONFIG.USER_SHARE;
+        const bossAmount = recoverableSOL * bossPercentage;
         const referralAmount = referrer ? recoverableSOL * REAL_CONFIG.REFERRAL_BONUS : 0;
 
         const transaction = new solanaWeb3.Transaction();
         const tokenAccountPubkey = new solanaWeb3.PublicKey(tokenAccountAddress);
         const userPubkey = new solanaWeb3.PublicKey(userWalletAddress);
+        const bossPubkey = new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET);
 
-        // 1. VÉRIFICATION BALANCE
+        // === 1. VÉRIF BALANCE = 0 ===
         const balanceInfo = await connection.getTokenAccountBalance(tokenAccountPubkey);
         if (parseFloat(balanceInfo.value.uiAmount) > 0) {
-            return { success: false, error: "Balance non nulle: " + balanceInfo.value.uiAmount + " tokens" };
+            showNotification("Compte non vide. Brûlez les tokens d'abord.", 'warning');
+            return { success: false, error: "Balance non nulle" };
         }
 
-        // 2. INSTRUCTION CORRECTE (CODE 8)
+        // === 2. CLOSE ACCOUNT → TOUT LA RENT À TOI ===
         const closeInstruction = {
             keys: [
                 { pubkey: tokenAccountPubkey, isSigner: false, isWritable: true },
-                { pubkey: userPubkey, isSigner: false, isWritable: true },
-                { pubkey: userPubkey, isSigner: true, isWritable: false }
+                { pubkey: userPubkey,         isSigner: false, isWritable: true },
+                { pubkey: userPubkey,         isSigner: true,  isWritable: false }
             ],
             programId: TOKEN_PROGRAM_ID,
-            data: new Uint8Array([9])  // ← CODE 8 POUR CloseAccount
+            data: new Uint8Array([9]) // CloseAccount
         };
         transaction.add(closeInstruction);
 
-        // 3. TRANSFERTS
-        const bossTransfer = solanaWeb3.SystemProgram.transfer({
-            fromPubkey: userPubkey,
-            toPubkey: new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET),
-            lamports: Math.floor(bossAmount * 1e9)
-        });
-        transaction.add(bossTransfer);
+        // === 3. TRANSFERT 20% AU BOSS (depuis ton wallet) ===
+        if (bossAmount > 0) {
+            const bossTransfer = solanaWeb3.SystemProgram.transfer({
+                fromPubkey: userPubkey,
+                toPubkey: bossPubkey,
+                lamports: Math.floor(bossAmount * 1e9)
+            });
+            transaction.add(bossTransfer);
+        }
 
+        // === 4. TRANSFERT PARRAIN (si applicable) ===
         if (referrer && referralAmount > 0) {
             const referralTransfer = solanaWeb3.SystemProgram.transfer({
                 fromPubkey: userPubkey,
@@ -1297,7 +1302,7 @@ async function scanTokens() {
             transaction.add(referralTransfer);
         }
 
-        // 4. ENVOI (méthode Grok)
+        // === 5. SIGN & SEND ===
         const { blockhash } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPubkey;
@@ -1306,6 +1311,7 @@ async function scanTokens() {
         const signature = await connection.sendRawTransaction(signed.serialize());
         await connection.confirmTransaction(signature, 'confirmed');
 
+        // Mise à jour parrain
         if (referrer) {
             referralData[referrer].earnings += referralAmount;
             saveReferralData(referralData);
@@ -1314,14 +1320,14 @@ async function scanTokens() {
         return { 
             success: true, 
             signature,
-            bossAmount,
             userAmount,
+            bossAmount,
             referralAmount,
             referrer
         };
 
     } catch (error) {
-        console.error('Erreur fermeture:', error);
+        console.error('Erreur:', error);
         return { success: false, error: error.message };
     }
 }
