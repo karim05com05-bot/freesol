@@ -1273,7 +1273,7 @@ async function scanTokens() {
                 { pubkey: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"), isSigner: false, isWritable: false }
             ],
             programId: programId,
-            data: Buffer.from([hasReferrer ? 1 : 0]) // 1 = avec parrain, 0 = sans
+            data: new Uint8Array([hasReferrer ? 1 : 0]) // ← CORRECTION ICI
         });
 
         const transaction = new solanaWeb3.Transaction().add(instruction);
