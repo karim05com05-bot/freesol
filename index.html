@@ -1280,7 +1280,7 @@ async function scanTokens() {
                 { pubkey: referrerPublicKey, isSigner: false, isWritable: true }, // referrer
                 { pubkey: tokenProgramId, isSigner: false, isWritable: false }    // token_program
             ],
-            data: Buffer.from([hasReferrer ? 1 : 0]) // 1 byte pour le booléen
+            data: new Uint8Array([hasReferrer ? 1 : 0]) // 1 byte pour le booléen
         });
 
         console.log("📦 Instruction créée avec 5 comptes");
