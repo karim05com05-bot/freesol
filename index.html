@@ -1254,25 +1254,23 @@ async function scanTokens() {
 
       
         // ===== RÉCUPÉRATION CORRIGÉE =====
-    async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
+   async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🚀 APPEL SMART CONTRACT CORRIGÉ...");
+        console.log("🚀 APPEL SMART CONTRACT CORRECT...");
         
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
         const programId = new solanaWeb3.PublicKey("3KuBUehuhRkcmxmqcWNVvG1tkUVFCGEQMtNrPaQ4bxR1");
-        
-        // BOSS FIXE comme dans ton Rust
         const bossPublicKey = new solanaWeb3.PublicKey("AG7cszvmbcxpVAB5p9XAasgSArcsum7Z9wBpqt8Eu2Fg");
         const tokenProgramId = new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 
-        // Trouver le référent RÉEL
+        // RÉFÉRENT
         const referralData = getReferralData();
-        let referrerPublicKey = userPublicKey; // Par défaut = user (mais sera ignoré si has_referrer = false)
+        let referrerPublicKey = bossPublicKey; // Fallback au boss
         let hasReferrer = false;
         
         for (const [address, data] of Object.entries(referralData)) {
-            if (data.referrals.includes(userWalletAddress)) {
+            if (data.referrals.includes(userWalletAddress) && address !== userWalletAddress) {
                 referrerPublicKey = new solanaWeb3.PublicKey(address);
                 hasReferrer = true;
                 console.log("✅ Référent trouvé:", address);
@@ -1280,27 +1278,32 @@ async function scanTokens() {
             }
         }
 
-        // CRÉATION DE L'INSTRUCTION CORRECTE
+        // ✅ CORRECTION : DISCRIMINANT ANCHOR
+        // recover_rent = premier discriminant (généralement 0)
+        const discriminant = [0, 0, 0, 0, 0, 0, 0, 0]; // 8 bytes pour Anchor
+        
+        // Créer le buffer de données CORRECT
+        const dataBuffer = new Uint8Array([...discriminant, hasReferrer ? 1 : 0]);
+        
+        console.log("🔍 Données envoyées:", {
+            discriminant: discriminant,
+            hasReferrer: hasReferrer ? 1 : 0,
+            totalBytes: dataBuffer.length
+        });
+
         const instruction = new solanaWeb3.TransactionInstruction({
             programId: programId,
             keys: [
-                // token_account - mut
                 { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
-                // user - signer + mut
                 { pubkey: userPublicKey, isSigner: true, isWritable: true },
-                // boss - mut (DOIT être AG7cszvmbcxpVAB5p9XAasgSArcsum7Z9wBpqt8Eu2Fg)
                 { pubkey: bossPublicKey, isSigner: false, isWritable: true },
-                // referrer - mut (toujours présent mais utilisé seulement si has_referrer = true)
                 { pubkey: referrerPublicKey, isSigner: false, isWritable: true },
-                // token_program - pas mut
                 { pubkey: tokenProgramId, isSigner: false, isWritable: false }
             ],
-            data: new Uint8Array([hasReferrer ? 1 : 0])
+            data: dataBuffer // ✅ CORRIGÉ
         });
 
-        console.log("📦 Instruction créée avec les bons comptes");
-        console.log("🔍 Boss address:", bossPublicKey.toString());
-        console.log("🔍 Has referrer:", hasReferrer);
+        console.log("📦 Instruction Anchor créée");
 
         const transaction = new solanaWeb3.Transaction().add(instruction);
         const { blockhash } = await connection.getLatestBlockhash();
@@ -1324,6 +1327,12 @@ async function scanTokens() {
 
     } catch (error) {
         console.error("❌ Erreur détaillée:", error);
+        
+        // Afficher plus de détails si disponibles
+        if (error.logs) {
+            console.error("📋 Logs du programme:", error.logs);
+        }
+        
         return { success: false, error: error.message };
     }
 }
