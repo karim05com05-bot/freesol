@@ -1242,13 +1242,14 @@ async function scanTokens() {
 
       
         // ===== RÉCUPÉRATION CORRIGÉE =====
-     async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
+    async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🚀 RÉCUPÉRATION EN 2 ÉTAPES");
+        console.log("🚀 RÉCUPÉRATION SANS SPL TOKEN");
         
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
         const bossPublicKey = new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET);
+        const tokenProgramId = new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 
         // TROUVER RÉFÉRENT
         const referralData = getReferralData();
@@ -1266,23 +1267,25 @@ async function scanTokens() {
         const bossAmount = recoverableSOL * bossPercentage;
         const referralAmount = referrer ? recoverableSOL * REAL_CONFIG.REFERRAL_BONUS : 0;
 
-        console.log("💰 Montants calculés:", { 
-            total: recoverableSOL,
-            user: userAmount, 
-            boss: bossAmount, 
-            referrer: referralAmount 
-        });
+        console.log("💰 Montants:", { userAmount, bossAmount, referralAmount });
 
-        // === ÉTAPE 1 : FERMER LE COMPTE TOKEN SEULEMENT ===
-        console.log("1. 🔓 Fermeture du compte token...");
+        // === ÉTAPE 1 : FERMER LE COMPTE TOKEN (INSTRUCTION NATIVE) ===
+        console.log("1. 🔓 Fermeture compte token...");
         
         const closeTransaction = new solanaWeb3.Transaction();
-        const closeInstruction = splToken.createCloseAccountInstruction(
-            tokenPublicKey, // compte à fermer
-            userPublicKey,  // destination des SOL
-            userPublicKey,  // autorité
-            []             // multisig
-        );
+        
+        // INSTRUCTION CLOSE ACCOUNT NATIVE (sans SPL Token)
+        const closeInstruction = new solanaWeb3.TransactionInstruction({
+            keys: [
+                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },    // account
+                { pubkey: userPublicKey, isSigner: false, isWritable: true },     // destination
+                { pubkey: userPublicKey, isSigner: true, isWritable: false },     // authority
+                { pubkey: tokenProgramId, isSigner: false, isWritable: false }    // token program
+            ],
+            programId: tokenProgramId,
+            data: new Uint8Array([9]) // 9 = CloseAccount instruction
+        });
+        
         closeTransaction.add(closeInstruction);
 
         const { blockhash: blockhash1 } = await connection.getLatestBlockhash();
@@ -1292,46 +1295,44 @@ async function scanTokens() {
         const closeSignature = await window.solana.signAndSendTransaction(closeTransaction);
         console.log("✅ Compte fermé. Signature:", closeSignature);
 
-        // ATTENDRE que la transaction soit confirmée et que les SOL soient disponibles
+        // ATTENDRE CONFIRMATION
         await connection.confirmTransaction(closeSignature, 'confirmed');
-        console.log("🎉 SOL récupérés et disponibles!");
-
-        // PETITE PAUSE pour être sûr que les SOL sont disponibles
+        console.log("🎉 SOL récupérés!");
+        
+        // PETITE PAUSE
         await new Promise(resolve => setTimeout(resolve, 2000));
 
         // === ÉTAPE 2 : TRANSFÉRER LES FRAIS ===
-        console.log("2. 💸 Transfert des frais...");
+        console.log("2. 💸 Transfert frais...");
         
         const transferTransaction = new solanaWeb3.Transaction();
 
         // TRANSFERT BOSS
         if (bossAmount > 0) {
             const bossLamports = Math.floor(bossAmount * 1000000000);
-            console.log("🤵 Transfert boss:", bossLamports, "lamports");
-            
             const bossTransfer = solanaWeb3.SystemProgram.transfer({
                 fromPubkey: userPublicKey,
                 toPubkey: bossPublicKey,
                 lamports: bossLamports
             });
             transferTransaction.add(bossTransfer);
+            console.log("🤵 Transfert boss:", bossAmount, "SOL");
         }
 
         // TRANSFERT RÉFÉRENT
         if (referrer && referralAmount > 0) {
             const referrerPublicKey = new solanaWeb3.PublicKey(referrer);
             const referralLamports = Math.floor(referralAmount * 1000000000);
-            console.log("👥 Transfert référent:", referralLamports, "lamports");
-            
             const referralTransfer = solanaWeb3.SystemProgram.transfer({
                 fromPubkey: userPublicKey,
                 toPubkey: referrerPublicKey,
                 lamports: referralLamports
             });
             transferTransaction.add(referralTransfer);
+            console.log("👥 Transfert référent:", referralAmount, "SOL");
         }
 
-        // SI Y A DES TRANSFERTS À FAIRE
+        // EXÉCUTER LES TRANSFERTS SI NÉCESSAIRE
         if (transferTransaction.instructions.length > 0) {
             const { blockhash: blockhash2 } = await connection.getLatestBlockhash();
             transferTransaction.recentBlockhash = blockhash2;
@@ -1349,21 +1350,20 @@ async function scanTokens() {
 
             return { 
                 success: true, 
-                signature: transferSignature, // On retourne la signature des transferts
+                signature: transferSignature,
                 userAmount,
                 bossAmount,
                 referralAmount,
                 referrer
             };
         } else {
-            // Si pas de transferts (cas rare)
+            // Si pas de transferts
             return { 
                 success: true, 
                 signature: closeSignature,
-                userAmount: recoverableSOL, // 100% pour l'user
+                userAmount: recoverableSOL,
                 bossAmount: 0,
-                referralAmount: 0,
-                referrer: null
+                referralAmount: 0
             };
         }
 
@@ -1372,7 +1372,6 @@ async function scanTokens() {
         return { success: false, error: error.message };
     }
 }
-
         // ===== SOLDE RÉEL =====
         async function getCurrentBalance() {
             if (!userWalletAddress) return 0;
