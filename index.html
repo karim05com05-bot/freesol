@@ -1280,7 +1280,7 @@ async function scanTokens() {
         // 3. VÉRIFIER QUE LE COMPTE APPARTIENT À L'USER
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         console.log("4. 🔗 User est propriétaire du token:",
-            tokenAccountInfo.owner.equals(userPublicKey)
+            tokenAccountInfo.owner.equals(userPublicKey),
         );
 
         // ... le reste de ton code ...
