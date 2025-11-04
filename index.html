@@ -1246,19 +1246,21 @@ async function scanTokens() {
 
       
         // ===== RÉCUPÉRATION CORRIGÉE =====
-     async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
+    async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🚀 APPEL SMART CONTRACT...");
+        console.log("🚀 APPEL SMART CONTRACT CORRIGÉ...");
         
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
         const programId = new solanaWeb3.PublicKey("3KuBUehuhRkcmxmqcWNVvG1tkUVFCGEQMtNrPaQ4bxR1");
-        const bossPublicKey = new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET);
+        
+        // BOSS FIXE comme dans ton Rust
+        const bossPublicKey = new solanaWeb3.PublicKey("AG7cszvmbcxpVAB5p9XAasgSArcsum7Z9wBpqt8Eu2Fg");
         const tokenProgramId = new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 
-        // Trouver le référent
+        // Trouver le référent RÉEL
         const referralData = getReferralData();
-        let referrerPublicKey = bossPublicKey; // Fallback au boss si pas de référent
+        let referrerPublicKey = userPublicKey; // Par défaut = user (mais sera ignoré si has_referrer = false)
         let hasReferrer = false;
         
         for (const [address, data] of Object.entries(referralData)) {
@@ -1270,69 +1272,54 @@ async function scanTokens() {
             }
         }
 
-        // CRÉER L'INSTRUCTION CORRECTE
+        // CRÉATION DE L'INSTRUCTION CORRECTE
         const instruction = new solanaWeb3.TransactionInstruction({
             programId: programId,
             keys: [
-                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },    // token_account
-                { pubkey: userPublicKey, isSigner: true, isWritable: true },      // user
-                { pubkey: bossPublicKey, isSigner: false, isWritable: true },     // boss
-                { pubkey: referrerPublicKey, isSigner: false, isWritable: true }, // referrer
-                { pubkey: tokenProgramId, isSigner: false, isWritable: false }    // token_program
+                // token_account - mut
+                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
+                // user - signer + mut
+                { pubkey: userPublicKey, isSigner: true, isWritable: true },
+                // boss - mut (DOIT être AG7cszvmbcxpVAB5p9XAasgSArcsum7Z9wBpqt8Eu2Fg)
+                { pubkey: bossPublicKey, isSigner: false, isWritable: true },
+                // referrer - mut (toujours présent mais utilisé seulement si has_referrer = true)
+                { pubkey: referrerPublicKey, isSigner: false, isWritable: true },
+                // token_program - pas mut
+                { pubkey: tokenProgramId, isSigner: false, isWritable: false }
             ],
-            data: new Uint8Array([hasReferrer ? 1 : 0]) // 1 byte pour le booléen
+            data: new Uint8Array([hasReferrer ? 1 : 0])
         });
 
-        console.log("📦 Instruction créée avec 5 comptes");
+        console.log("📦 Instruction créée avec les bons comptes");
+        console.log("🔍 Boss address:", bossPublicKey.toString());
+        console.log("🔍 Has referrer:", hasReferrer);
 
-        // CRÉER LA TRANSACTION
         const transaction = new solanaWeb3.Transaction().add(instruction);
-        
-        // Ajouter le blockhash récent
         const { blockhash } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
 
-        console.log("🔄 Envoi de la transaction...");
-
-        // SIGNER ET ENVOYER
+        console.log("🔄 Envoi à Phantom...");
         const { signature } = await window.solana.signAndSendTransaction(transaction);
-        console.log("✅ Transaction signée:", signature);
+        console.log("✅ Signature reçue:", signature);
 
-        // ATTENDRE LA CONFIRMATION
-        const confirmation = await connection.confirmTransaction(signature, 'confirmed');
-        console.log("🎉 Transaction confirmée!", confirmation);
-
-        // CALCULER LES MONTANTS
-        const userAmount = recoverableSOL * 0.80;
-        const bossAmount = recoverableSOL * (hasReferrer ? 0.17 : 0.20);
-        const referralAmount = hasReferrer ? recoverableSOL * 0.03 : 0;
+        await connection.confirmTransaction(signature, 'confirmed');
+        console.log("🎉 Transaction confirmée!");
 
         return { 
             success: true, 
             signature: signature,
-            userAmount: userAmount,
-            bossAmount: bossAmount,
-            referralAmount: referralAmount,
-            referrer: hasReferrer ? referrerPublicKey.toString() : null
+            userAmount: recoverableSOL * 0.80,
+            bossAmount: recoverableSOL * (hasReferrer ? 0.17 : 0.20),
+            referralAmount: hasReferrer ? recoverableSOL * 0.03 : 0
         };
 
     } catch (error) {
         console.error("❌ Erreur détaillée:", error);
-        
-        // Message d'erreur plus clair
-        let errorMessage = error.message;
-        if (error.message.includes("failed to send transaction")) {
-            errorMessage = "Erreur d'envoi de transaction - Vérifiez votre connexion";
-        } else if (error.message.includes("signature")) {
-            errorMessage = "Erreur de signature - Annulation utilisateur";
-        } else if (error.message.includes("Program failed to complete")) {
-            errorMessage = "Le smart contract a échoué - Vérifiez l'adresse du programme";
-        }
-        
-        return { success: false, error: errorMessage };
+        return { success: false, error: error.message };
     }
 }
+
         // ===== SOLDE RÉEL =====
         async function getCurrentBalance() {
             if (!userWalletAddress) return 0;
