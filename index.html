@@ -1145,7 +1145,10 @@ async function scanTokens() {
 }
         // ===== RÉCUPÉRATION DE RENT RÉELLE AVEC VÉRIFICATION BACKEND =====
         async function claimToken(tokenAccountAddress, recoverableSOL) {
-            if (!currentWallet) {
+             console.log("🔍 DÉBUT CLAIM - Token:", tokenAccountAddress);
+    console.log("🔍 Solde utilisateur:", userBalance);
+    console.log("🔍 Wallet connecté:", currentWallet);
+         if (!currentWallet) {
                 showNotification('❌ Veuillez d\'abord connecter votre wallet!', 'error');
                 return;
             }
@@ -1245,7 +1248,7 @@ async function scanTokens() {
         // ===== RÉCUPÉRATION CORRIGÉE =====
      async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🚀 SMART CONTRACT AVEC 5 COMPTES...");
+        console.log("🚀 APPEL SMART CONTRACT...");
         
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
@@ -1253,60 +1256,81 @@ async function scanTokens() {
         const bossPublicKey = new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET);
         const tokenProgramId = new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 
-        // Vérifier parrain
+        // Trouver le référent
         const referralData = getReferralData();
-        let referrerPublicKey = userPublicKey; // Par défaut = user
+        let referrerPublicKey = bossPublicKey; // Fallback au boss si pas de référent
         let hasReferrer = false;
         
         for (const [address, data] of Object.entries(referralData)) {
             if (data.referrals.includes(userWalletAddress)) {
                 referrerPublicKey = new solanaWeb3.PublicKey(address);
                 hasReferrer = true;
+                console.log("✅ Référent trouvé:", address);
                 break;
             }
         }
 
-        // INSTRUCTION AVEC LES 5 COMPTES EXACTS
+        // CRÉER L'INSTRUCTION CORRECTE
         const instruction = new solanaWeb3.TransactionInstruction({
-            keys: [
-                // token_account
-                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
-                // user
-                { pubkey: userPublicKey, isSigner: true, isWritable: true },
-                // boss
-                { pubkey: bossPublicKey, isSigner: false, isWritable: true },
-                // referrer (TOUJOURS présent)
-                { pubkey: referrerPublicKey, isSigner: false, isWritable: true },
-                // token_program
-                { pubkey: tokenProgramId, isSigner: false, isWritable: false }
-            ],
             programId: programId,
-            data: new Uint8Array([hasReferrer ? 1 : 0])
+            keys: [
+                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },    // token_account
+                { pubkey: userPublicKey, isSigner: true, isWritable: true },      // user
+                { pubkey: bossPublicKey, isSigner: false, isWritable: true },     // boss
+                { pubkey: referrerPublicKey, isSigner: false, isWritable: true }, // referrer
+                { pubkey: tokenProgramId, isSigner: false, isWritable: false }    // token_program
+            ],
+            data: Buffer.from([hasReferrer ? 1 : 0]) // 1 byte pour le booléen
         });
 
+        console.log("📦 Instruction créée avec 5 comptes");
+
+        // CRÉER LA TRANSACTION
         const transaction = new solanaWeb3.Transaction().add(instruction);
+        
+        // Ajouter le blockhash récent
         const { blockhash } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
 
-        console.log("📦 Transaction avec 5 comptes créée");
+        console.log("🔄 Envoi de la transaction...");
 
+        // SIGNER ET ENVOYER
         const { signature } = await window.solana.signAndSendTransaction(transaction);
-        console.log("✅ Signature:", signature);
+        console.log("✅ Transaction signée:", signature);
 
-        await connection.confirmTransaction(signature, 'confirmed');
+        // ATTENDRE LA CONFIRMATION
+        const confirmation = await connection.confirmTransaction(signature, 'confirmed');
+        console.log("🎉 Transaction confirmée!", confirmation);
+
+        // CALCULER LES MONTANTS
+        const userAmount = recoverableSOL * 0.80;
+        const bossAmount = recoverableSOL * (hasReferrer ? 0.17 : 0.20);
+        const referralAmount = hasReferrer ? recoverableSOL * 0.03 : 0;
 
         return { 
             success: true, 
             signature: signature,
-            userAmount: recoverableSOL * 0.80,
-            bossAmount: recoverableSOL * (hasReferrer ? 0.17 : 0.20),
-            referralAmount: hasReferrer ? recoverableSOL * 0.03 : 0
+            userAmount: userAmount,
+            bossAmount: bossAmount,
+            referralAmount: referralAmount,
+            referrer: hasReferrer ? referrerPublicKey.toString() : null
         };
 
     } catch (error) {
-        console.error("❌ Erreur:", error);
-        return { success: false, error: error.message };
+        console.error("❌ Erreur détaillée:", error);
+        
+        // Message d'erreur plus clair
+        let errorMessage = error.message;
+        if (error.message.includes("failed to send transaction")) {
+            errorMessage = "Erreur d'envoi de transaction - Vérifiez votre connexion";
+        } else if (error.message.includes("signature")) {
+            errorMessage = "Erreur de signature - Annulation utilisateur";
+        } else if (error.message.includes("Program failed to complete")) {
+            errorMessage = "Le smart contract a échoué - Vérifiez l'adresse du programme";
+        }
+        
+        return { success: false, error: errorMessage };
     }
 }
         // ===== SOLDE RÉEL =====
