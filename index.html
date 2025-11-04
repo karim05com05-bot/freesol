@@ -1144,107 +1144,66 @@ async function scanTokens() {
     }
 }
         // ===== RÉCUPÉRATION DE RENT RÉELLE AVEC VÉRIFICATION BACKEND =====
-      async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
+     async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🚀 APPEL SMART CONTRACT ANCHOR CORRECT...");
+        console.log("🚀 MÉTHODE 2 TRANSACTIONS");
         
-        // ADDRESSES EXACTES
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
-        const programId = new solanaWeb3.PublicKey("3KuBUehuhRkcmxmqcWNVvG1tkUVFCGEQMtNrPaQ4bxR1");
         const bossPublicKey = new solanaWeb3.PublicKey("AG7cszvmbcxpVAB5p9XAasgSArcsum7Z9wBpqt8Eu2Fg");
-        const tokenProgramId = new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 
-        // TROUVER LE RÉFÉRENT
-        const referralData = getReferralData();
-        let referrerPublicKey = bossPublicKey; // Fallback = boss
-        let hasReferrer = false;
-        
-        for (const [address, data] of Object.entries(referralData)) {
-            if (data.referrals.includes(userWalletAddress) && address !== userWalletAddress) {
-                referrerPublicKey = new solanaWeb3.PublicKey(address);
-                hasReferrer = true;
-                console.log("✅ Référent trouvé:", address);
-                break;
-            }
-        }
+        // 1. FERMER LE COMPTE TOKEN (100% vers user)
+        const closeInstruction = splToken.createCloseAccountInstruction(
+            tokenPublicKey,
+            userPublicKey,
+            userPublicKey,
+            []
+        );
 
-        // ✅ DISCRIMINANT CORRECT POUR ANCHOR
-        // Pour recover_rent() - généralement le discriminant est basé sur le hash de la fonction
-        // Essai avec le discriminant le plus commun pour la première fonction
-        const discriminant = [143, 100, 238, 249, 114, 218, 112, 227]; // Discriminant commun Anchor
-        
-        // STRUCTURE DE DONNÉES CORRECTE
-        const dataBuffer = new Uint8Array([
-            ...discriminant,    // 8 bytes discriminant
-            hasReferrer ? 1 : 0 // 1 byte pour le booléen
-        ]);
+        // 2. CALCUL DES MONTANTS
+        const rentLamports = recoverableSOL * 1000000000; // Convertir en lamports
+        const bossLamports = Math.floor(rentLamports * 0.20); // 20% pour boss
+        const userLamports = rentLamports - bossLamports; // 80% pour user
 
-        console.log("🔍 Configuration:", {
-            user: userPublicKey.toString(),
-            token: tokenPublicKey.toString(),
-            boss: bossPublicKey.toString(),
-            referrer: referrerPublicKey.toString(),
-            hasReferrer: hasReferrer,
-            discriminant: discriminant
+        // 3. TRANSFÉRER 20% AU BOSS
+        const transferInstruction = solanaWeb3.SystemProgram.transfer({
+            fromPubkey: userPublicKey,
+            toPubkey: bossPublicKey,
+            lamports: bossLamports
         });
 
-        // ✅ INSTRUCTION EXACTE COMME ATTENDU PAR TA STRUCTURE RUST
-        const instruction = new solanaWeb3.TransactionInstruction({
-            programId: programId,
-            keys: [
-                // token_account - Account<'info, TokenAccount> - mut
-                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
-                // user - Signer<'info> - mut + signer
-                { pubkey: userPublicKey, isSigner: true, isWritable: true },
-                // boss - SystemAccount<'info> - mut + address constraint
-                { pubkey: bossPublicKey, isSigner: false, isWritable: true },
-                // referrer - SystemAccount<'info> - mut
-                { pubkey: referrerPublicKey, isSigner: false, isWritable: true },
-                // token_program - Program<'info, Token> - pas mut
-                { pubkey: tokenProgramId, isSigner: false, isWritable: false }
-            ],
-            data: dataBuffer
-        });
+        // 4. CRÉER LA TRANSACTION AVEC LES 2 INSTRUCTIONS
+        const transaction = new solanaWeb3.Transaction()
+            .add(closeInstruction)
+            .add(transferInstruction);
 
-        console.log("📦 Instruction créée avec structure exacte Rust");
-
-        // TRANSACTION
-        const transaction = new solanaWeb3.Transaction().add(instruction);
         const { blockhash } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
 
-        console.log("🔄 Envoi à Phantom...");
+        console.log("🔍 Montants:", {
+            total: recoverableSOL + " SOL",
+            user: (userLamports / 1000000000) + " SOL (80%)",
+            boss: (bossLamports / 1000000000) + " SOL (20%)"
+        });
+
+        console.log("🔄 Envoi transaction...");
         const { signature } = await window.solana.signAndSendTransaction(transaction);
         console.log("✅ Signature reçue:", signature);
 
-        // CONFIRMATION
-        const confirmation = await connection.confirmTransaction(signature, 'confirmed');
-        console.log("🎉 Transaction confirmée:", confirmation);
-
-        // CALCUL DES MONTANTS (identique à ton Rust)
-        const userAmount = recoverableSOL * 0.80;
-        const bossAmount = recoverableSOL * (hasReferrer ? 0.17 : 0.20);
-        const referralAmount = hasReferrer ? recoverableSOL * 0.03 : 0;
+        await connection.confirmTransaction(signature, 'confirmed');
+        console.log("🎉 Transaction confirmée!");
 
         return { 
             success: true, 
             signature: signature,
-            userAmount: userAmount,
-            bossAmount: bossAmount,
-            referralAmount: referralAmount,
-            referrer: hasReferrer ? referrerPublicKey.toString() : null
+            userAmount: userLamports / 1000000000, // 80%
+            bossAmount: bossLamports / 1000000000, // 20%
+            referralAmount: 0
         };
 
     } catch (error) {
-        console.error("❌ Erreur détaillée:", error);
-        
-        // Affiche les logs si disponibles
-        if (error.logs) {
-            console.error("📋 Logs du programme:", error.logs);
-        }
-        
+        console.error("❌ Erreur:", error);
         return { success: false, error: error.message };
     }
 }
