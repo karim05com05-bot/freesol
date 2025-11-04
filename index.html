@@ -1256,6 +1256,40 @@ async function scanTokens() {
         // ===== RÉCUPÉRATION CORRIGÉE =====
    async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
+             console.log("=== 🔍 DEBUG ULTIME ===");
+        
+        // 1. VÉRIFIER SI LE PROGRAMME EXISTE
+        const programId = new solanaWeb3.PublicKey("3KuBUehuhRkcmxmqcWNVvG1tkUVFCGEQMtNrPaQ4bxR1");
+        const programInfo = await connection.getAccountInfo(programId);
+        
+        console.log("1. ✅ Programme existe:", programInfo !== null);
+        if (!programInfo) {
+            throw new Error("❌ PROGRAMME INTROUVABLE! Vérifie l'adresse: " + programId.toString());
+        }
+        console.log("2. 📊 Taille programme:", programInfo.data.length, "bytes");
+
+        // 2. VÉRIFIER LE COMPTE TOKEN
+        const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
+        const tokenAccountInfo = await connection.getAccountInfo(tokenPublicKey);
+        console.log("3. ✅ Token account existe:", tokenAccountInfo !== null);
+        
+        if (!tokenAccountInfo) {
+            throw new Error("❌ COMPTE TOKEN INTROUVABLE!");
+        }
+
+        // 3. VÉRIFIER QUE LE COMPTE APPARTIENT À L'USER
+        const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
+        console.log("4. 🔗 User est propriétaire du token:",
+            tokenAccountInfo.owner.equals(userPublicKey)
+        );
+
+        // ... le reste de ton code ...
+
+    } catch (error) {
+        console.error("💥 ERREUR DEBUG:", error);
+        return { success: false, error: error.message };
+    }
+}
         console.log("🚀 APPEL SMART CONTRACT CORRECT...");
         
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
