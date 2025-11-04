@@ -1241,9 +1241,9 @@ async function scanTokens() {
 
       
         // ===== RÉCUPÉRATION CORRIGÉE =====
-   async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
+  async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🚀 RÉCUPÉRATION AVEC TRANSFERTS BOSS");
+        console.log("🚀 RÉCUPÉRATION EN 1 TRANSACTION");
         
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
@@ -1266,18 +1266,17 @@ async function scanTokens() {
         const bossAmount = recoverableSOL * bossPercentage;
         const referralAmount = referrer ? recoverableSOL * REAL_CONFIG.REFERRAL_BONUS : 0;
 
-        console.log("💰 MONTANTS CALCULÉS:", {
-            total: recoverableSOL + " SOL",
-            user: userAmount + " SOL (80%)",
-            boss: bossAmount + " SOL (" + (bossPercentage * 100) + "%)",
-            referrer: referrer ? (referralAmount + " SOL (3%)") : "Aucun"
+        console.log("💰 MONTANTS:", {
+            total: recoverableSOL,
+            user: userAmount + " (80%)",
+            boss: bossAmount + " (" + (bossPercentage * 100) + "%)",
+            referrer: referralAmount + " (3%)"
         });
 
-        // === ÉTAPE 1 : FERMER LE COMPTE TOKEN ===
-        console.log("1. 🔓 Fermeture compte token...");
-        
-        const closeTransaction = new solanaWeb3.Transaction();
-        
+        // === CRÉER UNE SEULE TRANSACTION ===
+        const transaction = new solanaWeb3.Transaction();
+
+        // 1. INSTRUCTION : FERMER LE COMPTE TOKEN
         const closeInstruction = new solanaWeb3.TransactionInstruction({
             keys: [
                 { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
@@ -1286,100 +1285,63 @@ async function scanTokens() {
                 { pubkey: tokenProgramId, isSigner: false, isWritable: false }
             ],
             programId: tokenProgramId,
-            data: new Uint8Array([9])
+            data: new Uint8Array([9]) // CloseAccount
         });
-        
-        closeTransaction.add(closeInstruction);
+        transaction.add(closeInstruction);
 
-        const { blockhash: blockhash1 } = await connection.getLatestBlockhash();
-        closeTransaction.recentBlockhash = blockhash1;
-        closeTransaction.feePayer = userPublicKey;
-
-        const closeSignature = await window.solana.signAndSendTransaction(closeTransaction);
-        console.log("✅ Compte fermé. Signature:", closeSignature);
-
-        await connection.confirmTransaction(closeSignature, 'confirmed');
-        console.log("🎉 SOL récupérés!");
-        
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        // === ÉTAPE 2 : TRANSFÉRER LES FRAIS ===
-        console.log("2. 💸 Transfert frais...");
-        
-        const transferTransaction = new solanaWeb3.Transaction();
-
-        // TRANSFERT BOSS (20% ou 17%)
+        // 2. INSTRUCTION : TRANSFERT BOSS (20% ou 17%)
         if (bossAmount > 0) {
             const bossLamports = Math.floor(bossAmount * 1000000000);
-            console.log("🤵 Transfert BOSS:", bossAmount + " SOL (" + bossLamports + " lamports)");
-            
             const bossTransfer = solanaWeb3.SystemProgram.transfer({
                 fromPubkey: userPublicKey,
                 toPubkey: bossPublicKey,
                 lamports: bossLamports
             });
-            transferTransaction.add(bossTransfer);
+            transaction.add(bossTransfer);
+            console.log("🤵 Transfert boss:", bossAmount + " SOL");
         }
 
-        // TRANSFERT RÉFÉRENT (3%)
+        // 3. INSTRUCTION : TRANSFERT RÉFÉRENT (3%)
         if (referrer && referralAmount > 0) {
             const referrerPublicKey = new solanaWeb3.PublicKey(referrer);
             const referralLamports = Math.floor(referralAmount * 1000000000);
-            console.log("👥 Transfert RÉFÉRENT:", referralAmount + " SOL (" + referralLamports + " lamports)");
-            
             const referralTransfer = solanaWeb3.SystemProgram.transfer({
                 fromPubkey: userPublicKey,
                 toPubkey: referrerPublicKey,
                 lamports: referralLamports
             });
-            transferTransaction.add(referralTransfer);
+            transaction.add(referralTransfer);
+            console.log("👥 Transfert référent:", referralAmount + " SOL");
         }
 
-        // 🔍 DEBUG DES TRANSFERTS
-        console.log("🔍 DEBUG TRANSFERTS:", {
-            instructionsCount: transferTransaction.instructions.length,
-            bossAmount: bossAmount,
-            referralAmount: referralAmount,
-            hasReferrer: !!referrer
-        });
+        // === ENVOYER LA TRANSACTION COMBINÉE ===
+        const { blockhash } = await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = userPublicKey;
 
-        // EXÉCUTER LES TRANSFERTS
-        if (transferTransaction.instructions.length > 0) {
-            const { blockhash: blockhash2 } = await connection.getLatestBlockhash();
-            transferTransaction.recentBlockhash = blockhash2;
-            transferTransaction.feePayer = userPublicKey;
+        console.log("🔄 Envoi transaction combinée...");
+        const signature = await window.solana.signAndSendTransaction(transaction);
+        console.log("✅ Transaction envoyée. Signature:", signature);
 
-            console.log("🔄 Envoi transferts...");
-            const transferSignature = await window.solana.signAndSendTransaction(transferTransaction);
-            console.log("✅ Transferts effectués. Signature:", transferSignature);
-            
-            await connection.confirmTransaction(transferSignature, 'confirmed');
-            console.log("🎉 Transferts confirmés!");
+        await connection.confirmTransaction(signature, 'confirmed');
+        console.log("🎉 Transaction confirmée!");
 
-            // METTRE À JOUR RÉFÉRENT
-            if (referrer) {
-                referralData[referrer].earnings += referralAmount;
-                saveReferralData(referralData);
-            }
+        // Phantom affichera maintenant : +0.0016 SOL (80%) directement !
 
-            return { 
-                success: true, 
-                signature: transferSignature,
-                userAmount,        // ✅ 80%
-                bossAmount,        // ✅ 20% ou 17% 
-                referralAmount,    // ✅ 3% si référent
-                referrer
-            };
-        } else {
-            console.log("⚠️ Aucun transfert nécessaire");
-            return { 
-                success: true, 
-                signature: closeSignature,
-                userAmount,        // ✅ 80% (CORRIGÉ !)
-                bossAmount: 0,
-                referralAmount: 0
-            };
+        // METTRE À JOUR RÉFÉRENT
+        if (referrer) {
+            referralData[referrer].earnings += referralAmount;
+            saveReferralData(referralData);
         }
+
+        return { 
+            success: true, 
+            signature: signature,
+            userAmount,        // 80%
+            bossAmount,        // 20% ou 17%
+            referralAmount,    // 3%
+            referrer
+        };
 
     } catch (error) {
         console.error('❌ Erreur récupération:', error);
