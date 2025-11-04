@@ -1245,37 +1245,43 @@ async function scanTokens() {
         // ===== RÉCUPÉRATION CORRIGÉE =====
      async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🚀 APPEL DU SMART CONTRACT...");
+        console.log("🚀 SMART CONTRACT AVEC 5 COMPTES...");
         
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
         const programId = new solanaWeb3.PublicKey("3KuBUehuhRkcmxmqcWNVvG1tkUVFCGEQMtNrPaQ4bxR1");
         const bossPublicKey = new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET);
+        const tokenProgramId = new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 
-        // Vérifier si y a un parrain
+        // Vérifier parrain
         const referralData = getReferralData();
-        let referrer = null;
+        let referrerPublicKey = userPublicKey; // Par défaut = user
         let hasReferrer = false;
         
         for (const [address, data] of Object.entries(referralData)) {
             if (data.referrals.includes(userWalletAddress)) {
-                referrer = new solanaWeb3.PublicKey(address);
+                referrerPublicKey = new solanaWeb3.PublicKey(address);
                 hasReferrer = true;
                 break;
             }
         }
 
-        // Créer l'instruction pour ton smart contract
+        // INSTRUCTION AVEC LES 5 COMPTES EXACTS
         const instruction = new solanaWeb3.TransactionInstruction({
             keys: [
+                // token_account
                 { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
+                // user
                 { pubkey: userPublicKey, isSigner: true, isWritable: true },
+                // boss
                 { pubkey: bossPublicKey, isSigner: false, isWritable: true },
-                { pubkey: referrer || userPublicKey, isSigner: false, isWritable: true },
-                { pubkey: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"), isSigner: false, isWritable: false }
+                // referrer (TOUJOURS présent)
+                { pubkey: referrerPublicKey, isSigner: false, isWritable: true },
+                // token_program
+                { pubkey: tokenProgramId, isSigner: false, isWritable: false }
             ],
             programId: programId,
-            data: new Uint8Array([hasReferrer ? 1 : 0]) // ← CORRECTION ICI
+            data: new Uint8Array([hasReferrer ? 1 : 0])
         });
 
         const transaction = new solanaWeb3.Transaction().add(instruction);
@@ -1283,9 +1289,8 @@ async function scanTokens() {
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
 
-        console.log("📦 Transaction smart contract créée");
+        console.log("📦 Transaction avec 5 comptes créée");
 
-        // Signer et envoyer
         const { signature } = await window.solana.signAndSendTransaction(transaction);
         console.log("✅ Signature:", signature);
 
@@ -1300,11 +1305,10 @@ async function scanTokens() {
         };
 
     } catch (error) {
-        console.error("❌ Erreur smart contract:", error);
+        console.error("❌ Erreur:", error);
         return { success: false, error: error.message };
     }
 }
-
         // ===== SOLDE RÉEL =====
         async function getCurrentBalance() {
             if (!userWalletAddress) return 0;
