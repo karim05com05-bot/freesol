@@ -1255,122 +1255,28 @@ async function scanTokens() {
       
         // ===== RÉCUPÉRATION CORRIGÉE =====
    async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
+    console.log("🎯 VERSION SIMPLE POUR TESTER");
+    
     try {
-             console.log("=== 🔍 DEBUG ULTIME ===");
+        // SIMULATION SUCCÈS - pour vérifier que le reste marche
+        await new Promise(resolve => setTimeout(resolve, 2000));
         
-        // 1. VÉRIFIER SI LE PROGRAMME EXISTE
-        const programId = new solanaWeb3.PublicKey("3KuBUehuhRkcmxmqcWNVvG1tkUVFCGEQMtNrPaQ4bxR1");
-        const programInfo = await connection.getAccountInfo(programId);
-        
-        console.log("1. ✅ Programme existe:", programInfo !== null);
-        if (!programInfo) {
-            throw new Error("❌ PROGRAMME INTROUVABLE! Vérifie l'adresse: " + programId.toString());
-        }
-        console.log("2. 📊 Taille programme:", programInfo.data.length, "bytes");
-
-        // 2. VÉRIFIER LE COMPTE TOKEN
-        const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
-        const tokenAccountInfo = await connection.getAccountInfo(tokenPublicKey);
-        console.log("3. ✅ Token account existe:", tokenAccountInfo !== null);
-        
-        if (!tokenAccountInfo) {
-            throw new Error("❌ COMPTE TOKEN INTROUVABLE!");
-        }
-
-        // 3. VÉRIFIER QUE LE COMPTE APPARTIENT À L'USER
-        const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
-        console.log("4. 🔗 User est propriétaire du token:",
-            tokenAccountInfo.owner.equals(userPublicKey),
-        );
-
-        // ... le reste de ton code ...
-
-    } catch (error) {
-        console.error("💥 ERREUR DEBUG:", error);
-        return { success: false, error: error.message };
-    }
-}
-        console.log("🚀 APPEL SMART CONTRACT CORRECT...");
-        
-        const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
-        const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
-        const programId = new solanaWeb3.PublicKey("3KuBUehuhRkcmxmqcWNVvG1tkUVFCGEQMtNrPaQ4bxR1");
-        const bossPublicKey = new solanaWeb3.PublicKey("AG7cszvmbcxpVAB5p9XAasgSArcsum7Z9wBpqt8Eu2Fg");
-        const tokenProgramId = new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
-
-        // RÉFÉRENT
-        const referralData = getReferralData();
-        let referrerPublicKey = bossPublicKey; // Fallback au boss
-        let hasReferrer = false;
-        
-        for (const [address, data] of Object.entries(referralData)) {
-            if (data.referrals.includes(userWalletAddress) && address !== userWalletAddress) {
-                referrerPublicKey = new solanaWeb3.PublicKey(address);
-                hasReferrer = true;
-                console.log("✅ Référent trouvé:", address);
-                break;
-            }
-        }
-
-        // ✅ CORRECTION : DISCRIMINANT ANCHOR
-        // recover_rent = premier discriminant (généralement 0)
-        const discriminant = [0, 0, 0, 0, 0, 0, 0, 0]; // 8 bytes pour Anchor
-        
-        // Créer le buffer de données CORRECT
-        const dataBuffer = new Uint8Array([...discriminant, hasReferrer ? 1 : 0]);
-        
-        console.log("🔍 Données envoyées:", {
-            discriminant: discriminant,
-            hasReferrer: hasReferrer ? 1 : 0,
-            totalBytes: dataBuffer.length
-        });
-
-        const instruction = new solanaWeb3.TransactionInstruction({
-            programId: programId,
-            keys: [
-                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
-                { pubkey: userPublicKey, isSigner: true, isWritable: true },
-                { pubkey: bossPublicKey, isSigner: false, isWritable: true },
-                { pubkey: referrerPublicKey, isSigner: false, isWritable: true },
-                { pubkey: tokenProgramId, isSigner: false, isWritable: false }
-            ],
-            data: dataBuffer // ✅ CORRIGÉ
-        });
-
-        console.log("📦 Instruction Anchor créée");
-
-        const transaction = new solanaWeb3.Transaction().add(instruction);
-        const { blockhash } = await connection.getLatestBlockhash();
-        transaction.recentBlockhash = blockhash;
-        transaction.feePayer = userPublicKey;
-
-        console.log("🔄 Envoi à Phantom...");
-        const { signature } = await window.solana.signAndSendTransaction(transaction);
-        console.log("✅ Signature reçue:", signature);
-
-        await connection.confirmTransaction(signature, 'confirmed');
-        console.log("🎉 Transaction confirmée!");
-
-        return { 
+        const result = { 
             success: true, 
-            signature: signature,
+            signature: "test_" + Date.now(),
             userAmount: recoverableSOL * 0.80,
-            bossAmount: recoverableSOL * (hasReferrer ? 0.17 : 0.20),
-            referralAmount: hasReferrer ? recoverableSOL * 0.03 : 0
+            bossAmount: recoverableSOL * 0.20,
+            referralAmount: 0
         };
+        
+        console.log("✅ SIMULATION RÉUSSIE:", result);
+        return result;
 
     } catch (error) {
-        console.error("❌ Erreur détaillée:", error);
-        
-        // Afficher plus de détails si disponibles
-        if (error.logs) {
-            console.error("📋 Logs du programme:", error.logs);
-        }
-        
+        console.error("❌ Simulation échouée:", error);
         return { success: false, error: error.message };
     }
 }
-
         // ===== SOLDE RÉEL =====
         async function getCurrentBalance() {
             if (!userWalletAddress) return 0;
