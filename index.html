@@ -1144,136 +1144,76 @@ async function scanTokens() {
     }
 }
         // ===== RÉCUPÉRATION DE RENT RÉELLE AVEC VÉRIFICATION BACKEND =====
-        async function claimToken(tokenAccountAddress, recoverableSOL) {
-               const expectedBoss = "AG7cszvmbcxpVAB5p9XAasgSArcsum7Z9wBpqt8Eu2Fg";
-    if (REAL_CONFIG.BOSS_WALLET !== expectedBoss) {
-        console.error("❌ MAUVAIS BOSS WALLET!");
-        console.log("Config:", REAL_CONFIG.BOSS_WALLET);
-        console.log("Attendu:", expectedBoss);
-        showNotification("❌ Erreur configuration BOSS", "error");
-        return;
-    }
-             console.log("🔍 DÉBUT CLAIM - Token:", tokenAccountAddress);
-    console.log("🔍 Solde utilisateur:", userBalance);
-    console.log("🔍 Wallet connecté:", currentWallet);
-         if (!currentWallet) {
-                showNotification('❌ Veuillez d\'abord connecter votre wallet!', 'error');
-                return;
-            }
-            
-            if (!hasMinimumBalance()) {
-                showNotification(`❌ Solde insuffisant! Vous avez: ${userBalance.toFixed(6)} SOL - Minimum: 0.002 SOL`, 'error');
-                return;
-            }
-            
+        async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
+    try {
+        console.log("🎯 ESSAI AVEC DIFFÉRENTS DISCRIMINANTS");
+        
+        const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
+        const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
+        const programId = new solanaWeb3.PublicKey("3KuBUehuhRkcmxmqcWNVvG1tkUVFCGEQMtNrPaQ4bxR1");
+        const bossPublicKey = new solanaWeb3.PublicKey("AG7cszvmbcxpVAB5p9XAasgSArcsum7Z9wBpqt8Eu2Fg");
+        const tokenProgramId = new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+
+        // ESSAIE DIFFÉRENTS DISCRIMINANTS
+        const discriminants = [
+            [0, 0, 0, 0, 0, 0, 0, 0], // Essai 1
+            [1, 0, 0, 0, 0, 0, 0, 0], // Essai 2  
+            [232, 219, 237, 31, 249, 171, 100, 150], // Discriminant commun Anchor
+            [194, 109, 44, 175, 245, 211, 27, 5]     // Autre commun
+        ];
+
+        let lastError = null;
+
+        for (let i = 0; i < discriminants.length; i++) {
             try {
-                // Transaction blockchain
-                const transactionResult = await realRecoverRent(tokenAccountAddress, recoverableSOL);
+                console.log(`🔧 Essai discriminant ${i + 1}:`, discriminants[i]);
                 
-                if (transactionResult.success) {
-                    let message = `🎉 RÉCUPÉRATION RÉUSSIE!\n\n`;
-                    message += `Transaction: ${transactionResult.signature}\n\n`;
-                    message += `Vous recevez: ${transactionResult.userAmount.toFixed(4)} SOL (80%)\n`;
-                    message += `FreeSol: ${transactionResult.bossAmount.toFixed(4)} SOL\n`;
-                    
-                    if (transactionResult.referralAmount > 0) {
-                        message += `Parrain: ${transactionResult.referralAmount.toFixed(4)} SOL (3%) ENVOYÉS RÉELLEMENT\n`;
-                    }
-
-                    // Vérification backend si disponible
-                    if (backendOnline) {
-                        try {
-                            const verification = await backendService.verifyTransaction(
-                                transactionResult.signature,
-                                transactionResult.bossAmount,
-                                tokenAccountAddress
-                            );
-
-                            if (verification.success) {
-                                message += `\n✅ VÉRIFICATION BACKEND: Transaction confirmée et sécurisée`;
-                                showNotification('✅ Transaction vérifiée par le serveur!', 'success');
-                            }
-                        } catch (verifyError) {
-                            console.log('Vérification backend échouée:', verifyError);
-                        }
-                    }
-
-                    alert(message);
-                    
-                    // Données de la transaction
-                    const txData = {
-                        txId: transactionResult.signature,
-                        account: tokenAccountAddress,
-                        total: recoverableSOL,
-                        userReceived: transactionResult.userAmount,
-                        bossReceived: transactionResult.bossAmount,
-                        referralFee: transactionResult.referralAmount || 0,
-                        referrer: transactionResult.referrer || null,
-                        timestamp: new Date().toISOString(),
-                        verified: backendOnline
-                    };
-
-                    // Sauvegarde LOCALE
-                    saveTransaction(txData);
-                    
-                    // Sauvegarde GLOBALE dans MongoDB
-                    try {
-                        await backendService.addGlobalTransaction({
-                            txId: transactionResult.signature,
-                            userReceived: transactionResult.userAmount,
-                            userWallet: userWalletAddress.substring(0, 8) + '...', // Anonymisé
-                            bossReceived: transactionResult.bossAmount
-                        });
-                        
-                        // Recharger les transactions globales et stats
-                        loadGlobalTransactions();
-                        updateRealStats();
-                    } catch (globalError) {
-                        console.log('Erreur sauvegarde globale:', globalError);
-                    }
-                    
-                    // Mise à jour UI
-                    updateAffiliationStats();
-                    updateLeaderboard();
-                    loadTransactionHistory();
-                    userBalance = await getCurrentBalance();
-                    showBalanceWarning();
-                    
-                    // Rescan après réclamation
-                    setTimeout(() => scanTokens(), 2000);
-                    
-                } else {
-                    throw new Error(transactionResult.error);
-                }
+                const dataBuffer = new Uint8Array([...discriminants[i], 0]); // has_referrer = false
                 
+                const instruction = new solanaWeb3.TransactionInstruction({
+                    programId: programId,
+                    keys: [
+                        { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
+                        { pubkey: userPublicKey, isSigner: true, isWritable: true },
+                        { pubkey: bossPublicKey, isSigner: false, isWritable: true },
+                        { pubkey: bossPublicKey, isSigner: false, isWritable: true }, // referrer = boss pour test
+                        { pubkey: tokenProgramId, isSigner: false, isWritable: false }
+                    ],
+                    data: dataBuffer
+                });
+
+                const transaction = new solanaWeb3.Transaction().add(instruction);
+                const { blockhash } = await connection.getLatestBlockhash();
+                transaction.recentBlockhash = blockhash;
+                transaction.feePayer = userPublicKey;
+
+                console.log("🔄 Envoi...");
+                const { signature } = await window.solana.signAndSendTransaction(transaction);
+                
+                console.log(`✅ SUCCÈS avec discriminant ${i + 1}!`);
+                console.log("📝 Signature:", signature);
+                
+                await connection.confirmTransaction(signature, 'confirmed');
+                
+                return { 
+                    success: true, 
+                    signature: signature,
+                    userAmount: recoverableSOL * 0.80,
+                    bossAmount: recoverableSOL * 0.20,
+                    referralAmount: 0
+                };
+
             } catch (error) {
-                console.error('Erreur réclamation:', error);
-                showNotification('❌ Erreur: ' + error.message, 'error');
+                lastError = error;
+                console.log(`❌ Essai ${i + 1} échoué:`, error.message);
+                continue;
             }
         }
 
-      
-        // ===== RÉCUPÉRATION CORRIGÉE =====
-   async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
-    console.log("🎯 VERSION SIMPLE POUR TESTER");
-    
-    try {
-        // SIMULATION SUCCÈS - pour vérifier que le reste marche
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        const result = { 
-            success: true, 
-            signature: "test_" + Date.now(),
-            userAmount: recoverableSOL * 0.80,
-            bossAmount: recoverableSOL * 0.20,
-            referralAmount: 0
-        };
-        
-        console.log("✅ SIMULATION RÉUSSIE:", result);
-        return result;
+        throw new Error(`Tous les discriminants ont échoué. Dernière erreur: ${lastError.message}`);
 
     } catch (error) {
-        console.error("❌ Simulation échouée:", error);
+        console.error("💥 Erreur finale:", error);
         return { success: false, error: error.message };
     }
 }
