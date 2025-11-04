@@ -1283,7 +1283,7 @@ async function scanTokens() {
                 { pubkey: referrerPublicKey, isSigner: false, isWritable: true }, // referrer
                 { pubkey: tokenProgramId, isSigner: false, isWritable: false }    // token_program
             ],
-            data: new Uint8Array([]) // Pas de données supplémentaires
+            data: new Uint8Array([0]) // Pas de données supplémentaires
         });
 
         const transaction = new solanaWeb3.Transaction().add(instruction);
