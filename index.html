@@ -20,8 +20,22 @@
     <script src="https://unpkg.com/@solana/spl-token@latest/lib/index.iife.js"></script>
    <script src="https://unpkg.com/@project-serum/anchor@0.26.0/dist/browser/anchor.iife.js"></script>
    <script>
-  // ✅ Patch global : force anchor à être reconnu dans window
-  window.anchor = window.anchor || anchor;
+  // ✅ Fix global : attendre que anchor soit chargé
+  function waitForAnchor(callback) {
+    if (window.anchor) return callback();
+    const interval = setInterval(() => {
+      if (window.anchor) {
+        clearInterval(interval);
+        callback();
+      }
+    }, 100);
+  }
+
+  waitForAnchor(() => {
+    console.log("✅ Anchor détecté:", window.anchor);
+    // patch global si besoin
+    window.anchor = window.anchor || anchor;
+  });
 </script>
 
 
