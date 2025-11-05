@@ -1244,14 +1244,15 @@ async function scanTokens() {
         // ===== RÉCUPÉRATION CORRIGÉE =====
    async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🚀 RÉCUPÉRATION SANS SPL TOKEN (transaction combinée)");
+        console.log("🚀 DÉMARRAGE RÉCUPÉRATION SPL TOKEN + SPLIT");
 
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
         const bossPublicKey = new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET);
-        const tokenProgramId = new solanaWeb3.PublicKey(REAL_CONFIG.TOKEN_PROGRAM_ID || "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+        const tokenProgramId = new solanaWeb3.PublicKey(REAL_CONFIG.TOKEN_PROGRAM_ID);
+        const connection = new solanaWeb3.Connection(REAL_CONFIG.RPC_URL, "confirmed");
 
-        // TROUVER RÉFÉRENT
+        // === TROUVER RÉFÉRENT ===
         const referralData = getReferralData();
         let referrer = null;
         for (const [address, data] of Object.entries(referralData)) {
@@ -1261,41 +1262,31 @@ async function scanTokens() {
             }
         }
 
-        // CALCUL MONTANTS (en SOL)
+        // === CALCUL MONTANTS ===
         const bossPercentage = referrer ? REAL_CONFIG.BOSS_FEE_REFERRAL : REAL_CONFIG.BOSS_FEE;
         const userAmount = recoverableSOL * REAL_CONFIG.USER_SHARE;
         const bossAmount = recoverableSOL * bossPercentage;
         const referralAmount = referrer ? recoverableSOL * REAL_CONFIG.REFERRAL_BONUS : 0;
 
-        console.log("💰 Montants (SOL):", { userAmount, bossAmount, referralAmount });
+        console.log("💰 MONTANTS :", { userAmount, bossAmount, referralAmount });
 
-        // Convertir en lamports (entiers)
         const lamportsPerSol = 1_000_000_000;
         const bossLamports = Math.floor(bossAmount * lamportsPerSol);
         const referralLamports = Math.floor(referralAmount * lamportsPerSol);
-        // userLamports n'est pas strictement nécessaire pour les transferts (user reçoit d'abord via close),
-        // mais on peut le calculer pour info :
-        const userLamports = Math.floor(userAmount * lamportsPerSol);
 
-        // === CONSTRUIRE UNE TRANSACTION COMBINÉE ===
+        // === CONSTRUCTION DE LA TRANSACTION COMBINÉE ===
         const combinedTx = new solanaWeb3.Transaction();
 
-        // 1) Instruction CloseAccount (SPL Token) — destination = userPublicKey (les lamports vont d'abord au user)
-        // Keys : [ account, destination, authority ]
-        const closeInstruction = new solanaWeb3.TransactionInstruction({
-            keys: [
-                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },    // token account to close
-                { pubkey: userPublicKey, isSigner: false, isWritable: true },     // destination for lamports (user)
-                { pubkey: userPublicKey, isSigner: true, isWritable: false }      // authority (user must sign)
-            ],
-            programId: tokenProgramId,
-            data: new Uint8Array([9]) // 9 = CloseAccount for SPL Token program (matches your code)
-        });
-
+        // 1️⃣ FERMETURE DU COMPTE TOKEN (INSTRUCTION SPL)
+        const closeInstruction = createCloseAccountInstruction(
+            tokenPublicKey,  // compte token à fermer
+            userPublicKey,   // destination (recevoir SOL)
+            userPublicKey    // authority (doit signer)
+        );
         combinedTx.add(closeInstruction);
+        console.log("🔓 Instruction CloseAccount ajoutée.");
 
-        // 2) Transferts depuis user vers boss et referrer (toujours dans la même transaction)
-        // IMPORTANT: ces transferts sont des SystemProgram.transfer FROM userPublicKey, donc l'utilisateur doit signer.
+        // 2️⃣ TRANSFERTS (BOSS + RÉFÉRENT)
         if (bossLamports > 0) {
             combinedTx.add(
                 solanaWeb3.SystemProgram.transfer({
@@ -1304,7 +1295,7 @@ async function scanTokens() {
                     lamports: bossLamports
                 })
             );
-            console.log("🤵 Préparé transfert boss (lamports):", bossLamports);
+            console.log("🤵 Transfert boss prêt :", bossLamports, "lamports");
         }
 
         if (referrer && referralLamports > 0) {
@@ -1316,37 +1307,30 @@ async function scanTokens() {
                     lamports: referralLamports
                 })
             );
-            console.log("👥 Préparé transfert référent (lamports):", referralLamports);
+            console.log("👥 Transfert parrain prêt :", referralLamports, "lamports");
         }
 
-        // Optionnel : vérifier que la somme des parts ne dépasse pas recoverableSOL (petit check)
-        const totalSplitLamports = bossLamports + referralLamports + userLamports;
-        // On permet un petit écart dû aux arrondis.
-        const recoverableLamports = Math.floor(recoverableSOL * lamportsPerSol);
-        if (Math.abs(totalSplitLamports - recoverableLamports) > 5) {
-            console.warn("⚠️ Attention : somme des parts (lamports) diffère du montant récupérable. Arrondis possibles.", { totalSplitLamports, recoverableLamports });
-        }
-
-        // Préparer la tx (blockhash + fee payer)
+        // === FINALISATION DE LA TRANSACTION ===
         const { blockhash } = await connection.getLatestBlockhash();
         combinedTx.recentBlockhash = blockhash;
         combinedTx.feePayer = userPublicKey;
 
-        // Signer & envoyer (l'utilisateur signe via son wallet)
-        // window.solana.signAndSendTransaction signera pour userPublicKey (authority + payer)
+        // L'utilisateur signe et envoie la transaction
         const signature = await window.solana.signAndSendTransaction(combinedTx);
-        console.log("✅ Transaction signée et envoyée. signature:", signature);
+        console.log("✅ Transaction envoyée :", signature);
 
-        // Attendre confirmation
-        await connection.confirmTransaction(signature, 'confirmed');
-        console.log("🎉 Transaction confirmée. Split effectué on-chain.");
+        // Attendre la confirmation
+        await connection.confirmTransaction(signature, "confirmed");
+        console.log("🎉 Transaction confirmée sur Solana.");
 
-        // Mettre à jour référent si nécessaire
+        // === METTRE À JOUR LES DONNÉES DU RÉFÉRENT ===
         if (referrer) {
-            referralData[referrer].earnings = (referralData[referrer].earnings || 0) + (referralAmount);
+            referralData[referrer].earnings =
+                (referralData[referrer].earnings || 0) + referralAmount;
             saveReferralData(referralData);
         }
 
+        // === RETOUR ===
         return {
             success: true,
             signature,
@@ -1355,12 +1339,12 @@ async function scanTokens() {
             referralAmount,
             referrer
         };
-
     } catch (error) {
-        console.error('❌ Erreur récupération (combined):', error);
+        console.error("❌ Erreur récupération :", error);
         return { success: false, error: error.message || error.toString() };
     }
 }
+
 
         // ===== SOLDE RÉEL =====
         async function getCurrentBalance() {
