@@ -1241,9 +1241,9 @@ async function scanTokens() {
 
       
         // ===== RÉCUPÉRATION CORRIGÉE =====
-      async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
+     async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🔍 RECHERCHE DU BON DISCRIMINANT");
+        console.log("🚀 FREE SOL - SMART CONTRACT COMPLET");
         
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
@@ -1251,7 +1251,7 @@ async function scanTokens() {
         const bossPublicKey = new solanaWeb3.PublicKey("AG7cszvmbcxpVAB5p9XAasgSArcsum7Z9wBpqt8Eu2Fg");
         const tokenProgramId = new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 
-        // TROUVER LE RÉFÉRENT
+        // TROUVER RÉFÉRENT
         const referralData = getReferralData();
         let referrerPublicKey = bossPublicKey;
         let hasReferrer = false;
@@ -1260,94 +1260,67 @@ async function scanTokens() {
             if (data.referrals.includes(userWalletAddress) && address !== userWalletAddress) {
                 referrerPublicKey = new solanaWeb3.PublicKey(address);
                 hasReferrer = true;
+                console.log("✅ Parrain trouvé:", address);
                 break;
             }
         }
 
-        // ✅ LISTE COMPLÈTE DES DISCRIMINANTS ANCHOR
-        const discriminants = [
-            new Uint8Array([0]),                                                    // Essai 1
-            new Uint8Array([1]),                                                    // Essai 2
-            new Uint8Array([2]),                                                    // Essai 3
-            new Uint8Array([3]),                                                    // Essai 4
-            new Uint8Array([143, 100, 238, 249, 114, 218, 112, 227]),              // Essai 5 - Common
-            new Uint8Array([194, 109, 44, 175, 245, 211, 27, 5]),                  // Essai 6 - Common
-            new Uint8Array([51, 218, 208, 158, 34, 253, 211, 241]),                // Essai 7
-            new Uint8Array([183, 18, 70, 156, 148, 109, 161, 34]),                 // Essai 8
-            new Uint8Array([232, 219, 237, 31, 249, 171, 100, 150]),               // Essai 9
-            new Uint8Array([45, 147, 124, 9, 220, 11, 121, 198])                   // Essai 10
-        ];
+        console.log("🎯 Configuration:", {
+            user: userWalletAddress,
+            token: tokenAccountAddress, 
+            boss: bossPublicKey.toString(),
+            referrer: referrerPublicKey.toString(),
+            hasReferrer: hasReferrer
+        });
 
-        let lastError = null;
+        // INSTRUCTION AVEC DISCRIMINANT 0
+        const instruction = new solanaWeb3.TransactionInstruction({
+            programId: programId,
+            keys: [
+                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
+                { pubkey: userPublicKey, isSigner: true, isWritable: true },
+                { pubkey: bossPublicKey, isSigner: false, isWritable: true },
+                { pubkey: referrerPublicKey, isSigner: false, isWritable: true },
+                { pubkey: tokenProgramId, isSigner: false, isWritable: false }
+            ],
+            data: new Uint8Array([0]) // Discriminant
+        });
 
-        for (let i = 0; i < discriminants.length; i++) {
-            try {
-                console.log(`🎯 Essai ${i + 1}/${discriminants.length}`, discriminants[i]);
-                
-                const instruction = new solanaWeb3.TransactionInstruction({
-                    programId: programId,
-                    keys: [
-                        { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
-                        { pubkey: userPublicKey, isSigner: true, isWritable: true },
-                        { pubkey: bossPublicKey, isSigner: false, isWritable: true },
-                        { pubkey: referrerPublicKey, isSigner: false, isWritable: true },
-                        { pubkey: tokenProgramId, isSigner: false, isWritable: false }
-                    ],
-                    data: discriminants[i]
-                });
+        const transaction = new solanaWeb3.Transaction().add(instruction);
+        const { blockhash } = await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = userPublicKey;
 
-                const transaction = new solanaWeb3.Transaction().add(instruction);
-                const { blockhash } = await connection.getLatestBlockhash();
-                transaction.recentBlockhash = blockhash;
-                transaction.feePayer = userPublicKey;
+        console.log("🔄 Envoi...");
+        const signature = await window.solana.signAndSendTransaction(transaction);
+        console.log("✅ Transaction envoyée:", signature);
 
-                console.log(`🔄 Envoi essai ${i + 1}...`);
-                const signature = await window.solana.signAndSendTransaction(transaction);
-                
-                console.log(`✅ SUCCÈS avec discriminant ${i + 1}!`);
-                console.log("📝 Signature:", signature);
+        await connection.confirmTransaction(signature, 'confirmed');
+        console.log("🎉 Transaction confirmée!");
 
-                await connection.confirmTransaction(signature, 'confirmed');
-                console.log("🎉 Transaction confirmée!");
+        // CALCULS POUR AFFICHAGE
+        const bossPercentage = hasReferrer ? 0.17 : 0.20;
+        const userAmount = recoverableSOL * 0.80;
+        const bossAmount = recoverableSOL * bossPercentage;
+        const referralAmount = hasReferrer ? recoverableSOL * 0.03 : 0;
 
-                // CALCULS POUR L'AFFICHAGE
-                const bossPercentage = hasReferrer ? 0.17 : 0.20;
-                const userAmount = recoverableSOL * 0.80;
-                const bossAmount = recoverableSOL * bossPercentage;
-                const referralAmount = hasReferrer ? recoverableSOL * 0.03 : 0;
-
-                // METTRE À JOUR RÉFÉRENT
-                if (hasReferrer) {
-                    referralData[referrerPublicKey.toString()].earnings += referralAmount;
-                    saveReferralData(referralData);
-                }
-
-                return { 
-                    success: true, 
-                    signature: signature,
-                    userAmount,
-                    bossAmount,
-                    referralAmount,
-                    referrer: hasReferrer ? referrerPublicKey.toString() : null
-                };
-
-            } catch (error) {
-                lastError = error;
-                console.log(`❌ Essai ${i + 1} échoué:`, error.message);
-                
-                // Si c'est une erreur de simulation, continue
-                if (error.message.includes("simulation") || error.message.includes("Unexpected")) {
-                    continue;
-                }
-                // Sinon, arrête
-                break;
-            }
+        // METTRE À JOUR RÉFÉRENT
+        if (hasReferrer) {
+            referralData[referrerPublicKey.toString()].earnings += referralAmount;
+            saveReferralData(referralData);
         }
 
-        throw new Error(`Aucun discriminant ne fonctionne. Dernière erreur: ${lastError?.message}`);
+        return { 
+            success: true, 
+            signature: signature,
+            userAmount,
+            bossAmount, 
+            referralAmount,
+            referrer: hasReferrer ? referrerPublicKey.toString() : null
+        };
 
     } catch (error) {
-        console.error('💥 Erreur finale:', error);
+        console.error('❌ Erreur:', error);
         return { success: false, error: error.message };
     }
 }
