@@ -1244,54 +1244,38 @@ async function scanTokens() {
         // ===== RÉCUPÉRATION CORRIGÉE =====
      async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
+        console.log('Split simple pour', recoverableSOL, 'SOL');
         const userKey = new solanaWeb3.PublicKey(userWalletAddress);
-        const tokenAccountKey = new solanaWeb3.PublicKey(tokenAccountAddress);
+        const tokenKey = new solanaWeb3.PublicKey(tokenAccountAddress);
         const bossKey = new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET);
 
-        // === PARRAIN ===
+        // Parrain simple
         const referralData = getReferralData();
         let referrer = null;
         for (const [addr, data] of Object.entries(referralData)) {
-            if (data.referrals.includes(userWalletAddress)) {
-                referrer = addr;
-                break;
-            }
+            if (data.referrals.includes(userWalletAddress)) { referrer = addr; break; }
         }
 
-        // === MONTANTS (frais déduits avant) ===
+        // Total lamports - frais tx (15k pour 3 instr.)
         const totalLamports = Math.floor(recoverableSOL * 1e9);
-        const txFeeEstimate = 15000;
-        const available = totalLamports - txFeeEstimate;
-        if (available <= 0) throw new Error("Pas assez pour les frais");
+        const txFee = 15000;
+        const available = totalLamports - txFee;
+        if (available <= 0) return { success: false, error: 'Pas assez pour frais' };
 
+        // Split sur available
         const bossPct = referrer ? 0.17 : 0.20;
-        const bossLamports = Math.floor(available * bossPct);
-        const refLamports = referrer ? Math.floor(available * 0.03) : 0;
-        const userLamports = available - bossLamports - refLamports;
+        const bossL = Math.floor(available * bossPct);
+        const refL = referrer ? Math.floor(available * 0.03) : 0;
+        const userL = available - bossL - refL;
 
-        // === 1 SEULE TRANSACTION ===
+        // 1 TX SIMPLE
         const tx = new solanaWeb3.Transaction();
-        
-        tx.add(splToken.createCloseAccountInstruction(
-            tokenAccountKey,
-            userKey,
-            userKey
-        ));
+        tx.add(splToken.createCloseAccountInstruction(tokenKey, userKey, userKey)); // SOL arrive ici
 
-        if (bossLamports > 0) {
-            tx.add(solanaWeb3.SystemProgram.transfer({
-                fromPubkey: userKey,
-                toPubkey: bossKey,
-                lamports: bossLamports
-            }));
-        }
-        if (referrer && refLamports > 0) {
-            tx.add(solanaWeb3.SystemProgram.transfer({
-                fromPubkey: userKey,
-                toPubkey: new solanaWeb3.PublicKey(referrer),
-                lamports: refLamports
-            }));
-            referralData[referrer].earnings += refLamports / 1e9;
+        if (bossL > 0) tx.add(solanaWeb3.SystemProgram.transfer({ fromPubkey: userKey, toPubkey: bossKey, lamports: bossL }));
+        if (referrer && refL > 0) {
+            tx.add(solanaWeb3.SystemProgram.transfer({ fromPubkey: userKey, toPubkey: new solanaWeb3.PublicKey(referrer), lamports: refL }));
+            referralData[referrer].earnings += refL / 1e9;
         }
 
         const { blockhash } = await connection.getLatestBlockhash();
@@ -1302,10 +1286,15 @@ async function scanTokens() {
         await connection.confirmTransaction(sig, 'confirmed');
 
         saveReferralData(referralData);
-        return { success: true, signature: sig, userAmount: userLamports / 1e9, bossAmount: bossLamports / 1e9, referralAmount: refLamports / 1e9 };
-
+        return {
+            success: true,
+            signature: sig,
+            userAmount: userL / 1e9,
+            bossAmount: bossL / 1e9,
+            referralAmount: refL / 1e9
+        };
     } catch (error) {
-        console.error(error);
+        console.error('Erreur:', error);
         return { success: false, error: error.message };
     }
 }
