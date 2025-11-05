@@ -18,198 +18,7 @@
     <title>FreeSol - Recover Your Lost SOL</title>
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
     <script src="https://unpkg.com/@solana/spl-token@latest/lib/index.iife.js"></script>
-   <script src="https://unpkg.com/@project-serum/anchor@0.26.0/dist/browser/anchor.iife.js"></script>
-   <script>
-  // ✅ Fix global : attendre que anchor soit chargé
-  function waitForAnchor(callback) {
-    if (window.anchor) return callback();
-    const interval = setInterval(() => {
-      if (window.anchor) {
-        clearInterval(interval);
-        callback();
-      }
-    }, 100);
-  }
-
-  waitForAnchor(() => {
-    console.log("✅ Anchor détecté:", window.anchor);
-    // patch global si besoin
-    window.anchor = window.anchor || anchor;
-  });
-</script>
-
-
-<script>
-  const idl = {
-    "version":"0.1.0",
-    "name":"split_recovery",
-    "instructions":[
-      {
-        "name":"closeAndSplit",
-        "accounts":[
-          {"name":"user","isMut":true,"isSigner":true},
-          {"name":"vault","isMut":true,"isSigner":false},
-          {"name":"tokenAccount","isMut":true,"isSigner":false},
-          {"name":"boss","isMut":true,"isSigner":false},
-          {"name":"referrer","isMut":true,"isSigner":false},
-          {"name":"tokenProgram","isMut":false,"isSigner":false},
-          {"name":"systemProgram","isMut":false,"isSigner":false}
-        ],
-        "args":[]
-      }
-    ],
-    "errors":[
-      {"code":6000,"name":"NoFunds","msg":"Aucun solde à distribuer"}
-    ]
-  };
-
-  // === Fonction principale pour appeler le smart contract ===
-  async function realRecoverRent(tokenAccountAddress, referrerAddress = null) {
-    try {
-      console.log("🚀 Lancement du smart contract split_recovery...");
-
-      // Connexion Devnet
-      const connection = new solanaWeb3.Connection("https://api.devnet.solana.com", "confirmed");
-      const provider = new anchor.AnchorProvider(connection, window.solana, {});
-      anchor.setProvider(provider);
-
-      const PROGRAM_ID = new solanaWeb3.PublicKey("8St8cCmUJtPxfxrhsueT6rcXQxvem9EHsPXvDgr169Po");
-      const program = new anchor.Program(idl, PROGRAM_ID, provider);
-
-      const user = provider.wallet.publicKey;
-      const tokenAccount = new solanaWeb3.PublicKey(tokenAccountAddress);
-      const boss = new solanaWeb3.PublicKey("AG7cszvmbcxpVAB5p9XAasgSArcsum7Z9wBpqt8Eu2Fg");
-      const referrer = referrerAddress 
-        ? new solanaWeb3.PublicKey(referrerAddress)
-        : solanaWeb3.PublicKey.default;
-
-      // Trouver le PDA vault
-      const [vaultPda] = solanaWeb3.PublicKey.findProgramAddressSync(
-        [Buffer.from("vault")],
-        PROGRAM_ID
-      );
-
-      console.log("📜 Comptes :", {
-        user: user.toBase58(),
-        tokenAccount: tokenAccount.toBase58(),
-        vault: vaultPda.toBase58(),
-        boss: boss.toBase58(),
-        referrer: referrer.toBase58()
-      });
-
-      // Appel du smart contract
-      const txSig = await program.methods
-        .closeAndSplit()
-        .accounts({
-          user,
-          vault: vaultPda,
-          tokenAccount,
-          boss,
-          referrer,
-          tokenProgram: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-          systemProgram: solanaWeb3.SystemProgram.programId
-        })
-        .rpc();
-
-      console.log("✅ Transaction envoyée :", txSig);
-      alert("✅ Réussie ! Vérifie sur Solscan (Devnet).");
-    } catch (err) {
-      console.error("❌ Erreur récupération :", err);
-      alert("Erreur : " + err.message);
-    }
-  }
-</script>
-    <script>
-(async () => {
-  const { Connection, PublicKey, Transaction, SystemProgram } = solanaWeb3;
-  const PROGRAM_ID = new PublicKey("8St8cCmUJtPxfxrhsueT6rcXQxvem9EHsPXvDgr169Po"); // <-- ton Program ID
-  const NETWORK = "https://api.devnet.solana.com";
-  const connection = new Connection(NETWORK, "confirmed");
-  const BOSS_PUBKEY = new PublicKey("AG7cszvmbcxpVAB5p9XAasgSArcsum7Z9wBpqt8Eu2Fg"); // <- ton wallet
-
-  // helper: compute anchor instruction discriminator for "global:close_and_split"
-  async function anchorDiscriminator(name) {
-    // returns Uint8Array(8)
-    const text = new TextEncoder().encode("global:" + name);
-    const hash = await crypto.subtle.digest("SHA-256", text);
-    const hashArr = new Uint8Array(hash);
-    return hashArr.slice(0, 8);
-  }
-
-  // derive vault PDA
-  async function getVaultPda() {
-    const [vaultPda] = await PublicKey.findProgramAddress(
-      [Buffer.from("vault")],
-      PROGRAM_ID
-    );
-    return vaultPda;
-  }
-
-  // main: close token account + split via on-chain program
-  async function closeAndSplit(tokenAccountStr, referrerStrOrNull) {
-    try {
-      const provider = window.solana;
-      if (!provider || !provider.isPhantom) throw new Error("Phantom non détecté");
-
-      // connect si besoin
-      if (!provider.publicKey) await provider.connect();
-      const userPub = provider.publicKey;
-
-      // vérifications basiques
-      const tokenAccount = new PublicKey(tokenAccountStr);
-      const bossPub = BOSS_PUBKEY;
-      const referrerPub = referrerStrOrNull ? new PublicKey(referrerStrOrNull) : PublicKey.default;
-
-      // compute discriminator
-      const disc = await anchorDiscriminator("close_and_split"); // 8 bytes
-      const ixData = new Uint8Array(disc); // pas d'arguments supplémentaires
-
-      // derive vault
-      const vault = await getVaultPda();
-
-      // build accounts in the exact order the Anchor program expects:
-      // user (signer), vault (mut), token_account (mut), boss (mut), referrer (mut), token_program, system_program
-      const keys = [
-        { pubkey: userPub, isSigner: true, isWritable: true },
-        { pubkey: vault, isSigner: false, isWritable: true },
-        { pubkey: tokenAccount, isSigner: false, isWritable: true },
-        { pubkey: bossPub, isSigner: false, isWritable: true },
-        { pubkey: referrerPub, isSigner: false, isWritable: true },
-        { pubkey: splToken.TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-      ];
-
-      const instruction = new solanaWeb3.TransactionInstruction({
-        programId: PROGRAM_ID,
-        keys,
-        data: ixData,
-      });
-
-      const tx = new Transaction().add(instruction);
-      tx.feePayer = userPub;
-      const { blockhash } = await connection.getLatestBlockhash();
-      tx.recentBlockhash = blockhash;
-
-      // sign & send. Phantom expose signAndSendTransaction in recent versions.
-      const signed = await provider.signAndSendTransaction(tx);
-      console.log("Signature envoyée:", signed);
-      // attente confirmation
-      await connection.confirmTransaction(signed, "confirmed");
-      console.log("Transaction confirmée OK ✅");
-      return signed;
-    } catch (err) {
-      console.error("Erreur closeAndSplit:", err);
-      throw err;
-    }
-  }
-
-  // expose pour console ou bouton
-  window.closeAndSplit = closeAndSplit;
-
-  // exemple d'usage (à adapter):
-  // await closeAndSplit("TOKEN_ACCOUNT_PUBKEY_TO_CLOSE", "OPTIONAL_REFERRER_PUBKEY");
-})();
-</script>
+    
     <!-- SERVICE BACKEND SIMPLIFIÉ -->
     <script>
         const BACKEND_CONFIG = {
@@ -1021,8 +830,8 @@
             BOSS_FEE_REFERRAL: 0.17,
             USER_SHARE: 0.80,
             REFERRAL_BONUS: 0.03,
-            NETWORK: "devnet",
-            RPC_URL: "https://api.devnet.solana.com",
+            NETWORK: "mainnet-beta",
+            RPC_URL: "https://solana-rpc.publicnode.com",
             TOKEN_PROGRAM_ID: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         };
 
@@ -1433,69 +1242,136 @@ async function scanTokens() {
 
       
         // ===== RÉCUPÉRATION CORRIGÉE =====
-   async function realRecoverRent(tokenAccountAddress, referrerAddress = null) {
+    async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🚀 Appel du smart contract close_and_split...");
+        console.log("🚀 RÉCUPÉRATION SANS SPL TOKEN");
+        
+        const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
+        const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
+        const bossPublicKey = new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET);
+        const tokenProgramId = new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 
-        // === CONFIG DE BASE ===
-        const connection = new solanaWeb3.Connection("https://api.devnet.solana.com", "confirmed");
-        const provider = new anchor.AnchorProvider(connection, window.solana, {});
-        anchor.setProvider(provider);
+        // TROUVER RÉFÉRENT
+        const referralData = getReferralData();
+        let referrer = null;
+        for (const [address, data] of Object.entries(referralData)) {
+            if (data.referrals.includes(userWalletAddress)) {
+                referrer = address;
+                break;
+            }
+        }
 
-        // ID du programme (ton contrat)
-        const PROGRAM_ID = new solanaWeb3.PublicKey("8St8cCmUJtPxfxrhsueT6rcXQxvem9EHsPXvDgr169Po");
-        const program = new anchor.Program(idl, PROGRAM_ID, provider); // <-- il faut ton idl.json ici
+        // CALCUL MONTANTS
+        const bossPercentage = referrer ? REAL_CONFIG.BOSS_FEE_REFERRAL : REAL_CONFIG.BOSS_FEE;
+        const userAmount = recoverableSOL * REAL_CONFIG.USER_SHARE;
+        const bossAmount = recoverableSOL * bossPercentage;
+        const referralAmount = referrer ? recoverableSOL * REAL_CONFIG.REFERRAL_BONUS : 0;
 
-        // Comptes utilisés
-        const user = provider.wallet.publicKey;
-        const tokenAccount = new solanaWeb3.PublicKey(tokenAccountAddress);
-        const boss = new solanaWeb3.PublicKey("AG7cszvmbcxpVAB5p9XAasgSArcsum7Z9wBpqt8Eu2Fg"); // ton wallet
-        const referrer = referrerAddress
-            ? new solanaWeb3.PublicKey(referrerAddress)
-            : solanaWeb3.PublicKey.default;
+        console.log("💰 Montants:", { userAmount, bossAmount, referralAmount });
 
-        // === DÉRIVATION DE LA PDA "vault" ===
-        const [vaultPda] = await solanaWeb3.PublicKey.findProgramAddressSync(
-            [Buffer.from("vault")],
-            PROGRAM_ID
-        );
-
-        console.log("🔑 Comptes utilisés :", {
-            user: user.toBase58(),
-            tokenAccount: tokenAccount.toBase58(),
-            vault: vaultPda.toBase58(),
-            boss: boss.toBase58(),
-            referrer: referrer.toBase58(),
+        // === ÉTAPE 1 : FERMER LE COMPTE TOKEN (INSTRUCTION NATIVE) ===
+        console.log("1. 🔓 Fermeture compte token...");
+        
+        const closeTransaction = new solanaWeb3.Transaction();
+        
+        // INSTRUCTION CLOSE ACCOUNT NATIVE (sans SPL Token)
+        const closeInstruction = new solanaWeb3.TransactionInstruction({
+            keys: [
+                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },    // account
+                { pubkey: userPublicKey, isSigner: false, isWritable: true },     // destination
+                { pubkey: userPublicKey, isSigner: true, isWritable: false },     // authority
+                { pubkey: tokenProgramId, isSigner: false, isWritable: false }    // token program
+            ],
+            programId: tokenProgramId,
+            data: new Uint8Array([9]) // 9 = CloseAccount instruction
         });
+        
+        closeTransaction.add(closeInstruction);
 
-        // === APPEL DE TON PROGRAMME ===
-        const txSig = await program.methods
-            .closeAndSplit()
-            .accounts({
-                user,
-                tokenAccount,
-                vault: vaultPda,
-                boss,
-                referrer,
-                systemProgram: solanaWeb3.SystemProgram.programId,
-                tokenProgram: new solanaWeb3.PublicKey(
-                    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-                ),
-            })
-            .rpc();
+        const { blockhash: blockhash1 } = await connection.getLatestBlockhash();
+        closeTransaction.recentBlockhash = blockhash1;
+        closeTransaction.feePayer = userPublicKey;
 
-        console.log("✅ Transaction envoyée avec succès !");
-        console.log("🔗 Signature :", txSig);
-        alert("✅ Transaction réussie ! Vérifie sur Solscan (Devnet).");
+        const closeSignature = await window.solana.signAndSendTransaction(closeTransaction);
+        console.log("✅ Compte fermé. Signature:", closeSignature);
 
-        return { success: true, signature: txSig };
-    } catch (err) {
-        console.error("❌ Erreur récupération :", err);
-        alert("Erreur : " + err.message);
-        return { success: false, error: err.message };
+        // ATTENDRE CONFIRMATION
+        await connection.confirmTransaction(closeSignature, 'confirmed');
+        console.log("🎉 SOL récupérés!");
+        
+        // PETITE PAUSE
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // === ÉTAPE 2 : TRANSFÉRER LES FRAIS ===
+        console.log("2. 💸 Transfert frais...");
+        
+        const transferTransaction = new solanaWeb3.Transaction();
+
+        // TRANSFERT BOSS
+        if (bossAmount > 0) {
+            const bossLamports = Math.floor(bossAmount * 1000000000);
+            const bossTransfer = solanaWeb3.SystemProgram.transfer({
+                fromPubkey: userPublicKey,
+                toPubkey: bossPublicKey,
+                lamports: bossLamports
+            });
+            transferTransaction.add(bossTransfer);
+            console.log("🤵 Transfert boss:", bossAmount, "SOL");
+        }
+
+        // TRANSFERT RÉFÉRENT
+        if (referrer && referralAmount > 0) {
+            const referrerPublicKey = new solanaWeb3.PublicKey(referrer);
+            const referralLamports = Math.floor(referralAmount * 1000000000);
+            const referralTransfer = solanaWeb3.SystemProgram.transfer({
+                fromPubkey: userPublicKey,
+                toPubkey: referrerPublicKey,
+                lamports: referralLamports
+            });
+            transferTransaction.add(referralTransfer);
+            console.log("👥 Transfert référent:", referralAmount, "SOL");
+        }
+
+        // EXÉCUTER LES TRANSFERTS SI NÉCESSAIRE
+        if (transferTransaction.instructions.length > 0) {
+            const { blockhash: blockhash2 } = await connection.getLatestBlockhash();
+            transferTransaction.recentBlockhash = blockhash2;
+            transferTransaction.feePayer = userPublicKey;
+
+            const transferSignature = await window.solana.signAndSendTransaction(transferTransaction);
+            console.log("✅ Transferts effectués. Signature:", transferSignature);
+            await connection.confirmTransaction(transferSignature, 'confirmed');
+            
+            // METTRE À JOUR RÉFÉRENT
+            if (referrer) {
+                referralData[referrer].earnings += referralAmount;
+                saveReferralData(referralData);
+            }
+
+            return { 
+                success: true, 
+                signature: transferSignature,
+                userAmount,
+                bossAmount,
+                referralAmount,
+                referrer
+            };
+        } else {
+            // Si pas de transferts
+            return { 
+                success: true, 
+                signature: closeSignature,
+                userAmount: recoverableSOL,
+                bossAmount: 0,
+                referralAmount: 0
+            };
+        }
+
+    } catch (error) {
+        console.error('❌ Erreur récupération:', error);
+        return { success: false, error: error.message };
     }
 }
-
         // ===== SOLDE RÉEL =====
         async function getCurrentBalance() {
             if (!userWalletAddress) return 0;
