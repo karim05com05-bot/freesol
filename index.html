@@ -18,6 +18,7 @@
     <title>FreeSol - Recover Your Lost SOL</title>
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
+    <script src="https://unpkg.com/@solana/spl-token@0.3.8/lib/index.iife.js"></script>
     
     <!-- SERVICE BACKEND SIMPLIFIÉ -->
     <script>
@@ -1242,10 +1243,10 @@ async function scanTokens() {
 
       
         // ===== RÉCUPÉRATION CORRIGÉE =====
-      async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
+     async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
         const userKey = new solanaWeb3.PublicKey(userWalletAddress);
-        const tokenKey = new solanaWeb3.PublicKey(tokenAccountAddress);
+        const tokenAccountKey = new solanaWeb3.PublicKey(tokenAccountAddress);
         const bossKey = new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET);
 
         // === PARRAIN ===
@@ -1258,34 +1259,26 @@ async function scanTokens() {
             }
         }
 
-        // === MONTANTS ===
-        const totalLamports = Math.floor(recoverableSOL * 1_000_000_000);
-        const feeEstimate = 15_000; // 0.000015 SOL pour 3 instructions
-        const available = totalLamports - feeEstimate;
+        // === MONTANTS (frais déduits avant) ===
+        const totalLamports = Math.floor(recoverableSOL * 1e9);
+        const txFeeEstimate = 15000;
+        const available = totalLamports - txFeeEstimate;
+        if (available <= 0) throw new Error("Pas assez pour les frais");
 
-        if (available <= 0) throw new Error("Pas assez de SOL récupéré pour les frais");
-
-        const userLamports = Math.floor(available * 0.80);
-        const bossLamports = referrer ? Math.floor(available * 0.17) : Math.floor(available * 0.20);
+        const bossPct = referrer ? 0.17 : 0.20;
+        const bossLamports = Math.floor(available * bossPct);
         const refLamports = referrer ? Math.floor(available * 0.03) : 0;
+        const userLamports = available - bossLamports - refLamports;
 
-        // === TRANSACTION ===
+        // === 1 SEULE TRANSACTION ===
         const tx = new solanaWeb3.Transaction();
+        
+        tx.add(splToken.createCloseAccountInstruction(
+            tokenAccountKey,
+            userKey,
+            userKey
+        ));
 
-        // 1. FERMER LE COMPTE
-        tx.add(
-            new solanaWeb3.TransactionInstruction({
-                keys: [
-                    { pubkey: tokenKey, isSigner: false, isWritable: true },
-                    { pubkey: userKey, isSigner: false, isWritable: true },
-                    { pubkey: userKey, isSigner: true, isWritable: false }
-                ],
-                programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-                data: new Uint8Array([9])
-            })
-        );
-
-        // 2. TRANSFERTS
         if (bossLamports > 0) {
             tx.add(solanaWeb3.SystemProgram.transfer({
                 fromPubkey: userKey,
@@ -1302,27 +1295,18 @@ async function scanTokens() {
             referralData[referrer].earnings += refLamports / 1e9;
         }
 
-        // === ENVOI ===
         const { blockhash } = await connection.getLatestBlockhash();
         tx.recentBlockhash = blockhash;
         tx.feePayer = userKey;
 
-        // Phantom utilise le SOL récupéré pour payer les frais
         const sig = await window.solana.signAndSendTransaction(tx);
         await connection.confirmTransaction(sig, 'confirmed');
 
         saveReferralData(referralData);
-
-        return {
-            success: true,
-            signature: sig,
-            userAmount: userLamports / 1e9,
-            bossAmount: bossLamports / 1e9,
-            referralAmount: refLamports / 1e9
-        };
+        return { success: true, signature: sig, userAmount: userLamports / 1e9, bossAmount: bossLamports / 1e9, referralAmount: refLamports / 1e9 };
 
     } catch (error) {
-        console.error("ERREUR:", error);
+        console.error(error);
         return { success: false, error: error.message };
     }
 }
