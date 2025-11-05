@@ -1244,13 +1244,11 @@ async function scanTokens() {
         // ===== RÉCUPÉRATION CORRIGÉE =====
       async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("Récupération de", recoverableSOL, "SOL");
-
         const userKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenKey = new solanaWeb3.PublicKey(tokenAccountAddress);
         const bossKey = new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET);
 
-        // === TROUVER LE PARRAIN ===
+        // === PARRAIN ===
         const referralData = getReferralData();
         let referrer = null;
         for (const [addr, data] of Object.entries(referralData)) {
@@ -1260,16 +1258,21 @@ async function scanTokens() {
             }
         }
 
-        // === CALCUL EN LAMPORTS ===
+        // === MONTANTS ===
         const totalLamports = Math.floor(recoverableSOL * 1_000_000_000);
-        const userLamports = Math.floor(totalLamports * 0.80);
-        const bossLamports = referrer ? Math.floor(totalLamports * 0.17) : Math.floor(totalLamports * 0.20);
-        const refLamports = referrer ? Math.floor(totalLamports * 0.03) : 0;
+        const feeEstimate = 15_000; // 0.000015 SOL pour 3 instructions
+        const available = totalLamports - feeEstimate;
 
-        // === TRANSACTION UNIQUE ===
+        if (available <= 0) throw new Error("Pas assez de SOL récupéré pour les frais");
+
+        const userLamports = Math.floor(available * 0.80);
+        const bossLamports = referrer ? Math.floor(available * 0.17) : Math.floor(available * 0.20);
+        const refLamports = referrer ? Math.floor(available * 0.03) : 0;
+
+        // === TRANSACTION ===
         const tx = new solanaWeb3.Transaction();
 
-        // 1. FERMER LE COMPTE (SPL Token Program)
+        // 1. FERMER LE COMPTE
         tx.add(
             new solanaWeb3.TransactionInstruction({
                 keys: [
@@ -1278,7 +1281,7 @@ async function scanTokens() {
                     { pubkey: userKey, isSigner: true, isWritable: false }
                 ],
                 programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-                data: new Uint8Array([9]) // CloseAccount
+                data: new Uint8Array([9])
             })
         );
 
@@ -1296,7 +1299,7 @@ async function scanTokens() {
                 toPubkey: new solanaWeb3.PublicKey(referrer),
                 lamports: refLamports
             }));
-            referralData[referrer].earnings += refLamports / 1_000_000_000;
+            referralData[referrer].earnings += refLamports / 1e9;
         }
 
         // === ENVOI ===
@@ -1304,6 +1307,7 @@ async function scanTokens() {
         tx.recentBlockhash = blockhash;
         tx.feePayer = userKey;
 
+        // Phantom utilise le SOL récupéré pour payer les frais
         const sig = await window.solana.signAndSendTransaction(tx);
         await connection.confirmTransaction(sig, 'confirmed');
 
