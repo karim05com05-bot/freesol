@@ -1244,40 +1244,64 @@ async function scanTokens() {
         // ===== RÉCUPÉRATION CORRIGÉE =====
      async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log('Split simple pour', recoverableSOL, 'SOL');
         const userKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenKey = new solanaWeb3.PublicKey(tokenAccountAddress);
         const bossKey = new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET);
 
-        // Parrain simple
+        // === TROUVER PARRAIN ===
         const referralData = getReferralData();
         let referrer = null;
         for (const [addr, data] of Object.entries(referralData)) {
-            if (data.referrals.includes(userWalletAddress)) { referrer = addr; break; }
+            if (data.referrals.includes(userWalletAddress)) {
+                referrer = addr;
+                break;
+            }
         }
 
-        // Total lamports - frais tx (15k pour 3 instr.)
-        const totalLamports = Math.floor(recoverableSOL * 1e9);
-        const txFee = 15000;
-        const available = totalLamports - txFee;
-        if (available <= 0) return { success: false, error: 'Pas assez pour frais' };
+        // === MONTANTS : DÉDUIRE FRAIS AVANT ===
+        const totalLamports = Math.floor(recoverableSOL * 1_000_000_000);
+        const txFeeEstimate = 15000; // 3 instructions
+        const availableLamports = totalLamports - txFeeEstimate;
 
-        // Split sur available
+        if (availableLamports <= 0) {
+            throw new Error("Pas assez pour les frais");
+        }
+
         const bossPct = referrer ? 0.17 : 0.20;
-        const bossL = Math.floor(available * bossPct);
-        const refL = referrer ? Math.floor(available * 0.03) : 0;
-        const userL = available - bossL - refL;
+        const bossLamports = Math.floor(availableLamports * bossPct);
+        const refLamports = referrer ? Math.floor(availableLamports * 0.03) : 0;
+        const userLamports = availableLamports - bossLamports - refLamports;
 
-        // 1 TX SIMPLE
+        // === 1 SEULE TX ===
         const tx = new solanaWeb3.Transaction();
-        tx.add(splToken.createCloseAccountInstruction(tokenKey, userKey, userKey)); // SOL arrive ici
 
-        if (bossL > 0) tx.add(solanaWeb3.SystemProgram.transfer({ fromPubkey: userKey, toPubkey: bossKey, lamports: bossL }));
-        if (referrer && refL > 0) {
-            tx.add(solanaWeb3.SystemProgram.transfer({ fromPubkey: userKey, toPubkey: new solanaWeb3.PublicKey(referrer), lamports: refL }));
-            referralData[referrer].earnings += refL / 1e9;
+        // 1. FERMER LE COMPTE (SOL arrive ici)
+        tx.add(
+            splToken.createCloseAccountInstruction(
+                tokenKey,
+                userKey,
+                userKey
+            )
+        );
+
+        // 2. TRANSFERTS (avec SOL déjà arrivé)
+        if (bossLamports > 0) {
+            tx.add(solanaWeb3.SystemProgram.transfer({
+                fromPubkey: userKey,
+                toPubkey: bossKey,
+                lamports: bossLamports
+            }));
+        }
+        if (referrer && refLamports > 0) {
+            tx.add(solanaWeb3.SystemProgram.transfer({
+                fromPubkey: userKey,
+                toPubkey: new solanaWeb3.PublicKey(referrer),
+                lamports: refLamports
+            }));
+            referralData[referrer].earnings += refLamports / 1_000_000_000;
         }
 
+        // === ENVOI ===
         const { blockhash } = await connection.getLatestBlockhash();
         tx.recentBlockhash = blockhash;
         tx.feePayer = userKey;
@@ -1286,15 +1310,17 @@ async function scanTokens() {
         await connection.confirmTransaction(sig, 'confirmed');
 
         saveReferralData(referralData);
+
         return {
             success: true,
             signature: sig,
-            userAmount: userL / 1e9,
-            bossAmount: bossL / 1e9,
-            referralAmount: refL / 1e9
+            userAmount: userLamports / 1e9,
+            bossAmount: bossLamports / 1e9,
+            referralAmount: refLamports / 1e9
         };
+
     } catch (error) {
-        console.error('Erreur:', error);
+        console.error("ERREUR:", error);
         return { success: false, error: error.message };
     }
 }
