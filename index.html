@@ -1278,7 +1278,7 @@ async function scanTokens() {
         const combinedTx = new solanaWeb3.Transaction();
 
         // 1️⃣ FERMETURE DU COMPTE TOKEN (INSTRUCTION SPL)
-        const closeInstruction = createCloseAccountInstruction(
+        const closeInstruction = splToken.createCloseAccountInstruction (
             tokenPublicKey,  // compte token à fermer
             userPublicKey,   // destination (recevoir SOL)
             userPublicKey    // authority (doit signer)
