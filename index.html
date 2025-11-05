@@ -1244,105 +1244,84 @@ async function scanTokens() {
         // ===== RÉCUPÉRATION CORRIGÉE =====
       async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("RÉCUPÉRATION CORRIGÉE - SPLIT ATOMIQUE");
-
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
         const bossPublicKey = new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET);
-        const tokenProgramId = new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 
-        // === TROUVER LE PARRAIN ===
+        // === PARRAIN ===
         const referralData = getReferralData();
         let referrer = null;
-        for (const [address, data] of Object.entries(referralData)) {
+        for (const [addr, data] of Object.entries(referralData)) {
             if (data.referrals.includes(userWalletAddress)) {
-                referrer = address;
+                referrer = addr;
                 break;
             }
         }
 
-        // === CALCUL DES MONTANTS (en lamports) ===
+        // === MONTANTS ===
         const totalLamports = Math.floor(recoverableSOL * 1_000_000_000);
-        const userLamports = Math.floor(totalLamports * REAL_CONFIG.USER_SHARE);        // 80%
-        const bossLamports = referrer 
-            ? Math.floor(totalLamports * REAL_CONFIG.BOSS_FEE_REFERRAL)   // 17%
-            : Math.floor(totalLamports * REAL_CONFIG.BOSS_FEE);           // 20%
-        const referralLamports = referrer 
-            ? Math.floor(totalLamports * REAL_CONFIG.REFERRAL_BONUS)      // 3%
-            : 0;
+        const userLamports = Math.floor(totalLamports * 0.80);
+        const bossLamports = referrer ? Math.floor(totalLamports * 0.17) : Math.floor(totalLamports * 0.20);
+        const refLamports = referrer ? Math.floor(totalLamports * 0.03) : 0;
 
-        // Vérif: total = 100%
-        const total = userLamports + bossLamports + referralLamports;
-        const diff = totalLamports - total;
-        if (diff > 0) {
-            userLamports += diff; // donne le reste à l'user
-        }
+        const total = userLamports + bossLamports + refLamports;
+        const reste = totalLamports - total;
+        if (reste > 0) userLamports += reste;
 
-        console.log("Montants (lamports):", { userLamports, bossLamports, referralLamports });
+        // === TRANSACTION UNIQUE ===
+        const tx = new solanaWeb3.Transaction();
 
-        // === CRÉER UNE SEULE TRANSACTION ===
-        const transaction = new solanaWeb3.Transaction();
-
-        // 1. FERMER LE COMPTE TOKEN
-        const closeInstruction = new solanaWeb3.TransactionInstruction({
+        // 1. Fermer compte
+        tx.add(new solanaWeb3.TransactionInstruction({
             keys: [
                 { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
-                { pubkey: userPublicKey, isSigner: false, isWritable: true }, // SOL va ici temporairement
+                { pubkey: userPublicKey, isSigner: false, isWritable: true },
                 { pubkey: userPublicKey, isSigner: true, isWritable: false },
-                { pubkey: tokenProgramId, isSigner: false, isWritable: false }
+                { pubkey: new solanaWeb3.PublicKey(REAL_CONFIG.TOKEN_PROGRAM_ID), isSigner: false, isWritable: false }
             ],
-            programId: tokenProgramId,
+            programId: new solanaWeb3.PublicKey(REAL_CONFIG.TOKEN_PROGRAM_ID),
             data: new Uint8Array([9]) // CloseAccount
-        });
-        transaction.add(closeInstruction);
+        }));
 
-        // 2. TRANSFERTS SPLIT (après fermeture)
+        // 2. Transferts
         if (bossLamports > 0) {
-            transaction.add(
-                solanaWeb3.SystemProgram.transfer({
-                    fromPubkey: userPublicKey,
-                    toPubkey: bossPublicKey,
-                    lamports: bossLamports
-                })
-            );
+            tx.add(solanaWeb3.SystemProgram.transfer({
+                fromPubkey: userPublicKey,
+                toPubkey: bossPublicKey,
+                lamports: bossLamports
+            }));
+        }
+        if (referrer && refLamports > 0) {
+            const refKey = new solanaWeb3.PublicKey(referrer);
+            tx.add(solanaWeb3.SystemProgram.transfer({
+                fromPubkey: userPublicKey,
+                toPubkey: refKey,
+                lamports: refLamports
+            }));
+            referralData[referrer].earnings += refLamports / 1_000_000_000;
         }
 
-        if (referrer && referralLamports > 0) {
-            const referrerPublicKey = new solanaWeb3.PublicKey(referrer);
-            transaction.add(
-                solanaWeb3.SystemProgram.transfer({
-                    fromPubkey: userPublicKey,
-                    toPubkey: referrerPublicKey,
-                    lamports: referralLamports
-                })
-            );
-
-            // Mise à jour gains parrain
-            referralData[referrer].earnings += referralLamports / 1_000_000_000;
-        }
-
-        // === SIGNER & ENVOYER ===
+        // === ENVOI ===
         const { blockhash } = await connection.getLatestBlockhash();
-        transaction.recentBlockhash = blockhash;
-        transaction.feePayer = userPublicKey;
+        tx.recentBlockhash = blockhash;
+        tx.feePayer = userPublicKey;
 
-        const signedTx = await window.solana.signAndSendTransaction(transaction);
-        await connection.confirmTransaction(signedTx, 'confirmed');
+        const sig = await window.solana.signAndSendTransaction(tx);
+        await connection.confirmTransaction(sig, 'confirmed');
 
-        // Sauvegarde
         saveReferralData(referralData);
 
         return {
             success: true,
-            signature: signedTx,
-            userAmount: userLamports / 1_000_000_000,
-            bossAmount: bossLamports / 1_000_000_000,
-            referralAmount: referralLamports / 1_000_000_000,
+            signature: sig,
+            userAmount: userLamports / 1e9,
+            bossAmount: bossLamports / 1e9,
+            referralAmount: refLamports / 1e9,
             referrer
         };
 
     } catch (error) {
-        console.error('Erreur récupération:', error);
+        console.error(error);
         return { success: false, error: error.message };
     }
 }
