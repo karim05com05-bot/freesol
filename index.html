@@ -17,7 +17,7 @@
     
     <title>FreeSol - Recover Your Lost SOL</title>
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
-    <script src="https://unpkg.com/@solana/spl-token@0.3.8/lib/index.iife.js"></script>
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
     
     <!-- SERVICE BACKEND SIMPLIFIÉ -->
     <script>
@@ -1244,13 +1244,13 @@ async function scanTokens() {
         // ===== RÉCUPÉRATION CORRIGÉE =====
       async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("RÉCUPÉRATION CORRIGÉE - SPLIT ATOMIQUE (DEVNET)");
+        console.log("Récupération de", recoverableSOL, "SOL");
 
-        const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
-        const tokenAccountPubkey = new solanaWeb3.PublicKey(tokenAccountAddress);
-        const bossPublicKey = new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET);
+        const userKey = new solanaWeb3.PublicKey(userWalletAddress);
+        const tokenKey = new solanaWeb3.PublicKey(tokenAccountAddress);
+        const bossKey = new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET);
 
-        // === TROUVER PARRAIN ===
+        // === TROUVER LE PARRAIN ===
         const referralData = getReferralData();
         let referrer = null;
         for (const [addr, data] of Object.entries(referralData)) {
@@ -1260,73 +1260,66 @@ async function scanTokens() {
             }
         }
 
-        // === MONTANTS ===
+        // === CALCUL EN LAMPORTS ===
         const totalLamports = Math.floor(recoverableSOL * 1_000_000_000);
         const userLamports = Math.floor(totalLamports * 0.80);
         const bossLamports = referrer ? Math.floor(totalLamports * 0.17) : Math.floor(totalLamports * 0.20);
         const refLamports = referrer ? Math.floor(totalLamports * 0.03) : 0;
 
-        const total = userLamports + bossLamports + refLamports;
-        const reste = totalLamports - total;
-        if (reste > 0) userLamports += reste;
-
         // === TRANSACTION UNIQUE ===
-        const transaction = new solanaWeb3.Transaction();
+        const tx = new solanaWeb3.Transaction();
 
-        // 1. FERMER LE COMPTE AVEC SPL-TOKEN (OFFICIEL)
-        const closeIx = splToken.createCloseAccountInstruction(
-            tokenAccountPubkey,           // token account
-            userPublicKey,                // destination (SOL revient ici)
-            userPublicKey,                // owner
-            []                            // multisig (vide)
+        // 1. FERMER LE COMPTE (SPL Token Program)
+        tx.add(
+            new solanaWeb3.TransactionInstruction({
+                keys: [
+                    { pubkey: tokenKey, isSigner: false, isWritable: true },
+                    { pubkey: userKey, isSigner: false, isWritable: true },
+                    { pubkey: userKey, isSigner: true, isWritable: false }
+                ],
+                programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
+                data: new Uint8Array([9]) // CloseAccount
+            })
         );
-        transaction.add(closeIx);
 
         // 2. TRANSFERTS
         if (bossLamports > 0) {
-            transaction.add(
-                solanaWeb3.SystemProgram.transfer({
-                    fromPubkey: userPublicKey,
-                    toPubkey: bossPublicKey,
-                    lamports: bossLamports
-                })
-            );
+            tx.add(solanaWeb3.SystemProgram.transfer({
+                fromPubkey: userKey,
+                toPubkey: bossKey,
+                lamports: bossLamports
+            }));
         }
-
         if (referrer && refLamports > 0) {
-            const refKey = new solanaWeb3.PublicKey(referrer);
-            transaction.add(
-                solanaWeb3.SystemProgram.transfer({
-                    fromPubkey: userPublicKey,
-                    toPubkey: refKey,
-                    lamports: refLamports
-                })
-            );
+            tx.add(solanaWeb3.SystemProgram.transfer({
+                fromPubkey: userKey,
+                toPubkey: new solanaWeb3.PublicKey(referrer),
+                lamports: refLamports
+            }));
             referralData[referrer].earnings += refLamports / 1_000_000_000;
         }
 
         // === ENVOI ===
         const { blockhash } = await connection.getLatestBlockhash();
-        transaction.recentBlockhash = blockhash;
-        transaction.feePayer = userPublicKey;
+        tx.recentBlockhash = blockhash;
+        tx.feePayer = userKey;
 
-        const signature = await window.solana.signAndSendTransaction(transaction);
-        await connection.confirmTransaction(signature, 'confirmed');
+        const sig = await window.solana.signAndSendTransaction(tx);
+        await connection.confirmTransaction(sig, 'confirmed');
 
         saveReferralData(referralData);
 
         return {
             success: true,
-            signature,
+            signature: sig,
             userAmount: userLamports / 1e9,
             bossAmount: bossLamports / 1e9,
-            referralAmount: refLamports / 1e9,
-            referrer
+            referralAmount: refLamports / 1e9
         };
 
     } catch (error) {
-        console.error('Erreur complète:', error);
-        return { success: false, error: error.message || 'Transaction échouée' };
+        console.error("ERREUR:", error);
+        return { success: false, error: error.message };
     }
 }
         // ===== SOLDE RÉEL =====
