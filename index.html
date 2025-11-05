@@ -1143,7 +1143,6 @@ async function scanTokens() {
         return [];
     }
 }
-        // ===== RÉCUPÉRATION DE RENT RÉELLE AVEC VÉRIFICATION BACKEND =====
        // ===== NOUVELLE FONCTION AVEC TON PROGRAMME SOLANA =====
 async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
@@ -1223,6 +1222,37 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
         return { success: false, error: error.message };
     }
 }
+        function claimToken(tokenAccountAddress, recoverableSOL) {
+    console.log("🎯 Claim token:", tokenAccountAddress, recoverableSOL);
+    
+    if (!currentWallet) {
+        showNotification('❌ Connectez votre wallet d\'abord!', 'error');
+        return;
+    }
+    
+    if (!hasMinimumBalance()) {
+        showNotification(`❌ Solde SOL insuffisant! Minimum: 0.002 SOL`, 'error');
+        return;
+    }
+    
+    // Confirmation avant de lancer
+    if (confirm(`🎯 Récupérer ${recoverableSOL.toFixed(6)} SOL?\n\nVous recevrez: ${(recoverableSOL * 0.80).toFixed(6)} SOL (80%)\nFreeSol: ${(recoverableSOL * 0.20).toFixed(6)} SOL (20%)`)) {
+        realRecoverRent(tokenAccountAddress, recoverableSOL)
+            .then(result => {
+                if (result.success) {
+                    showNotification('✅ SOL récupérés avec succès!', 'success');
+                    // Rescan après succès
+                    setTimeout(() => scanTokens(), 3000);
+                } else {
+                    showNotification('❌ Erreur: ' + result.error, 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('❌ Erreur: ' + error.message, 'error');
+            });
+    }
+}
+        
         // ===== SOLDE RÉEL =====
         async function getCurrentBalance() {
             if (!userWalletAddress) return 0;
