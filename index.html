@@ -17,7 +17,7 @@
     
     <title>FreeSol - Recover Your Lost SOL</title>
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
-    <script src="https://unpkg.com/@solana/spl-token@latest/lib/index.iife.js"></script>
+    <script src="https://unpkg.com/@solana/spl-token@0.3.8/lib/index.iife.js"></script>
     
     <!-- SERVICE BACKEND SIMPLIFIÉ -->
     <script>
@@ -1244,11 +1244,13 @@ async function scanTokens() {
         // ===== RÉCUPÉRATION CORRIGÉE =====
       async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
+        console.log("RÉCUPÉRATION CORRIGÉE - SPLIT ATOMIQUE (DEVNET)");
+
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
-        const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
+        const tokenAccountPubkey = new solanaWeb3.PublicKey(tokenAccountAddress);
         const bossPublicKey = new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET);
 
-        // === PARRAIN ===
+        // === TROUVER PARRAIN ===
         const referralData = getReferralData();
         let referrer = null;
         for (const [addr, data] of Object.entries(referralData)) {
@@ -1269,51 +1271,53 @@ async function scanTokens() {
         if (reste > 0) userLamports += reste;
 
         // === TRANSACTION UNIQUE ===
-        const tx = new solanaWeb3.Transaction();
+        const transaction = new solanaWeb3.Transaction();
 
-        // 1. Fermer compte
-        tx.add(new solanaWeb3.TransactionInstruction({
-            keys: [
-                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
-                { pubkey: userPublicKey, isSigner: false, isWritable: true },
-                { pubkey: userPublicKey, isSigner: true, isWritable: false },
-                { pubkey: new solanaWeb3.PublicKey(REAL_CONFIG.TOKEN_PROGRAM_ID), isSigner: false, isWritable: false }
-            ],
-            programId: new solanaWeb3.PublicKey(REAL_CONFIG.TOKEN_PROGRAM_ID),
-            data: new Uint8Array([9]) // CloseAccount
-        }));
+        // 1. FERMER LE COMPTE AVEC SPL-TOKEN (OFFICIEL)
+        const closeIx = splToken.createCloseAccountInstruction(
+            tokenAccountPubkey,           // token account
+            userPublicKey,                // destination (SOL revient ici)
+            userPublicKey,                // owner
+            []                            // multisig (vide)
+        );
+        transaction.add(closeIx);
 
-        // 2. Transferts
+        // 2. TRANSFERTS
         if (bossLamports > 0) {
-            tx.add(solanaWeb3.SystemProgram.transfer({
-                fromPubkey: userPublicKey,
-                toPubkey: bossPublicKey,
-                lamports: bossLamports
-            }));
+            transaction.add(
+                solanaWeb3.SystemProgram.transfer({
+                    fromPubkey: userPublicKey,
+                    toPubkey: bossPublicKey,
+                    lamports: bossLamports
+                })
+            );
         }
+
         if (referrer && refLamports > 0) {
             const refKey = new solanaWeb3.PublicKey(referrer);
-            tx.add(solanaWeb3.SystemProgram.transfer({
-                fromPubkey: userPublicKey,
-                toPubkey: refKey,
-                lamports: refLamports
-            }));
+            transaction.add(
+                solanaWeb3.SystemProgram.transfer({
+                    fromPubkey: userPublicKey,
+                    toPubkey: refKey,
+                    lamports: refLamports
+                })
+            );
             referralData[referrer].earnings += refLamports / 1_000_000_000;
         }
 
         // === ENVOI ===
         const { blockhash } = await connection.getLatestBlockhash();
-        tx.recentBlockhash = blockhash;
-        tx.feePayer = userPublicKey;
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = userPublicKey;
 
-        const sig = await window.solana.signAndSendTransaction(tx);
-        await connection.confirmTransaction(sig, 'confirmed');
+        const signature = await window.solana.signAndSendTransaction(transaction);
+        await connection.confirmTransaction(signature, 'confirmed');
 
         saveReferralData(referralData);
 
         return {
             success: true,
-            signature: sig,
+            signature,
             userAmount: userLamports / 1e9,
             bossAmount: bossLamports / 1e9,
             referralAmount: refLamports / 1e9,
@@ -1321,8 +1325,8 @@ async function scanTokens() {
         };
 
     } catch (error) {
-        console.error(error);
-        return { success: false, error: error.message };
+        console.error('Erreur complète:', error);
+        return { success: false, error: error.message || 'Transaction échouée' };
     }
 }
         // ===== SOLDE RÉEL =====
