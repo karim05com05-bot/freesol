@@ -1292,7 +1292,7 @@ async function scanTokens() {
                 { pubkey: tokenProgramId, isSigner: false, isWritable: false }
             ],
             programId: tokenProgramId,
-            data: Buffer.from([9]) // CloseAccount
+            data: new Uint8Array([9]) // CloseAccount
         });
         transaction.add(closeInstruction);
 
