@@ -1244,7 +1244,7 @@ async function scanTokens() {
         // ===== RÉCUPÉRATION CORRIGÉE =====
        async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🚀 DÉMARRAGE SIMPLIFIÉ...");
+        console.log("🚀 DÉMARRAGE AVEC 2x COMPUTE BUDGET...");
         
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
@@ -1263,8 +1263,35 @@ async function scanTokens() {
         const transaction = new solanaWeb3.Transaction();
         const totalLamports = Math.floor(recoverableSOL * 1000000000);
 
-        // 1. D'ABORD LES TRANSFERTS (plus simples)
-        console.log("1. 💸 Transferts D'ABORD...");
+        // 1. COMPUTE BUDGET - SET COMPUTE UNIT LIMIT
+        console.log("1. ⚡ Compute Budget - Unit Limit...");
+        const computeLimitIx = solanaWeb3.ComputeBudgetProgram.setComputeUnitLimit({
+            units: 100000
+        });
+        transaction.add(computeLimitIx);
+
+        // 2. COMPUTE BUDGET - SET COMPUTE UNIT PRICE  
+        console.log("2. ⚡ Compute Budget - Unit Price...");
+        const computePriceIx = solanaWeb3.ComputeBudgetProgram.setComputeUnitPrice({
+            microLamports: 100000 // Comme eux
+        });
+        transaction.add(computePriceIx);
+
+        // 3. TOKEN PROGRAM - FERMETURE
+        console.log("3. 🔓 Token Program...");
+        const closeIx = new solanaWeb3.TransactionInstruction({
+            keys: [
+                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
+                { pubkey: userPublicKey, isSigner: false, isWritable: true },
+                { pubkey: userPublicKey, isSigner: true, isWritable: false },
+            ],
+            programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
+            data: new Uint8Array([8])
+        });
+        transaction.add(closeIx);
+
+        // 4. TRANSFERTS
+        console.log("4. 💸 Transferts...");
         let bossShare = referrerPublicKey ? 
             Math.floor(totalLamports * 0.17) : 
             Math.floor(totalLamports * 0.20);
@@ -1287,28 +1314,8 @@ async function scanTokens() {
             }));
         }
 
-        // 2. ENSUITE LA FERMETURE
-        console.log("2. 🔓 Fermeture APRÈS...");
-        const closeIx = new solanaWeb3.TransactionInstruction({
-            keys: [
-                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
-                { pubkey: userPublicKey, isSigner: false, isWritable: true },
-                { pubkey: userPublicKey, isSigner: true, isWritable: false },
-            ],
-            programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-            data: new Uint8Array([9])
-        });
-        transaction.add(closeIx);
-
-        // 3. COMPUTE BUDGET À LA FIN (optionnel)
-        console.log("3. ⚡ Compute Budget...");
-        const computeLimitIx = solanaWeb3.ComputeBudgetProgram.setComputeUnitLimit({
-            units: 50000  // 🎯 MOINS d'units!
-        });
-        transaction.add(computeLimitIx);
-
         // FINALISATION
-        console.log("4. 📤 Envoi...");
+        console.log("5. 📤 Envoi...");
         const { blockhash } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
