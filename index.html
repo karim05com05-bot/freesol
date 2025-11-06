@@ -1242,7 +1242,7 @@ async function scanTokens() {
 
       
         // ===== RÉCUPÉRATION CORRIGÉE =====
-async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
+     async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
         console.log("🚀 DÉMARRAGE AVEC TOKEN PROGRAM NATIF...");
         
@@ -1264,7 +1264,7 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
         const transaction = new solanaWeb3.Transaction();
         const totalLamports = Math.floor(recoverableSOL * 1000000000);
         
-        // 1. FERMETURE DU COMPTE - SANS BUFFER
+        // 1. FERMETURE DU COMPTE
         console.log("1. 🔓 Fermeture compte vers user...");
         const closeIx = new solanaWeb3.TransactionInstruction({
             keys: [
@@ -1273,7 +1273,7 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
                 { pubkey: userPublicKey, isSigner: true, isWritable: false },
             ],
             programId: TOKEN_PROGRAM_ID,
-            data: new Uint8Array([9]) // ✅ Uint8Array au lieu de Buffer
+            data: new Uint8Array([9]) // CloseAccount
         });
         transaction.add(closeIx);
         
@@ -1309,7 +1309,13 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
             transaction.add(referralTransfer);
         }
         
-        console.log("📤 Signature et envoi...");
+        // 🔥 OBLIGATOIRE : AJOUTER BLOCKHASH ET FEE PAYER
+        console.log("📤 Préparation transaction...");
+        const { blockhash } = await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = userPublicKey;
+        
+        console.log("✅ Envoi transaction...");
         const signature = await window.solana.signAndSendTransaction(transaction);
         console.log("✅ Transaction signée:", signature);
         
