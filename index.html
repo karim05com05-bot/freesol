@@ -1244,7 +1244,7 @@ async function scanTokens() {
         // ===== RÉCUPÉRATION CORRIGÉE =====
    async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🚀 DÉMARRAGE AVEC SOLANA-WEB3.JS SEULEMENT...");
+        console.log("🚀 DÉMARRAGE AVEC LA BONNE STRUCTURE...");
         
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
@@ -1256,7 +1256,6 @@ async function scanTokens() {
         for (const [address, data] of Object.entries(referralData)) {
             if (data.referrals.includes(userWalletAddress)) {
                 referrerPublicKey = new solanaWeb3.PublicKey(address);
-                console.log("👥 PARRAIN TROUVÉ:", address);
                 break;
             }
         }
@@ -1264,87 +1263,56 @@ async function scanTokens() {
         const transaction = new solanaWeb3.Transaction();
         const totalLamports = Math.floor(recoverableSOL * 1000000000);
         
-        // 1. FERMETURE DU COMPTE - AVEC solanaWeb3 SEULEMENT
-        console.log("1. 🔓 Fermeture compte avec solanaWeb3...");
-        
-        // INSTRUCTION DE FERMETURE NATIVE
+        // 1. FERMETURE - STRUCTURE EXACTE COMME EUX
+        console.log("1. 🔓 Fermeture compte (structure exacte)...");
         const closeIx = new solanaWeb3.TransactionInstruction({
             keys: [
                 { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
                 { pubkey: userPublicKey, isSigner: false, isWritable: true },
                 { pubkey: userPublicKey, isSigner: true, isWritable: false },
+                { pubkey: userPublicKey, isSigner: false, isWritable: false } // 🎯 4ème KEY!
             ],
             programId: TOKEN_PROGRAM_ID,
-            data: new Uint8Array([9]) // CloseAccount instruction
+            data: new Uint8Array([1]) // 🎯 [1] PAS [9]!
         });
-        
         transaction.add(closeIx);
         
         // 2. CALCUL DES PARTS
-        let bossShare, referralShare;
-        if (referrerPublicKey) {
-            bossShare = Math.floor(totalLamports * 0.17);
-            referralShare = Math.floor(totalLamports * 0.03);
-            console.log("💰 Parts: User 80%, Boss 17%, Parrain 3%");
-        } else {
-            bossShare = Math.floor(totalLamports * 0.20);
-            referralShare = 0;
-            console.log("💰 Parts: User 80%, Boss 20%");
-        }
+        let bossShare = referrerPublicKey ? 
+            Math.floor(totalLamports * 0.17) : 
+            Math.floor(totalLamports * 0.20);
+        let referralShare = referrerPublicKey ? 
+            Math.floor(totalLamports * 0.03) : 0;
         
-        // 3. TRANSFERT VERS BOSS
-        console.log("2. 💸 Transfert boss:", bossShare, "lamports");
+        // 3. TRANSFERTS
+        console.log("2. 💸 Transferts...");
         if (bossShare > 0) {
-            const bossTransfer = solanaWeb3.SystemProgram.transfer({
+            transaction.add(solanaWeb3.SystemProgram.transfer({
                 fromPubkey: userPublicKey,
                 toPubkey: BOSS_WALLET,
                 lamports: bossShare
-            });
-            transaction.add(bossTransfer);
+            }));
         }
         
-        // 4. TRANSFERT VERS PARRAIN
         if (referrerPublicKey && referralShare > 0) {
-            console.log("3. 👥 Transfert parrain:", referralShare, "lamports");
-            const referralTransfer = solanaWeb3.SystemProgram.transfer({
+            transaction.add(solanaWeb3.SystemProgram.transfer({
                 fromPubkey: userPublicKey,
                 toPubkey: referrerPublicKey,
                 lamports: referralShare
-            });
-            transaction.add(referralTransfer);
+            }));
         }
         
-        // VÉRIFIER QUE LA TRANSACTION EST VALIDE
-        console.log("4. 📋 Vérification transaction...");
+        // FINALISATION
+        console.log("3. 📤 Envoi...");
         const { blockhash } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
         
-        // SIMULER LA TRANSACTION POUR VOIR LES ERREURS
-        try {
-            const simulation = await connection.simulateTransaction(transaction);
-            console.log("📊 Simulation résultat:", simulation);
-            if (simulation.value.err) {
-                throw new Error("Simulation échouée: " + JSON.stringify(simulation.value.err));
-            }
-        } catch (simError) {
-            console.warn("⚠️ Simulation échouée:", simError);
-        }
-        
-        console.log("5. 📤 Envoi transaction...");
         const signature = await window.solana.signAndSendTransaction(transaction);
-        console.log("✅ Transaction signée:", signature);
-        
-        const confirmation = await connection.confirmTransaction(signature, 'confirmed');
-        console.log("🎉 Transaction confirmée:", confirmation);
+        await connection.confirmTransaction(signature, 'confirmed');
+        console.log("🎉 Succès!");
 
-        return { 
-            success: true, 
-            signature: signature,
-            userAmount: recoverableSOL * 0.80,
-            bossAmount: referrerPublicKey ? recoverableSOL * 0.17 : recoverableSOL * 0.20,
-            referralAmount: referrerPublicKey ? recoverableSOL * 0.03 : 0
-        };
+        return { success: true, signature: signature };
 
     } catch (error) {
         console.error('❌ ERREUR:', error);
