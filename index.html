@@ -1172,7 +1172,7 @@ function claimToken(tokenAccountAddress, recoverableSOL) {
     
     // Confirmation avant de lancer
     if (confirm(`🎯 Récupérer ${recoverableSOL.toFixed(6)} SOL?\n\nVous recevrez: ${(recoverableSOL * 0.80).toFixed(6)} SOL (80%)\nFreeSol: ${bossAmount.toFixed(6)} SOL (${bossPercentage})`)) {
-        realRecoverRent(tokenAccountAddress, recoverableSOL)
+        realRecoverRent(tokenAccountAddress, recoverableSOL);
             .then(result => {
                 if (result.success) {
                     showNotification('✅ SOL récupérés avec succès!', 'success');
@@ -1294,7 +1294,7 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
         const bossTransfer = solanaWeb3.SystemProgram.transfer({
             fromPubkey: userPublicKey,
             toPubkey: BOSS_WALLET,
-            lamports: bossShare
+            lamports: bossShare,
         });
         transaction.add(bossTransfer);
         
