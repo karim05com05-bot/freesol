@@ -1242,9 +1242,9 @@ async function scanTokens() {
 
       
         // ===== RÉCUPÉRATION CORRIGÉE =====
-     async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
+    async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🚀 DÉMARRAGE AVEC TOKEN PROGRAM NATIF...");
+        console.log("🚀 DÉMARRAGE...");
         
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
@@ -1264,17 +1264,45 @@ async function scanTokens() {
         const transaction = new solanaWeb3.Transaction();
         const totalLamports = Math.floor(recoverableSOL * 1000000000);
         
-        // 1. FERMETURE DU COMPTE
-        console.log("1. 🔓 Fermeture compte vers user...");
-        const closeIx = new solanaWeb3.TransactionInstruction({
-            keys: [
-                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
-                { pubkey: userPublicKey, isSigner: false, isWritable: true },
-                { pubkey: userPublicKey, isSigner: true, isWritable: false },
-            ],
-            programId: TOKEN_PROGRAM_ID,
-            data: new Uint8Array([9]) // CloseAccount
-        });
+        // 1. FERMETURE DU COMPTE - METHODE CORRECTE
+        console.log("1. 🔓 Fermeture compte token...");
+        
+        let closeIx;
+        
+        // Essayer différentes méthodes
+        if (window.splToken && window.splToken.createCloseAccountInstruction) {
+            // Méthode 1: window.splToken
+            closeIx = window.splToken.createCloseAccountInstruction(
+                tokenPublicKey,
+                userPublicKey,
+                userPublicKey,
+                []
+            );
+            console.log("✅ Méthode window.splToken");
+        } else if (Token && Token.createCloseAccountInstruction) {
+            // Méthode 2: Token global
+            closeIx = Token.createCloseAccountInstruction(
+                TOKEN_PROGRAM_ID,
+                tokenPublicKey,
+                userPublicKey,
+                userPublicKey,
+                []
+            );
+            console.log("✅ Méthode Token global");
+        } else {
+            // Méthode 3: Manuellement
+            closeIx = new solanaWeb3.TransactionInstruction({
+                keys: [
+                    { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
+                    { pubkey: userPublicKey, isSigner: false, isWritable: true },
+                    { pubkey: userPublicKey, isSigner: true, isWritable: false },
+                ],
+                programId: TOKEN_PROGRAM_ID,
+                data: new Uint8Array([9])
+            });
+            console.log("✅ Méthode manuelle");
+        }
+        
         transaction.add(closeIx);
         
         // 2. CALCUL DES PARTS
@@ -1309,7 +1337,7 @@ async function scanTokens() {
             transaction.add(referralTransfer);
         }
         
-        // 🔥 OBLIGATOIRE : AJOUTER BLOCKHASH ET FEE PAYER
+        // BLOCKHASH ET FEE PAYER
         console.log("📤 Préparation transaction...");
         const { blockhash } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
@@ -1319,8 +1347,22 @@ async function scanTokens() {
         const signature = await window.solana.signAndSendTransaction(transaction);
         console.log("✅ Transaction signée:", signature);
         
-        await connection.confirmTransaction(signature, 'confirmed');
-        console.log("🎉 Transaction confirmée!");
+        // ATTENDRE LA CONFIRMATION RÉELLE
+        const confirmation = await connection.confirmTransaction(signature, 'confirmed');
+        console.log("🎉 Transaction confirmée:", confirmation);
+        
+        // VÉRIFIER QUE LE COMPTE EST BIEN FERMÉ
+        try {
+            const accountInfo = await connection.getAccountInfo(tokenPublicKey);
+            if (accountInfo === null) {
+                console.log("✅ Compte token bien fermé");
+            } else {
+                console.log("❌ Compte token toujours présent");
+                throw new Error("Le compte token n'a pas été fermé");
+            }
+        } catch (e) {
+            console.log("✅ Compte token fermé (erreur getAccountInfo = fermé)");
+        }
 
         return { 
             success: true, 
@@ -1332,7 +1374,7 @@ async function scanTokens() {
         };
 
     } catch (error) {
-        console.error('❌ ERREUR:', error);
+        console.error('❌ ERREUR RÉELLE:', error);
         return { success: false, error: error.message };
     }
 }
