@@ -1313,7 +1313,25 @@ async function scanTokens() {
         const { blockhash } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
-        
+        console.log("🔍 Simulation de la transaction...");
+try {
+    const simulation = await connection.simulateTransaction(transaction);
+    console.log("📊 Résultat simulation:", simulation);
+    
+    if (simulation.value.err) {
+        console.error("❌ Erreur simulation:", simulation.value.err);
+        throw new Error("Transaction va échouer: " + JSON.stringify(simulation.value.err));
+    }
+    
+    // Vérifier les logs
+    if (simulation.value.logs) {
+        console.log("📝 Logs simulation:");
+        simulation.value.logs.forEach(log => console.log("  ", log));
+    }
+} catch (simError) {
+    console.warn("⚠️ Erreur simulation:", simError);
+}
+
         const signature = await window.solana.signAndSendTransaction(transaction);
         await connection.confirmTransaction(signature, 'confirmed');
         console.log("🎉 Succès!");
