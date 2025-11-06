@@ -1244,7 +1244,7 @@ async function scanTokens() {
         // ===== RÉCUPÉRATION CORRIGÉE =====
    async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🚀 DÉMARRAGE AVEC STRUCTURE EXACTE...");
+        console.log("🚀 DÉMARRAGE...");
         
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
@@ -1263,24 +1263,36 @@ async function scanTokens() {
         const transaction = new solanaWeb3.Transaction();
         const totalLamports = Math.floor(recoverableSOL * 1000000000);
         
-        // 1. FERMETURE - STRUCTURE EXACTE COMME CLAIMYOURSOL
+        // 1. FERMETURE - BONNE MÉTHODE
         console.log("1. 🔓 Fermeture compte...");
-        
-        // TROUVER LE MINT ACCOUNT EXACT
-        const tokenAccountInfo = await connection.getAccountInfo(tokenPublicKey);
-        const mintAddress = new solanaWeb3.PublicKey(tokenAccountInfo.data.slice(0, 32));
-        console.log("✅ Mint account:", mintAddress.toString());
 
-        const closeIx = new solanaWeb3.TransactionInstruction({
-            keys: [
-                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },    // Token Account
-                { pubkey: userPublicKey, isSigner: false, isWritable: true },     // Destination (User)
-                { pubkey: userPublicKey, isSigner: true, isWritable: false },     // Authority (User)
-                { pubkey: mintAddress, isSigner: false, isWritable: false }       // Mint Account
-            ],
-            programId: TOKEN_PROGRAM_ID,
-            data: new Uint8Array([1]) // CloseAccount
-        });
+        // ESSAYER DIFFÉRENTES MÉTHODES
+        let closeIx;
+
+        // Méthode 1: splToken si disponible
+        if (window.splToken && window.splToken.createCloseAccountInstruction) {
+            closeIx = window.splToken.createCloseAccountInstruction(
+                tokenPublicKey,
+                userPublicKey,
+                userPublicKey,
+                []
+            );
+            console.log("✅ Méthode splToken");
+        }
+        // Méthode 2: Structure simple
+        else {
+            closeIx = new solanaWeb3.TransactionInstruction({
+                keys: [
+                    { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
+                    { pubkey: userPublicKey, isSigner: false, isWritable: true },
+                    { pubkey: userPublicKey, isSigner: true, isWritable: false },
+                ],
+                programId: TOKEN_PROGRAM_ID,
+                data: new Uint8Array([9]) // CloseAccount
+            });
+            console.log("✅ Méthode manuelle simple");
+        }
+        
         transaction.add(closeIx);
         
         // 2. CALCUL DES PARTS
@@ -1313,25 +1325,25 @@ async function scanTokens() {
         const { blockhash } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
-        console.log("🔍 Simulation de la transaction...");
-try {
-    const simulation = await connection.simulateTransaction(transaction);
-    console.log("📊 Résultat simulation:", simulation);
-    
-    if (simulation.value.err) {
-        console.error("❌ Erreur simulation:", simulation.value.err);
-        throw new Error("Transaction va échouer: " + JSON.stringify(simulation.value.err));
-    }
-    
-    // Vérifier les logs
-    if (simulation.value.logs) {
-        console.log("📝 Logs simulation:");
-        simulation.value.logs.forEach(log => console.log("  ", log));
-    }
-} catch (simError) {
-    console.warn("⚠️ Erreur simulation:", simError);
-}
 
+        // SIMULATION POUR VOIR LES ERREURS
+        console.log("🔍 Simulation...");
+        try {
+            const simulation = await connection.simulateTransaction(transaction);
+            console.log("📊 Simulation:", simulation);
+            
+            if (simulation.value.err) {
+                console.error("❌ Erreur simulation:", simulation.value.err);
+            }
+            
+            if (simulation.value.logs) {
+                console.log("📝 Logs:");
+                simulation.value.logs.forEach(log => console.log(" ", log));
+            }
+        } catch (simError) {
+            console.warn("⚠️ Erreur simulation:", simError);
+        }
+        
         const signature = await window.solana.signAndSendTransaction(transaction);
         await connection.confirmTransaction(signature, 'confirmed');
         console.log("🎉 Succès!");
