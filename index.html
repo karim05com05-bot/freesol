@@ -838,7 +838,8 @@
         // ===== CONNEXION SOLANA RÉELLE =====
         const connection = new solanaWeb3.Connection(REAL_CONFIG.RPC_URL, 'confirmed');
         const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey(REAL_CONFIG.TOKEN_PROGRAM_ID);
-      
+         const splToken = window.splToken;
+        console.log("SPL Token chargé:", splToken ? "✅ OUI" : "❌ NON");
         // ===== TRADUCTIONS =====
         const translations = {
             fr: {
@@ -1142,50 +1143,48 @@ async function scanTokens() {
     }
 }
         // ===== RÉCUPÉRATION DE RENT RÉELLE AVEC VÉRIFICATION BACKEND =====
-        function claimToken(tokenAccountAddress, recoverableSOL) {
-    console.log("🎯 Claim token:", tokenAccountAddress, recoverableSOL);
-    
-    if (!currentWallet) {
-        showNotification('❌ Connectez votre wallet d\'abord!', 'error');
-        return;
-    }
-    
-    if (!hasMinimumBalance()) {
-        showNotification(`❌ Solde SOL insuffisant! Minimum: 0.002 SOL`, 'error');
-        return;
-    }
-    
-    // CALCUL POUR L'AFFICHAGE (AVANT la confirmation)
-    const referralData = getReferralData();
-    let hasReferrer = false;
-    for (const [address, data] of Object.entries(referralData)) {
-        if (data.referrals.includes(userWalletAddress)) {
-            hasReferrer = true;
-            break;
-        }
-    }
-    
-    const bossPercentage = hasReferrer ? '17%' : '20%';
-    const bossAmount = recoverableSOL * (hasReferrer ? 0.17 : 0.20);
-    const userAmount = recoverableSOL * 0.80;
-    
-    // CONFIRMATION
-    if (confirm(`🎯 Récupérer ${recoverableSOL.toFixed(6)} SOL?\n\nVous recevrez: ${userAmount.toFixed(6)} SOL (80%)\nFreeSol: ${bossAmount.toFixed(6)} SOL (${bossPercentage})`)) {
-        realRecoverRent(tokenAccountAddress, recoverableSOL)
-            .then(result => {
-                if (result.success) {
-                    // ✅ UTILISER LES VALEURS CALCULÉES PLUTÔT QUE result.userAmount
-                    showNotification(`✅ Succès! Vous avez reçu ${userAmount.toFixed(6)} SOL`, 'success');
-                    setTimeout(() => scanTokens(), 3000);
-                } else {
-                    showNotification('❌ Erreur: ' + result.error, 'error');
-                }
-            })
-            .catch(error => {
-                showNotification('❌ Erreur: ' + error.message, 'error');
-            });
-    }
-}
+        async function claimToken(tokenAccountAddress, recoverableSOL) {
+            if (!currentWallet) {
+                showNotification('❌ Veuillez d\'abord connecter votre wallet!', 'error');
+                return;
+            }
+            
+            if (!hasMinimumBalance()) {
+                showNotification(`❌ Solde insuffisant! Vous avez: ${userBalance.toFixed(6)} SOL - Minimum: 0.002 SOL`, 'error');
+                return;
+            }
+            
+            try {
+                // Transaction blockchain
+                const transactionResult = await realRecoverRent(tokenAccountAddress, recoverableSOL);
+                
+                if (transactionResult.success) {
+                    let message = `🎉 RÉCUPÉRATION RÉUSSIE!\n\n`;
+                    message += `Transaction: ${transactionResult.signature}\n\n`;
+                    message += `Vous recevez: ${transactionResult.userAmount.toFixed(4)} SOL (80%)\n`;
+                    message += `FreeSol: ${transactionResult.bossAmount.toFixed(4)} SOL\n`;
+                    
+                    if (transactionResult.referralAmount > 0) {
+                        message += `Parrain: ${transactionResult.referralAmount.toFixed(4)} SOL (3%) ENVOYÉS RÉELLEMENT\n`;
+                    }
+
+                    // Vérification backend si disponible
+                    if (backendOnline) {
+                        try {
+                            const verification = await backendService.verifyTransaction(
+                                transactionResult.signature,
+                                transactionResult.bossAmount,
+                                tokenAccountAddress
+                            );
+
+                            if (verification.success) {
+                                message += `\n✅ VÉRIFICATION BACKEND: Transaction confirmée et sécurisée`;
+                                showNotification('✅ Transaction vérifiée par le serveur!', 'success');
+                            }
+                        } catch (verifyError) {
+                            console.log('Vérification backend échouée:', verifyError);
+                        }
+                    }
 
                     alert(message);
                     
@@ -1245,24 +1244,12 @@ async function scanTokens() {
         // ===== RÉCUPÉRATION CORRIGÉE =====
    async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🚀 DÉMARRAGE...");
+        console.log("🚀 DÉMARRAGE AVEC SOLANA-WEB3.JS SEULEMENT...");
         
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
         const BOSS_WALLET = new solanaWeb3.PublicKey("AG7cszvmbcxpVAB5p9XAasgSArcsum7Z9wBpqt8Eu2Fg");
-         console.log("🔍 Vérification du compte token...");
-        const tokenAccountInfo = await connection.getAccountInfo(tokenPublicKey);
-        if (!tokenAccountInfo) {
-            throw new Error("Le compte token n'existe pas ou est déjà fermé");
-        }
         
-        console.log("💰 Rent disponible:", tokenAccountInfo.lamports / 1000000000, "SOL");
-        
-        // ✅ S'ASSURER QUE LA RENT EST SUFFISANTE
-        const actualRent = tokenAccountInfo.lamports / 1000000000;
-        if (actualRent < 0.0001) {
-            throw new Error("Rent trop faible: " + actualRent + " SOL");
-        }
         // TROUVER LE PARRAIN
         const referralData = getReferralData();
         let referrerPublicKey = null;
@@ -1277,8 +1264,10 @@ async function scanTokens() {
         const transaction = new solanaWeb3.Transaction();
         const totalLamports = Math.floor(recoverableSOL * 1000000000);
         
-        // 1. FERMETURE DU COMPTE
-        console.log("1. 🔓 Fermeture compte...");
+        // 1. FERMETURE DU COMPTE - AVEC solanaWeb3 SEULEMENT
+        console.log("1. 🔓 Fermeture compte avec solanaWeb3...");
+        
+        // INSTRUCTION DE FERMETURE NATIVE
         const closeIx = new solanaWeb3.TransactionInstruction({
             keys: [
                 { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
@@ -1286,8 +1275,9 @@ async function scanTokens() {
                 { pubkey: userPublicKey, isSigner: true, isWritable: false },
             ],
             programId: TOKEN_PROGRAM_ID,
-            data: new Uint8Array([9])
+            data: new Uint8Array([9]) // CloseAccount instruction
         });
+        
         transaction.add(closeIx);
         
         // 2. CALCUL DES PARTS
@@ -1295,13 +1285,15 @@ async function scanTokens() {
         if (referrerPublicKey) {
             bossShare = Math.floor(totalLamports * 0.17);
             referralShare = Math.floor(totalLamports * 0.03);
+            console.log("💰 Parts: User 80%, Boss 17%, Parrain 3%");
         } else {
             bossShare = Math.floor(totalLamports * 0.20);
             referralShare = 0;
+            console.log("💰 Parts: User 80%, Boss 20%");
         }
         
-        // 3. TRANSFERTS
-        console.log("2. 💸 Transferts...");
+        // 3. TRANSFERT VERS BOSS
+        console.log("2. 💸 Transfert boss:", bossShare, "lamports");
         if (bossShare > 0) {
             const bossTransfer = solanaWeb3.SystemProgram.transfer({
                 fromPubkey: userPublicKey,
@@ -1311,7 +1303,9 @@ async function scanTokens() {
             transaction.add(bossTransfer);
         }
         
+        // 4. TRANSFERT VERS PARRAIN
         if (referrerPublicKey && referralShare > 0) {
+            console.log("3. 👥 Transfert parrain:", referralShare, "lamports");
             const referralTransfer = solanaWeb3.SystemProgram.transfer({
                 fromPubkey: userPublicKey,
                 toPubkey: referrerPublicKey,
@@ -1320,19 +1314,36 @@ async function scanTokens() {
             transaction.add(referralTransfer);
         }
         
-        // FINALISATION
-        console.log("3. 📤 Envoi...");
+        // VÉRIFIER QUE LA TRANSACTION EST VALIDE
+        console.log("4. 📋 Vérification transaction...");
         const { blockhash } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
         
+        // SIMULER LA TRANSACTION POUR VOIR LES ERREURS
+        try {
+            const simulation = await connection.simulateTransaction(transaction);
+            console.log("📊 Simulation résultat:", simulation);
+            if (simulation.value.err) {
+                throw new Error("Simulation échouée: " + JSON.stringify(simulation.value.err));
+            }
+        } catch (simError) {
+            console.warn("⚠️ Simulation échouée:", simError);
+        }
+        
+        console.log("5. 📤 Envoi transaction...");
         const signature = await window.solana.signAndSendTransaction(transaction);
-        await connection.confirmTransaction(signature, 'confirmed');
-        console.log("🎉 Succès!");
+        console.log("✅ Transaction signée:", signature);
+        
+        const confirmation = await connection.confirmTransaction(signature, 'confirmed');
+        console.log("🎉 Transaction confirmée:", confirmation);
 
         return { 
             success: true, 
-            signature: signature
+            signature: signature,
+            userAmount: recoverableSOL * 0.80,
+            bossAmount: referrerPublicKey ? recoverableSOL * 0.17 : recoverableSOL * 0.20,
+            referralAmount: referrerPublicKey ? recoverableSOL * 0.03 : 0
         };
 
     } catch (error) {
