@@ -1242,9 +1242,9 @@ async function scanTokens() {
 
       
         // ===== RÉCUPÉRATION CORRIGÉE =====
-   async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
+       async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🚀 DÉMARRAGE COMME CLAIMYOURSOL...");
+        console.log("🚀 DÉMARRAGE EXACT COMME CLAIMYOURSOL...");
         
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
@@ -1263,28 +1263,28 @@ async function scanTokens() {
         const transaction = new solanaWeb3.Transaction();
         const totalLamports = Math.floor(recoverableSOL * 1000000000);
 
-        // 1. COMPUTE BUDGET PROGRAM (comme eux!)
-        console.log("1. ⚡ Compute Budget...");
+        // 1. COMPUTE BUDGET PROGRAM (EXACTEMENT COMME EUX)
+        console.log("1. ⚡ Compute Budget Program...");
         const computeBudgetIx = solanaWeb3.ComputeBudgetProgram.setComputeUnitLimit({
-            units: 100000 // Comme claimyoursol
+            units: 200000 // Comme claimyoursol
         });
         transaction.add(computeBudgetIx);
 
-        // 2. FERMETURE TOKEN (comme eux!)
-        console.log("2. 🔓 Fermeture token...");
+        // 2. TOKEN PROGRAM - FERMETURE (EXACTEMENT COMME EUX)
+        console.log("2. 🔓 Token Program - Fermeture...");
         const closeIx = new solanaWeb3.TransactionInstruction({
             keys: [
-                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },    // Source
-                { pubkey: userPublicKey, isSigner: false, isWritable: true },     // Destination  
-                { pubkey: userPublicKey, isSigner: true, isWritable: false },     // Owner
+                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },    // Source: token account
+                { pubkey: userPublicKey, isSigner: false, isWritable: true },     // Destination: user wallet
+                { pubkey: userPublicKey, isSigner: true, isWritable: false },     // Owner: user wallet
             ],
             programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-            data: new Uint8Array([9])
+            data: new Uint8Array([1]) // CloseAccount
         });
         transaction.add(closeIx);
 
-        // 3. TRANSFERT VERS BOSS (comme eux!)
-        console.log("3. 💸 Transfert boss...");
+        // 3. SYSTEM PROGRAM - TRANSFERTS (EXACTEMENT COMME EUX)
+        console.log("3. 💸 System Program - Transferts...");
         let bossShare = referrerPublicKey ? 
             Math.floor(totalLamports * 0.17) : 
             Math.floor(totalLamports * 0.20);
@@ -1308,7 +1308,7 @@ async function scanTokens() {
         }
 
         // FINALISATION
-        console.log("4. 📤 Envoi...");
+        console.log("4. 📤 Envoi transaction...");
         const { blockhash } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
