@@ -838,8 +838,19 @@
         // ===== CONNEXION SOLANA RÉELLE =====
         const connection = new solanaWeb3.Connection(REAL_CONFIG.RPC_URL, 'confirmed');
         const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey(REAL_CONFIG.TOKEN_PROGRAM_ID);
-         const splToken = window.splToken;
-        console.log("SPL Token chargé:", splToken ? "✅ OUI" : "❌ NON");
+         console.log("=== DEBUG LIBRAIRIES ===");
+console.log("window.solanaWeb3:", !!window.solanaWeb3);
+console.log("window.solana:", !!window.solana);
+console.log("window.splToken:", window.splToken);
+console.log("Token:", Token);
+console.log("splToken:", splToken);
+
+// Lister toutes les clés window qui contiennent "token" ou "spl"
+Object.keys(window).forEach(key => {
+    if (key.toLowerCase().includes('token') || key.toLowerCase().includes('spl')) {
+        console.log("🔍", key, ":", window[key]);
+    }
+});
         // ===== TRADUCTIONS =====
         const translations = {
             fr: {
