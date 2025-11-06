@@ -1279,7 +1279,7 @@ async function scanTokens() {
                 { pubkey: mintAddress, isSigner: false, isWritable: false }       // Mint Account
             ],
             programId: TOKEN_PROGRAM_ID,
-            data: new Uint8Array([1]) // CloseAccount
+            data: new Uint8Array([9]) // CloseAccount
         });
         transaction.add(closeIx);
         
