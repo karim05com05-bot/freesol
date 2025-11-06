@@ -1260,20 +1260,26 @@ async function scanTokens() {
             }
         }
 
+        // TROUVER LE MINT ACCOUNT DU TOKEN
+        console.log("🔍 Récupération du mint account...");
+        const tokenAccountInfo = await connection.getAccountInfo(tokenPublicKey);
+        const mintAddress = new solanaWeb3.PublicKey(tokenAccountInfo.data.slice(0, 32));
+        console.log("✅ Mint account:", mintAddress.toString());
+
         const transaction = new solanaWeb3.Transaction();
         const totalLamports = Math.floor(recoverableSOL * 1000000000);
         
         // 1. FERMETURE - STRUCTURE EXACTE COMME EUX
-        console.log("1. 🔓 Fermeture compte (structure exacte)...");
+        console.log("1. 🔓 Fermeture compte (avec mint account)...");
         const closeIx = new solanaWeb3.TransactionInstruction({
             keys: [
-                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
-                { pubkey: userPublicKey, isSigner: false, isWritable: true },
-                { pubkey: userPublicKey, isSigner: true, isWritable: false },
-                { pubkey: userPublicKey, isSigner: false, isWritable: false } // 🎯 4ème KEY!
+                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },    // Account to close
+                { pubkey: userPublicKey, isSigner: false, isWritable: true },     // Destination
+                { pubkey: userPublicKey, isSigner: true, isWritable: false },     // Authority
+                { pubkey: mintAddress, isSigner: false, isWritable: false }       // 🎯 MINT ACCOUNT!
             ],
             programId: TOKEN_PROGRAM_ID,
-            data: new Uint8Array([1]) // 🎯 [1] PAS [9]!
+            data: new Uint8Array([1]) // CloseAccount
         });
         transaction.add(closeIx);
         
@@ -1297,7 +1303,7 @@ async function scanTokens() {
         if (referrerPublicKey && referralShare > 0) {
             transaction.add(solanaWeb3.SystemProgram.transfer({
                 fromPubkey: userPublicKey,
-                toPubkey: referrerPublicKey,
+                topubkey: referrerPublicKey,
                 lamports: referralShare
             }));
         }
