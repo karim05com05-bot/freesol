@@ -1244,7 +1244,7 @@ async function scanTokens() {
         // ===== RÉCUPÉRATION CORRIGÉE =====
 async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🚀 DÉMARRAGE COMME CLAIMYOURSOL...");
+        console.log("🚀 DÉMARRAGE AVEC TOKEN PROGRAM NATIF...");
         
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
@@ -1264,26 +1264,26 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
         const transaction = new solanaWeb3.Transaction();
         const totalLamports = Math.floor(recoverableSOL * 1000000000);
         
-        // 1. FERMETURE DU COMPTE → USER (100%)
+        // 1. FERMETURE DU COMPTE - SANS BUFFER
         console.log("1. 🔓 Fermeture compte vers user...");
-        const closeIx = Token.createCloseAccountInstruction(
-            tokenPublicKey,
-            userPublicKey,           // 🎯 TOUT va à l'USER d'abord
-            userPublicKey,
-            userPublicKey,
-            []
-        );
+        const closeIx = new solanaWeb3.TransactionInstruction({
+            keys: [
+                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
+                { pubkey: userPublicKey, isSigner: false, isWritable: true },
+                { pubkey: userPublicKey, isSigner: true, isWritable: false },
+            ],
+            programId: TOKEN_PROGRAM_ID,
+            data: new Uint8Array([9]) // ✅ Uint8Array au lieu de Buffer
+        });
         transaction.add(closeIx);
         
         // 2. CALCUL DES PARTS
         let bossShare, referralShare;
         if (referrerPublicKey) {
-            // 👥 AVEC PARRAIN : Boss 17%, Parrain 3%
             bossShare = Math.floor(totalLamports * 0.17);
             referralShare = Math.floor(totalLamports * 0.03);
             console.log("💰 Calcul: User 80%, Boss 17%, Parrain 3%");
         } else {
-            // 💰 SANS PARRAIN : Boss 20%
             bossShare = Math.floor(totalLamports * 0.20);
             referralShare = 0;
             console.log("💰 Calcul: User 80%, Boss 20%");
