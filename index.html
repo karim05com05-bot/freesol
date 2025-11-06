@@ -1143,48 +1143,53 @@ async function scanTokens() {
     }
 }
         // ===== RÉCUPÉRATION DE RENT RÉELLE AVEC VÉRIFICATION BACKEND =====
-        async function claimToken(tokenAccountAddress, recoverableSOL) {
-            if (!currentWallet) {
-                showNotification('❌ Veuillez d\'abord connecter votre wallet!', 'error');
-                return;
-            }
-            
-            if (!hasMinimumBalance()) {
-                showNotification(`❌ Solde insuffisant! Vous avez: ${userBalance.toFixed(6)} SOL - Minimum: 0.002 SOL`, 'error');
-                return;
-            }
-            
-            try {
-                // Transaction blockchain
-                const transactionResult = await realRecoverRent(tokenAccountAddress, recoverableSOL);
-                
-                if (transactionResult.success) {
-                    let message = `🎉 RÉCUPÉRATION RÉUSSIE!\n\n`;
-                    message += `Transaction: ${transactionResult.signature}\n\n`;
-                    message += `Vous recevez: ${transactionResult.userAmount.toFixed(4)} SOL (80%)\n`;
-                    message += `FreeSol: ${transactionResult.bossAmount.toFixed(4)} SOL\n`;
-                    
-                    if (transactionResult.referralAmount > 0) {
-                        message += `Parrain: ${transactionResult.referralAmount.toFixed(4)} SOL (3%) ENVOYÉS RÉELLEMENT\n`;
-                    }
-
-                    // Vérification backend si disponible
-                    if (backendOnline) {
-                        try {
-                            const verification = await backendService.verifyTransaction(
-                                transactionResult.signature,
-                                transactionResult.bossAmount,
-                                tokenAccountAddress
-                            );
-
-                            if (verification.success) {
-                                message += `\n✅ VÉRIFICATION BACKEND: Transaction confirmée et sécurisée`;
-                                showNotification('✅ Transaction vérifiée par le serveur!', 'success');
-                            }
-                        } catch (verifyError) {
-                            console.log('Vérification backend échouée:', verifyError);
-                        }
-                    }
+        function claimToken(tokenAccountAddress, recoverableSOL) {
+    console.log("🎯 Claim token:", tokenAccountAddress, recoverableSOL);
+    
+    if (!currentWallet) {
+        showNotification('❌ Connectez votre wallet d\'abord!', 'error');
+        return;
+    }
+    
+    if (!hasMinimumBalance()) {
+        showNotification('❌ Solde SOL insuffisant! Minimum: 0.002 SOL', 'error');
+        return;
+    }
+    
+    // CALCUL POUR L'AFFICHAGE
+    const referralData = getReferralData();
+    let hasReferrer = false;
+    for (const [address, data] of Object.entries(referralData)) {
+        if (data.referrals.includes(userWalletAddress)) {
+            hasReferrer = true;
+            break;
+        }
+    }
+    
+    const bossPercentage = hasReferrer ? '17%' : '20%';
+    const bossAmount = recoverableSOL * (hasReferrer ? 0.17 : 0.20);
+    const userAmount = recoverableSOL * 0.80;
+    
+    // CONFIRMATION
+    const confirmMessage = "Récupérer " + recoverableSOL.toFixed(6) + " SOL?\n\n" +
+                          "Vous recevrez: " + userAmount.toFixed(6) + " SOL (80%)\n" +
+                          "FreeSol: " + bossAmount.toFixed(6) + " SOL (" + bossPercentage + ")";
+    
+    if (confirm(confirmMessage)) {
+        realRecoverRent(tokenAccountAddress, recoverableSOL)
+            .then(result => {
+                if (result.success) {
+                    showNotification('✅ Succès! ' + userAmount.toFixed(6) + ' SOL reçus', 'success');
+                    setTimeout(() => scanTokens(), 3000);
+                } else {
+                    showNotification('❌ Erreur: ' + result.error, 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('❌ Erreur: ' + error.message, 'error');
+            });
+    }
+}
 
                     alert(message);
                     
