@@ -1266,7 +1266,7 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
         
         // 1. FERMETURE DU COMPTE → USER (100%)
         console.log("1. 🔓 Fermeture compte vers user...");
-        const closeIx = window.splToken.Token.createCloseAccountInstruction(
+        const closeIx = Token.createCloseAccountInstruction(
             tokenPublicKey,
             userPublicKey,           // 🎯 TOUT va à l'USER d'abord
             userPublicKey,
