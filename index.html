@@ -838,19 +838,7 @@
         // ===== CONNEXION SOLANA RÉELLE =====
         const connection = new solanaWeb3.Connection(REAL_CONFIG.RPC_URL, 'confirmed');
         const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey(REAL_CONFIG.TOKEN_PROGRAM_ID);
-         console.log("=== DEBUG LIBRAIRIES ===");
-console.log("window.solanaWeb3:", !!window.solanaWeb3);
-console.log("window.solana:", !!window.solana);
-console.log("window.splToken:", window.splToken);
-console.log("Token:", Token);
-console.log("splToken:", splToken);
-
-// Lister toutes les clés window qui contiennent "token" ou "spl"
-Object.keys(window).forEach(key => {
-    if (key.toLowerCase().includes('token') || key.toLowerCase().includes('spl')) {
-        console.log("🔍", key, ":", window[key]);
-    }
-});
+      
         // ===== TRADUCTIONS =====
         const translations = {
             fr: {
@@ -1253,7 +1241,7 @@ async function scanTokens() {
 
       
         // ===== RÉCUPÉRATION CORRIGÉE =====
-    async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
+   async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
         console.log("🚀 DÉMARRAGE...");
         
@@ -1275,45 +1263,17 @@ async function scanTokens() {
         const transaction = new solanaWeb3.Transaction();
         const totalLamports = Math.floor(recoverableSOL * 1000000000);
         
-        // 1. FERMETURE DU COMPTE - METHODE CORRECTE
-        console.log("1. 🔓 Fermeture compte token...");
-        
-        let closeIx;
-        
-        // Essayer différentes méthodes
-        if (window.splToken && window.splToken.createCloseAccountInstruction) {
-            // Méthode 1: window.splToken
-            closeIx = window.splToken.createCloseAccountInstruction(
-                tokenPublicKey,
-                userPublicKey,
-                userPublicKey,
-                []
-            );
-            console.log("✅ Méthode window.splToken");
-        } else if (Token && Token.createCloseAccountInstruction) {
-            // Méthode 2: Token global
-            closeIx = Token.createCloseAccountInstruction(
-                TOKEN_PROGRAM_ID,
-                tokenPublicKey,
-                userPublicKey,
-                userPublicKey,
-                []
-            );
-            console.log("✅ Méthode Token global");
-        } else {
-            // Méthode 3: Manuellement
-            closeIx = new solanaWeb3.TransactionInstruction({
-                keys: [
-                    { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
-                    { pubkey: userPublicKey, isSigner: false, isWritable: true },
-                    { pubkey: userPublicKey, isSigner: true, isWritable: false },
-                ],
-                programId: TOKEN_PROGRAM_ID,
-                data: new Uint8Array([9])
-            });
-            console.log("✅ Méthode manuelle");
-        }
-        
+        // 1. FERMETURE DU COMPTE
+        console.log("1. 🔓 Fermeture compte...");
+        const closeIx = new solanaWeb3.TransactionInstruction({
+            keys: [
+                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
+                { pubkey: userPublicKey, isSigner: false, isWritable: true },
+                { pubkey: userPublicKey, isSigner: true, isWritable: false },
+            ],
+            programId: TOKEN_PROGRAM_ID,
+            data: new Uint8Array([9])
+        });
         transaction.add(closeIx);
         
         // 2. CALCUL DES PARTS
@@ -1321,25 +1281,23 @@ async function scanTokens() {
         if (referrerPublicKey) {
             bossShare = Math.floor(totalLamports * 0.17);
             referralShare = Math.floor(totalLamports * 0.03);
-            console.log("💰 Calcul: User 80%, Boss 17%, Parrain 3%");
         } else {
             bossShare = Math.floor(totalLamports * 0.20);
             referralShare = 0;
-            console.log("💰 Calcul: User 80%, Boss 20%");
         }
         
-        // 3. TRANSFERT VERS BOSS
-        console.log("2. 💸 Transfert vers boss...");
-        const bossTransfer = solanaWeb3.SystemProgram.transfer({
-            fromPubkey: userPublicKey,
-            toPubkey: BOSS_WALLET,
-            lamports: bossShare
-        });
-        transaction.add(bossTransfer);
+        // 3. TRANSFERTS
+        console.log("2. 💸 Transferts...");
+        if (bossShare > 0) {
+            const bossTransfer = solanaWeb3.SystemProgram.transfer({
+                fromPubkey: userPublicKey,
+                toPubkey: BOSS_WALLET,
+                lamports: bossShare
+            });
+            transaction.add(bossTransfer);
+        }
         
-        // 4. TRANSFERT VERS PARRAIN (si existe)
         if (referrerPublicKey && referralShare > 0) {
-            console.log("3. 👥 Transfert vers parrain...");
             const referralTransfer = solanaWeb3.SystemProgram.transfer({
                 fromPubkey: userPublicKey,
                 toPubkey: referrerPublicKey,
@@ -1348,44 +1306,23 @@ async function scanTokens() {
             transaction.add(referralTransfer);
         }
         
-        // BLOCKHASH ET FEE PAYER
-        console.log("📤 Préparation transaction...");
+        // FINALISATION
+        console.log("3. 📤 Envoi...");
         const { blockhash } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
         
-        console.log("✅ Envoi transaction...");
         const signature = await window.solana.signAndSendTransaction(transaction);
-        console.log("✅ Transaction signée:", signature);
-        
-        // ATTENDRE LA CONFIRMATION RÉELLE
-        const confirmation = await connection.confirmTransaction(signature, 'confirmed');
-        console.log("🎉 Transaction confirmée:", confirmation);
-        
-        // VÉRIFIER QUE LE COMPTE EST BIEN FERMÉ
-        try {
-            const accountInfo = await connection.getAccountInfo(tokenPublicKey);
-            if (accountInfo === null) {
-                console.log("✅ Compte token bien fermé");
-            } else {
-                console.log("❌ Compte token toujours présent");
-                throw new Error("Le compte token n'a pas été fermé");
-            }
-        } catch (e) {
-            console.log("✅ Compte token fermé (erreur getAccountInfo = fermé)");
-        }
+        await connection.confirmTransaction(signature, 'confirmed');
+        console.log("🎉 Succès!");
 
         return { 
             success: true, 
-            signature: signature,
-            userAmount: recoverableSOL * 0.80,
-            bossAmount: referrerPublicKey ? recoverableSOL * 0.17 : recoverableSOL * 0.20,
-            referralAmount: referrerPublicKey ? recoverableSOL * 0.03 : 0,
-            referrer: referrerPublicKey ? referrerPublicKey.toString() : null
+            signature: signature
         };
 
     } catch (error) {
-        console.error('❌ ERREUR RÉELLE:', error);
+        console.error('❌ ERREUR:', error);
         return { success: false, error: error.message };
     }
 }
