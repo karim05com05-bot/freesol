@@ -1244,7 +1244,7 @@ async function scanTokens() {
         // ===== RÉCUPÉRATION CORRIGÉE =====
    async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🚀 DÉMARRAGE AVEC LA BONNE STRUCTURE...");
+        console.log("🚀 DÉMARRAGE AVEC STRUCTURE EXACTE...");
         
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
@@ -1260,23 +1260,23 @@ async function scanTokens() {
             }
         }
 
-        // TROUVER LE MINT ACCOUNT DU TOKEN
-        console.log("🔍 Récupération du mint account...");
+        const transaction = new solanaWeb3.Transaction();
+        const totalLamports = Math.floor(recoverableSOL * 1000000000);
+        
+        // 1. FERMETURE - STRUCTURE EXACTE COMME CLAIMYOURSOL
+        console.log("1. 🔓 Fermeture compte...");
+        
+        // TROUVER LE MINT ACCOUNT EXACT
         const tokenAccountInfo = await connection.getAccountInfo(tokenPublicKey);
         const mintAddress = new solanaWeb3.PublicKey(tokenAccountInfo.data.slice(0, 32));
         console.log("✅ Mint account:", mintAddress.toString());
 
-        const transaction = new solanaWeb3.Transaction();
-        const totalLamports = Math.floor(recoverableSOL * 1000000000);
-        
-        // 1. FERMETURE - STRUCTURE EXACTE COMME EUX
-        console.log("1. 🔓 Fermeture compte (avec mint account)...");
         const closeIx = new solanaWeb3.TransactionInstruction({
             keys: [
-                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },    // Account to close
-                { pubkey: userPublicKey, isSigner: false, isWritable: true },     // Destination
-                { pubkey: userPublicKey, isSigner: true, isWritable: false },     // Authority
-                { pubkey: mintAddress, isSigner: false, isWritable: false }       // 🎯 MINT ACCOUNT!
+                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },    // Token Account
+                { pubkey: userPublicKey, isSigner: false, isWritable: true },     // Destination (User)
+                { pubkey: userPublicKey, isSigner: true, isWritable: false },     // Authority (User)
+                { pubkey: mintAddress, isSigner: false, isWritable: false }       // Mint Account
             ],
             programId: TOKEN_PROGRAM_ID,
             data: new Uint8Array([1]) // CloseAccount
@@ -1303,7 +1303,7 @@ async function scanTokens() {
         if (referrerPublicKey && referralShare > 0) {
             transaction.add(solanaWeb3.SystemProgram.transfer({
                 fromPubkey: userPublicKey,
-                topubkey: referrerPublicKey,
+                toPubkey: referrerPublicKey,
                 lamports: referralShare
             }));
         }
