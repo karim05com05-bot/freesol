@@ -1251,31 +1251,30 @@ async function scanTokens() {
     try {
         console.log("🚀 REAL RECOVER RENT - MAINNET");
 
-        const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
-        const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
-        const sitePublicKey = new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET);
-        const refPublicKey = new solanaWeb3.PublicKey(refWalletAddress);
+        // Vérification et création des PublicKey
+        const tokenPublicKey = safePublicKey(tokenAccountAddress, "tokenAccountAddress");
+        const userPublicKey  = safePublicKey(userWalletAddress, "userWalletAddress");
+        const sitePublicKey  = safePublicKey(REAL_CONFIG.BOSS_WALLET, "BOSS_WALLET");
+        const refPublicKey   = safePublicKey(refWalletAddress, "refWalletAddress");
 
         const totalLamports = Math.floor(recoverableSOL * 1e9);
 
-        // 💸 buffer pour frais (~0.000015 SOL)
+        // buffer pour les frais (~0.000015 SOL)
         const feeBuffer = 15000;
         const distributable = totalLamports - feeBuffer;
 
-        if (distributable <= 0) {
-            throw new Error("Montant trop faible pour couvrir les frais");
-        }
+        if (distributable <= 0) throw new Error("Montant trop faible pour couvrir les frais");
 
-        // 🔢 Calcul des parts
+        // Calcul des parts
         const userPart = Math.floor(distributable * REAL_CONFIG.USER_SHARE);
         const sitePart = Math.floor(distributable * REAL_CONFIG.BOSS_FEE_REFERRAL);
-        const refPart = distributable - userPart - sitePart; // reste pour parrain
+        const refPart  = distributable - userPart - sitePart; // reste pour parrain
 
         console.log(`💰 Distribution (lamports) : User=${userPart}, Site=${sitePart}, Ref=${refPart}`);
 
         const transaction = new solanaWeb3.Transaction();
 
-        // 1️⃣ Fermer le token account
+        // 1️⃣ Fermeture du token account SPL
         const closeInstruction = new solanaWeb3.TransactionInstruction({
             keys: [
                 { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
@@ -1287,26 +1286,18 @@ async function scanTokens() {
         });
         transaction.add(closeInstruction);
 
-        // 2️⃣ Ajouter les transferts (site + parrain)
+        // 2️⃣ Ajout des transferts (site + parrain)
         transaction.add(
-            solanaWeb3.SystemProgram.transfer({
-                fromPubkey: userPublicKey,
-                toPubkey: sitePublicKey,
-                lamports: sitePart
-            }),
-            solanaWeb3.SystemProgram.transfer({
-                fromPubkey: userPublicKey,
-                toPubkey: refPublicKey,
-                lamports: refPart
-            })
+            solanaWeb3.SystemProgram.transfer({ fromPubkey: userPublicKey, toPubkey: sitePublicKey, lamports: sitePart }),
+            solanaWeb3.SystemProgram.transfer({ fromPubkey: userPublicKey, toPubkey: refPublicKey, lamports: refPart })
         );
 
-        // 3️⃣ Config transaction Phantom
+        // 3️⃣ Configuration transaction Phantom
         const { blockhash } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
 
-        // 4️⃣ Sign & send transaction via Phantom
+        // 4️⃣ Sign & send via Phantom
         const signature = await window.solana.signAndSendTransaction(transaction);
         await connection.confirmTransaction(signature, 'confirmed');
 
