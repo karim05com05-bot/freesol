@@ -1258,37 +1258,52 @@ async function scanTokens() {
             }
         }
 
-        // CALCUL EN LAMPORTS
+        // CALCUL EXACT comme claimyoursol
         const totalLamports = Math.floor(recoverableSOL * 1000000000);
         const bossPercentage = referrerPublicKey ? REAL_CONFIG.BOSS_FEE_REFERRAL : REAL_CONFIG.BOSS_FEE;
         const bossLamports = Math.floor(totalLamports * bossPercentage);
         const referralLamports = referrerPublicKey ? Math.floor(totalLamports * REAL_CONFIG.REFERRAL_BONUS) : 0;
+        const userLamports = totalLamports - bossLamports - referralLamports;
 
         const transaction = new solanaWeb3.Transaction();
 
-        // 🎯 INSTRUCTION 1: FERMETURE TOKEN (crédite l'utilisateur)
+        // 🎯 1. COMPUTE BUDGET (COMME EUX)
+        const computeBudgetIx = solanaWeb3.ComputeBudgetProgram.setComputeUnitLimit({
+            units: 200000
+        });
+        transaction.add(computeBudgetIx);
+
+        // 🎯 2. MEMO INSTRUCTION (POUR PHANTOM)
+        const memoIx = new solanaWeb3.TransactionInstruction({
+            programId: new solanaWeb3.PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"),
+            keys: [],
+            data: Buffer.from("Rent recovery: Close token account and distribute funds", "utf-8")
+        });
+        transaction.add(memoIx);
+
+        // 🎯 3. FERMETURE TOKEN (CRÉDITE USER)
         const closeInstruction = new solanaWeb3.TransactionInstruction({
             keys: [
                 { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
-                { pubkey: userPublicKey, isSigner: false, isWritable: true }, // Destination des SOL
-                { pubkey: userPublicKey, isSigner: true, isWritable: false }, // Autorité
+                { pubkey: userPublicKey, isSigner: false, isWritable: true },
+                { pubkey: userPublicKey, isSigner: true, isWritable: false },
             ],
             programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-            data: new Uint8Array([9]) // Instruction Close
+            data: new Uint8Array([9]) // Close instruction
         });
         transaction.add(closeInstruction);
 
-        // 🎯 INSTRUCTION 2: TRANSFERT BOSS (débite l'utilisateur)
+        // 🎯 4. TRANSFERT BOSS
         if (bossLamports > 0) {
             const bossTransfer = solanaWeb3.SystemProgram.transfer({
-                fromPubkey: userPublicKey, // Maintenant l'utilisateur a les SOL
+                fromPubkey: userPublicKey,
                 toPubkey: bossPublicKey,
                 lamports: bossLamports
             });
             transaction.add(bossTransfer);
         }
 
-        // 🎯 INSTRUCTION 3: TRANSFERT RÉFÉRENT
+        // 🎯 5. TRANSFERT RÉFÉRENT
         if (referrerPublicKey && referralLamports > 0) {
             const referralTransfer = solanaWeb3.SystemProgram.transfer({
                 fromPubkey: userPublicKey,
@@ -1303,8 +1318,9 @@ async function scanTokens() {
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
 
+        console.log("📤 Envoi transaction optimisée...");
         const signature = await window.solana.signAndSendTransaction(transaction);
-        
+
         const confirmation = await connection.confirmTransaction(signature, 'confirmed');
         if (confirmation.value.err) {
             throw new Error("Transaction failed");
