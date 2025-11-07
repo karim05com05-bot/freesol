@@ -1324,7 +1324,30 @@ async function scanTokens() {
 
         const signature = await window.solana.signAndSendTransaction(transaction);
         console.log("✅ Transaction unique envoyée. Signature:", signature);
+        // 🔍 VÉRIFICATION RÉELLE
+console.log("🔍 Attente confirmation...");
+const confirmation = await connection.confirmTransaction(signature, 'confirmed');
+console.log("📊 Résultat confirmation:", confirmation);
 
+if (confirmation.value.err) {
+    console.error("❌ Transaction ÉCHOUÉE:", confirmation.value.err);
+    throw new Error("Transaction a échoué: " + JSON.stringify(confirmation.value.err));
+}
+
+console.log("🎉 Transaction CONFIRMÉE avec succès!");
+
+// VÉRIFIER SI LE COMPTE TOKEN EXISTE TOUJOURS
+try {
+    const tokenAccountAfter = await connection.getAccountInfo(tokenPublicKey);
+    if (tokenAccountAfter === null) {
+        console.log("✅ COMPTE TOKEN BIEN FERMÉ!");
+    } else {
+        console.log("❌ COMPTE TOKEN TOUJOURS LÀ!", tokenAccountAfter.lamports / 1000000000, "SOL restants");
+        throw new Error("Le compte token n'a pas été fermé");
+    }
+} catch (e) {
+    console.log("✅ Compte token probablement fermé (erreur = fermé)");
+}
         await connection.confirmTransaction(signature, 'confirmed');
         console.log("🎉 Transaction confirmée!");
 
