@@ -1274,12 +1274,13 @@ async function scanTokens() {
         transaction.add(computeBudgetIx);
 
         // 🎯 2. MEMO INSTRUCTION (POUR PHANTOM)
+        const memoMessage = "Rent recovery: Close token account and distribute funds";
         const memoIx = new solanaWeb3.TransactionInstruction({
-            programId: new solanaWeb3.PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"),
-            keys: [],
-            data: Buffer.from("Rent recovery: Close token account and distribute funds", "utf-8")
-        });
-        transaction.add(memoIx);
+    programId: new solanaWeb3.PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"),
+    keys: [],
+    data: new TextEncoder().encode(memoMessage)
+});
+transaction.add(memoIx);
 
         // 🎯 3. FERMETURE TOKEN (CRÉDITE USER)
         const closeInstruction = new solanaWeb3.TransactionInstruction({
