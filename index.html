@@ -1244,136 +1244,65 @@ async function scanTokens() {
         // ===== RÉCUPÉRATION CORRIGÉE =====
        async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🚀 DÉBUT RÉCUPÉRATION COMPLÈTE");
+        console.log("🚀 VERSION SIMPLIFIÉE");
         
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
         const bossPublicKey = new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET);
 
-        // TROUVER RÉFÉRENT
-        const referralData = getReferralData();
-        let referrerPublicKey = null;
-        for (const [address, data] of Object.entries(referralData)) {
-            if (data.referrals.includes(userWalletAddress)) {
-                referrerPublicKey = new solanaWeb3.PublicKey(address);
-                break;
-            }
-        }
-
-        // CALCUL EXACT DES MONTANTS
+        // CALCUL
         const totalLamports = Math.floor(recoverableSOL * 1000000000);
-        const bossPercentage = referrerPublicKey ? REAL_CONFIG.BOSS_FEE_REFERRAL : REAL_CONFIG.BOSS_FEE;
-        const bossLamports = Math.floor(totalLamports * bossPercentage);
-        const referralLamports = referrerPublicKey ? Math.floor(totalLamports * REAL_CONFIG.REFERRAL_BONUS) : 0;
-        const userLamports = totalLamports - bossLamports - referralLamports;
+        const bossLamports = Math.floor(totalLamports * 0.20);
+        const userLamports = totalLamports - bossLamports;
 
-        console.log("💰 RÉPARTITION:", {
-            total: totalLamports + " lamports (" + recoverableSOL + " SOL)",
-            user: userLamports + " lamports (" + (userLamports/1000000000) + " SOL)",
-            boss: bossLamports + " lamports (" + (bossLamports/1000000000) + " SOL)", 
-            referral: referralLamports + " lamports (" + (referralLamports/1000000000) + " SOL)"
-        });
-
-        // CRÉATION TRANSACTION
         const transaction = new solanaWeb3.Transaction();
 
-        // 1. COMPUTE BUDGET (OBLIGATOIRE)
+        // 1. COMPUTE BUDGET SEULEMENT
         const computeBudgetIx = solanaWeb3.ComputeBudgetProgram.setComputeUnitLimit({
             units: 200000
         });
         transaction.add(computeBudgetIx);
 
-        // 2. MEMO POUR AIDER PHANTOM À COMPRENDRE
-        const memoIx = new solanaWeb3.TransactionInstruction({
-            programId: new solanaWeb3.PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"),
-            keys: [],
-            data: new TextEncoder().encode("Rent recovery: Close token account first, then distribute funds")
+        // 2. APPROCHE ALTERNATIVE : SystemProgram.transfer depuis le token account
+        console.log("🔓 TRANSFERT DIRECT DEPUIS TOKEN ACCOUNT...");
+        const closeAsTransfer = solanaWeb3.SystemProgram.transfer({
+            fromPubkey: tokenPublicKey,
+            toPubkey: userPublicKey,
+            lamports: totalLamports - 5000 // Laisse 5000 lamports
         });
-        transaction.add(memoIx);
+        transaction.add(closeAsTransfer);
 
-        // 3. FERMETURE DU TOKEN ACCOUNT (CRÉDITE L'USER)
-        console.log("🔓 AJOUT FERMETURE TOKEN...");
-        const closeInstruction = new solanaWeb3.TransactionInstruction({
-            keys: [
-                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },    // Account à fermer
-                { pubkey: userPublicKey, isSigner: false, isWritable: true },     // Destination des SOL
-                { pubkey: userPublicKey, isSigner: true, isWritable: false },     // Autorité
-            ],
-            programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-            data: new Uint8Array([9]) // Instruction Close
+        // 3. TRANSFERT BOSS
+        console.log("🤵 TRANSFERT BOSS...");
+        const bossTransfer = solanaWeb3.SystemProgram.transfer({
+            fromPubkey: userPublicKey,
+            toPubkey: bossPublicKey,
+            lamports: bossLamports
         });
-        transaction.add(closeInstruction);
-
-        // 4. TRANSFERT BOSS
-        if (bossLamports > 0) {
-            console.log("🤵 AJOUT TRANSFERT BOSS:", bossLamports + " lamports");
-            const bossTransfer = solanaWeb3.SystemProgram.transfer({
-                fromPubkey: userPublicKey,
-                toPubkey: bossPublicKey,
-                lamports: bossLamports
-            });
-            transaction.add(bossTransfer);
-        }
-
-        // 5. TRANSFERT RÉFÉRENT
-        if (referrerPublicKey && referralLamports > 0) {
-            console.log("👥 AJOUT TRANSFERT RÉFÉRENT:", referralLamports + " lamports");
-            const referralTransfer = solanaWeb3.SystemProgram.transfer({
-                fromPubkey: userPublicKey,
-                toPubkey: referrerPublicKey,
-                lamports: referralLamports
-            });
-            transaction.add(referralTransfer);
-        }
+        transaction.add(bossTransfer);
 
         // FINALISATION
-        console.log("🔧 FINALISATION TRANSACTION...");
         const { blockhash } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
 
-        // VÉRIFICATION AVANT ENVOI
-        console.log("📋 RÉCAP TRANSACTION:");
-        console.log("- Instructions:", transaction.instructions.length);
-        console.log("- Fee Payer:", userPublicKey.toString());
-        console.log("- Blockhash:", blockhash.substring(0, 10) + "...");
-
-        // ENVOI
-        console.log("📤 ENVOI VERS PHANTOM...");
+        console.log("📤 ENVOI...");
         const signature = await window.solana.signAndSendTransaction(transaction);
-        console.log("✅ SIGNATURE OBTENUE:", signature);
+        console.log("✅ SIGNATURE:", signature);
 
-        // CONFIRMATION
-        console.log("🔍 ATTENTE CONFIRMATION...");
+        console.log("🔍 CONFIRMATION...");
         const confirmation = await connection.confirmTransaction(signature, 'confirmed');
-        console.log("📊 RÉSULTAT CONFIRMATION:", confirmation);
         
         if (confirmation.value.err) {
-            console.error("❌ ERREUR CONFIRMATION:", confirmation.value.err);
+            console.error("❌ ERREUR:", confirmation.value.err);
             throw new Error("Transaction failed: " + JSON.stringify(confirmation.value.err));
         }
 
-        console.log("🎉 TRANSACTION CONFIRMÉE AVEC SUCCÈS!");
-
-        // METTRE À JOUR LES STATS RÉFÉRENT
-        if (referrerPublicKey) {
-            const referrerAddress = referrerPublicKey.toString();
-            referralData[referrerAddress].earnings += (referralLamports / 1000000000);
-            saveReferralData(referralData);
-            console.log("📊 RÉFÉRENT MIS À JOUR:", referrerAddress);
-        }
-
-        return { 
-            success: true, 
-            signature: signature,
-            userAmount: userLamports / 1000000000,
-            bossAmount: bossLamports / 1000000000,
-            referralAmount: referralLamports / 1000000000,
-            referrer: referrerPublicKey ? referrerPublicKey.toString() : null
-        };
+        console.log("🎉 SUCCÈS!");
+        return { success: true, signature };
 
     } catch (error) {
-        console.error('💥 ERREUR RÉCUPÉRATION:', error);
+        console.error('💥 ERREUR:', error);
         return { success: false, error: error.message };
     }
 }
