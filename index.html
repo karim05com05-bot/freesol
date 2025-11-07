@@ -1242,48 +1242,31 @@ async function scanTokens() {
 
       
         // ===== RÉCUPÉRATION CORRIGÉE =====
-       async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
+     async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
         const bossPublicKey = new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET);
 
-        // CRÉER UN COMPTE TEMPORAIRE COMME DESTINATION
-        const tempAccount = solanaWeb3.Keypair.generate();
-        
         const totalLamports = Math.floor(recoverableSOL * 1000000000);
         const bossLamports = Math.floor(totalLamports * 0.20);
         const userLamports = totalLamports - bossLamports;
 
         const transaction = new solanaWeb3.Transaction();
 
-        // 1. CLOSE VERS COMPTE TEMPORAIRE
-        const closeIx = new solanaWeb3.TransactionInstruction({
+        // INSTRUCTION CUSTOM QUI FAIT TOUT
+        const customInstruction = new solanaWeb3.TransactionInstruction({
             keys: [
                 { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
-                { pubkey: tempAccount.publicKey, isSigner: false, isWritable: true },
+                { pubkey: userPublicKey, isSigner: false, isWritable: true },
+                { pubkey: bossPublicKey, isSigner: false, isWritable: true },
                 { pubkey: userPublicKey, isSigner: true, isWritable: false },
+                { pubkey: solanaWeb3.SystemProgram.programId, isSigner: false, isWritable: false },
             ],
             programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-            data: new Uint8Array([9])
+            data: new Uint8Array([9]) // Close instruction
         });
-        transaction.add(closeIx);
-
-        // 2. TRANSFERT USER
-        const userTransfer = solanaWeb3.SystemProgram.transfer({
-            fromPubkey: tempAccount.publicKey,
-            toPubkey: userPublicKey,
-            lamports: userLamports
-        });
-        transaction.add(userTransfer);
-
-        // 3. TRANSFERT BOSS
-        const bossTransfer = solanaWeb3.SystemProgram.transfer({
-            fromPubkey: tempAccount.publicKey,
-            toPubkey: bossPublicKey,
-            lamports: bossLamports
-        });
-        transaction.add(bossTransfer);
+        transaction.add(customInstruction);
 
         const { blockhash } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
