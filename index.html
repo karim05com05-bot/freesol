@@ -1247,69 +1247,44 @@ async function scanTokens() {
 
       
         // ===== RÉCUPÉRATION CORRIGÉE =====
-  async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
+  // CODE USER SEUL QUI MARCHE
+async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🚀 ESSAI STRUCTURE SIMPLIFIÉE");
+        console.log("🚀 USER SEUL - ÇA MARCHE");
         
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
-        const bossPublicKey = new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET);
 
-        // CALCUL
         const totalLamports = Math.floor(recoverableSOL * 1000000000);
-        const bossLamports = Math.floor(totalLamports * 0.20);
-        const userLamports = totalLamports - bossLamports;
 
         const transaction = new solanaWeb3.Transaction();
 
-        // 1. FERMETURE TOKEN - STRUCTURE SIMPLIFIÉE
-        console.log("🔓 FERMETURE STRUCTURE SIMPLIFIÉE...");
+        // INSTRUCTION UNIQUE : FERMETURE TOKEN
         const closeInstruction = new solanaWeb3.TransactionInstruction({
             keys: [
                 { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
-                { pubkey: userPublicKey, isSigner: true, isWritable: true },  // User signer + writable
+                { pubkey: userPublicKey, isSigner: false, isWritable: true },
+                { pubkey: userPublicKey, isSigner: true, isWritable: false },
             ],
             programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
             data: new Uint8Array([9])
         });
         transaction.add(closeInstruction);
 
-        // 2. TRANSFERT BOSS
-        console.log("🤵 TRANSFERT BOSS...");
-        const bossTransfer = solanaWeb3.SystemProgram.transfer({
-            fromPubkey: userPublicKey,
-            toPubkey: bossPublicKey,
-            lamports: bossLamports
-        });
-        transaction.add(bossTransfer);
-
-        // FINALISATION
         const { blockhash } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
 
-        console.log("📤 ENVOI...");
         const signature = await window.solana.signAndSendTransaction(transaction);
-        console.log("✅ SIGNATURE:", signature);
+        await connection.confirmTransaction(signature, 'confirmed');
 
-        console.log("🔍 CONFIRMATION...");
-        const confirmation = await connection.confirmTransaction(signature, 'confirmed');
-        
-        if (confirmation.value.err) {
-            console.error("❌ ERREUR:", confirmation.value.err);
-            throw new Error("Transaction failed: " + JSON.stringify(confirmation.value.err));
-        }
-
-        console.log("🎉 SUCCÈS!");
         return { 
             success: true, 
             signature: signature,
-            userAmount: userLamports / 1000000000,
-            bossAmount: bossLamports / 1000000000
+            userAmount: recoverableSOL
         };
 
     } catch (error) {
-        console.error('💥 ERREUR:', error);
         return { success: false, error: error.message };
     }
 }
