@@ -1156,17 +1156,26 @@ async function scanTokens() {
             
             try {
                 // Transaction blockchain
-                const transactionResult = await realRecoverRent(tokenAccountAddress, recoverableSOL);
-                
-                if (transactionResult.success) {
-                    let message = `🎉 RÉCUPÉRATION RÉUSSIE!\n\n`;
-                    message += `Transaction: ${transactionResult.signature}\n\n`;
-                    message += `Vous recevez: ${transactionResult.userAmount.toFixed(4)} SOL (80%)\n`;
-                    message += `FreeSol: ${transactionResult.bossAmount.toFixed(4)} SOL\n`;
-                    
-                    if (transactionResult.referralAmount > 0) {
-                        message += `Parrain: ${transactionResult.referralAmount.toFixed(4)} SOL (3%) ENVOYÉS RÉELLEMENT\n`;
-                    }
+                const transactionResult = await realRecoverRent(tokenAccountAddress, recoverableSOL)
+    .then(result => {
+        if (result.success) {
+            // CALCULER userAmount ICI au lieu de l'utiliser depuis result
+            const referralData = getReferralData();
+            let hasReferrer = false;
+            for (const [address, data] of Object.entries(referralData)) {
+                if (data.referrals.includes(userWalletAddress)) {
+                    hasReferrer = true;
+                    break;
+                }
+            }
+            const userAmount = recoverableSOL * 0.80;
+            
+            showNotification(`✅ Succès! Vous avez reçu ${userAmount.toFixed(6)} SOL`, 'success');
+            setTimeout(() => scanTokens(), 3000);
+        } else {
+            showNotification('❌ Erreur: ' + result.error, 'error');
+        }
+    }
 
                     // Vérification backend si disponible
                     if (backendOnline) {
