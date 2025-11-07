@@ -1244,92 +1244,57 @@ async function scanTokens() {
         // ===== RÉCUPÉRATION CORRIGÉE =====
        async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🚀 SOLUTION DÉFINITIVE");
-        
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
         const bossPublicKey = new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET);
 
-        // RÉFÉRENT
-        const referralData = getReferralData();
-        let referrerPublicKey = null;
-        for (const [address, data] of Object.entries(referralData)) {
-            if (data.referrals.includes(userWalletAddress)) {
-                referrerPublicKey = new solanaWeb3.PublicKey(address);
-                break;
-            }
-        }
-
-        // CALCUL
+        // CRÉER UN COMPTE TEMPORAIRE COMME DESTINATION
+        const tempAccount = solanaWeb3.Keypair.generate();
+        
         const totalLamports = Math.floor(recoverableSOL * 1000000000);
-        const bossPercentage = referrerPublicKey ? REAL_CONFIG.BOSS_FEE_REFERRAL : REAL_CONFIG.BOSS_FEE;
-        const bossLamports = Math.floor(totalLamports * bossPercentage);
-        const referralLamports = referrerPublicKey ? Math.floor(totalLamports * REAL_CONFIG.REFERRAL_BONUS) : 0;
-        const userLamports = totalLamports - bossLamports - referralLamports;
+        const bossLamports = Math.floor(totalLamports * 0.20);
+        const userLamports = totalLamports - bossLamports;
 
         const transaction = new solanaWeb3.Transaction();
 
-        // 1. COMPUTE BUDGET
-        const computeBudgetIx = solanaWeb3.ComputeBudgetProgram.setComputeUnitLimit({
-            units: 200000
+        // 1. CLOSE VERS COMPTE TEMPORAIRE
+        const closeIx = new solanaWeb3.TransactionInstruction({
+            keys: [
+                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
+                { pubkey: tempAccount.publicKey, isSigner: false, isWritable: true },
+                { pubkey: userPublicKey, isSigner: true, isWritable: false },
+            ],
+            programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
+            data: new Uint8Array([9])
         });
-        transaction.add(computeBudgetIx);
+        transaction.add(closeIx);
 
-        // 2. APPROCHE SYSTEMPROGRAM DIRECT
-        console.log("🔓 TRANSFERT DIRECT DEPUIS TOKEN ACCOUNT");
-        const mainTransfer = solanaWeb3.SystemProgram.transfer({
-            fromPubkey: tokenPublicKey,
+        // 2. TRANSFERT USER
+        const userTransfer = solanaWeb3.SystemProgram.transfer({
+            fromPubkey: tempAccount.publicKey,
             toPubkey: userPublicKey,
-            lamports: userLamports + bossLamports + referralLamports - 5000
+            lamports: userLamports
         });
-        transaction.add(mainTransfer);
+        transaction.add(userTransfer);
 
         // 3. TRANSFERT BOSS
-        if (bossLamports > 0) {
-            console.log("🤵 TRANSFERT BOSS");
-            const bossTransfer = solanaWeb3.SystemProgram.transfer({
-                fromPubkey: userPublicKey,
-                toPubkey: bossPublicKey,
-                lamports: bossLamports
-            });
-            transaction.add(bossTransfer);
-        }
+        const bossTransfer = solanaWeb3.SystemProgram.transfer({
+            fromPubkey: tempAccount.publicKey,
+            toPubkey: bossPublicKey,
+            lamports: bossLamports
+        });
+        transaction.add(bossTransfer);
 
-        // 4. TRANSFERT RÉFÉRENT
-        if (referrerPublicKey && referralLamports > 0) {
-            console.log("👥 TRANSFERT RÉFÉRENT");
-            const referralTransfer = solanaWeb3.SystemProgram.transfer({
-                fromPubkey: userPublicKey,
-                toPubkey: referrerPublicKey,
-                lamports: referralLamports
-            });
-            transaction.add(referralTransfer);
-        }
-
-        // FINALISATION
         const { blockhash } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
 
-        console.log("📤 ENVOI...");
         const signature = await window.solana.signAndSendTransaction(transaction);
-        console.log("✅ SIGNATURE OBTENUE");
-
-        const confirmation = await connection.confirmTransaction(signature, 'confirmed');
-        if (confirmation.value.err) throw new Error("Transaction failed");
-
-        console.log("🎉 SUCCÈS!");
-
-        if (referrerPublicKey) {
-            const referrerAddress = referrerPublicKey.toString();
-            referralData[referrerAddress].earnings += (referralLamports / 1000000000);
-            saveReferralData(referralData);
-        }
+        await connection.confirmTransaction(signature, 'confirmed');
 
         return { success: true, signature };
 
     } catch (error) {
-        console.error('💥 ERREUR:', error);
         return { success: false, error: error.message };
     }
 }
