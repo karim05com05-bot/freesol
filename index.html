@@ -1159,14 +1159,19 @@ async function scanTokens() {
                 const transactionResult = await realRecoverRent(tokenAccountAddress, recoverableSOL);
                 
                 if (transactionResult.success) {
-                    let message = `🎉 RÉCUPÉRATION RÉUSSIE!\n\n`;
-                    message += `Transaction: ${transactionResult.signature}\n\n`;
-                    message += `Vous recevez: ${transactionResult.userAmount.toFixed(4)} SOL (80%)\n`;
-                    message += `FreeSol: ${transactionResult.bossAmount.toFixed(4)} SOL\n`;
-                    
-                    if (transactionResult.referralAmount > 0) {
-                        message += `Parrain: ${transactionResult.referralAmount.toFixed(4)} SOL (3%) ENVOYÉS RÉELLEMENT\n`;
-                    }
+    let message = `🎉 RÉCUPÉRATION RÉUSSIE!\n\n`;
+    message += `Transaction: ${transactionResult.signature}\n\n`;
+    message += `Vous recevez: ${transactionResult.userAmount.toFixed(4)} SOL\n`;
+    
+    // CORRECTION : VÉRIFIER SI bossAmount EXISTE
+    if (transactionResult.bossAmount !== undefined && transactionResult.bossAmount > 0) {
+        message += `FreeSol: ${transactionResult.bossAmount.toFixed(4)} SOL\n`;
+    }
+    
+    // CORRECTION : VÉRIFIER SI referralAmount EXISTE
+    if (transactionResult.referralAmount !== undefined && transactionResult.referralAmount > 0) {
+        message += `Parrain: ${transactionResult.referralAmount.toFixed(4)} SOL\n`;
+    }
 
                     // Vérification backend si disponible
                     if (backendOnline) {
