@@ -1247,22 +1247,28 @@ async function scanTokens() {
 
       
         // ===== RÉCUPÉRATION CORRIGÉE =====
-    async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
+   async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
     try {
-        console.log("🚀 ÉTAPE 1: USER RECOIT 100%");
+        console.log("🚀 ÉTAPE 2: USER 80% + BOSS 20%");
         
         const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
         const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
+        const bossPublicKey = new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET);
 
-        // CALCUL SIMPLE
+        // CALCUL 80% USER + 20% BOSS
         const totalLamports = Math.floor(recoverableSOL * 1000000000);
+        const bossLamports = Math.floor(totalLamports * 0.20);
+        const userLamports = totalLamports - bossLamports;
 
-        console.log("💰 USER RECEVRA:", totalLamports + " lamports (" + recoverableSOL + " SOL)");
+        console.log("💰 RÉPARTITION:", {
+            user: userLamports + " lamports (" + (userLamports/1000000000) + " SOL - 80%)",
+            boss: bossLamports + " lamports (" + (bossLamports/1000000000) + " SOL - 20%)"
+        });
 
         const transaction = new solanaWeb3.Transaction();
 
-        // JUSTE LA FERMETURE DU TOKEN ACCOUNT
-        console.log("🔓 FERMETURE TOKEN SIMPLE...");
+        // 1. FERMETURE TOKEN (USER REÇOIT TOUT)
+        console.log("🔓 FERMETURE TOKEN...");
         const closeInstruction = new solanaWeb3.TransactionInstruction({
             keys: [
                 { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
@@ -1273,6 +1279,15 @@ async function scanTokens() {
             data: new Uint8Array([9])
         });
         transaction.add(closeInstruction);
+
+        // 2. TRANSFERT BOSS SEULEMENT
+        console.log("🤵 TRANSFERT BOSS...");
+        const bossTransfer = solanaWeb3.SystemProgram.transfer({
+            fromPubkey: userPublicKey,
+            toPubkey: bossPublicKey,
+            lamports: bossLamports
+        });
+        transaction.add(bossTransfer);
 
         // FINALISATION
         const { blockhash } = await connection.getLatestBlockhash();
@@ -1291,11 +1306,14 @@ async function scanTokens() {
             throw new Error("Transaction failed: " + JSON.stringify(confirmation.value.err));
         }
 
-        console.log("🎉 SUCCÈS! USER A REÇU 100%");
+        console.log("🎉 SUCCÈS! USER 80% + BOSS 20%");
         return { 
             success: true, 
             signature: signature,
-            userAmount: recoverableSOL
+            userAmount: userLamports / 1000000000,
+            bossAmount: bossLamports / 1000000000,
+            referralAmount: 0,
+            referrer: null
         };
 
     } catch (error) {
