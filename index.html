@@ -1248,68 +1248,52 @@ async function scanTokens() {
       
         // ===== RÉCUPÉRATION CORRIGÉE =====
       async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
-    // --- 1. VÉRIFICATION DE SÉCURITÉ ---
-    // On vérifie que les bibliothèques sont bien prêtes au moment où l'utilisateur clique.
-    if (typeof window.solanaWeb3 === 'undefined' || typeof window.splToken === 'undefined') {
-        showNotification("Composants non prêts. Rafraîchissez la page.", "error");
-        // On retourne un objet d'erreur pour que la fonction appelante (claimToken) puisse l'attraper.
-        return { success: false, error: "Libraries not loaded" };
-    }
-
-    // On récupère les outils une fois qu'on est sûr qu'ils existent.
-    const { PublicKey, SystemProgram, Transaction } = window.solanaWeb3;
-    const spl = window.splToken;
+    // Puisque les scripts ne sont plus "defer", on est sûr que les bibliothèques existent.
+    // On les récupère directement.
+    const { PublicKey, SystemProgram, Transaction } = solanaWeb3;
+    const spl = splToken; 
 
     console.log("🚀 Lancement de la récupération en 1 transaction (méthode PRO)...");
 
     try {
-        // --- 2. PRÉPARATION ---
+        // --- PRÉPARATION ---
         const userPublicKey = new PublicKey(userWalletAddress);
         const accountToClosePublicKey = new PublicKey(tokenAccountAddress);
         const bossPublicKey = new PublicKey(REAL_CONFIG.BOSS_WALLET);
 
         let referrerPublicKey = null;
         const friendReferralCode = document.getElementById('friendReferralInput').value.trim().toUpperCase();
-        
         if (friendReferralCode) {
-            const referralData = getReferralData(); // Assure-toi que cette fonction existe et est accessible
+            const referralData = getReferralData();
             for (const [address, data] of Object.entries(referralData)) {
                 if (data.code && data.code.toUpperCase() === friendReferralCode && address !== userWalletAddress) {
                     referrerPublicKey = new PublicKey(address);
-                    console.log(`Parrain trouvé : ${referrerPublicKey.toBase58()}`);
                     break;
                 }
             }
         }
 
-        // --- 3. CALCUL DES COMMISSIONS ---
-        const totalLamportsToRecover = Math.floor(recoverableSOL * 1_000_000_000);
+        // --- CALCULS ---
+        const totalLamportsToRecover = Math.floor(recoverableSOL * 1e9);
         let bossFeeRate = REAL_CONFIG.BOSS_FEE;
         let referralBonusRate = 0;
-
         if (referrerPublicKey) {
             bossFeeRate = REAL_CONFIG.BOSS_FEE_REFERRAL;
             referralBonusRate = REAL_CONFIG.REFERRAL_BONUS;
         }
-
         const bossAmount = Math.floor(totalLamportsToRecover * bossFeeRate);
         const referralAmount = Math.floor(totalLamportsToRecover * referralBonusRate);
         const userNetGain = totalLamportsToRecover - bossAmount - referralAmount;
 
-        // --- 4. CONSTRUCTION DE LA TRANSACTION ---
+        // --- TRANSACTION ---
         const transaction = new Transaction();
 
-        // INSTRUCTION 1 : LE "FORMULAIRE OFFICIEL" POUR FERMER LE COMPTE.
-        // C'est ce qui permet à Phantom de simuler correctement le gain et d'éviter "solde insuffisant".
+        // INSTRUCTION 1: LE "FORMULAIRE OFFICIEL" QUE PHANTOM COMPREND
         transaction.add(
-            spl.createCloseAccountInstruction(
-                accountToClosePublicKey,
-                userPublicKey,
-                userPublicKey
-            )
+            spl.createCloseAccountInstruction(accountToClosePublicKey, userPublicKey, userPublicKey)
         );
 
-        // INSTRUCTIONS 2 & 3 : LES PAIEMENTS DE COMMISSION.
+        // INSTRUCTIONS 2 & 3: LES COMMISSIONS
         if (bossAmount > 0) {
             transaction.add(SystemProgram.transfer({ fromPubkey: userPublicKey, toPubkey: bossPublicKey, lamports: bossAmount }));
         }
@@ -1317,19 +1301,18 @@ async function scanTokens() {
             transaction.add(SystemProgram.transfer({ fromPubkey: userPublicKey, toPubkey: referrerPublicKey, lamports: referralAmount }));
         }
         
-        // --- 5. ENVOI DE LA TRANSACTION (comme dans ton code original) ---
+        // --- ENVOI (Ta méthode originale qui marche) ---
         const { blockhash } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
         
-        // On utilise la méthode de signature de ton code qui fonctionne avec tes wallets
-        const walletProvider = window.solana; 
+        const walletProvider = window[currentWallet] || window.solana;
         const signature = await walletProvider.signAndSendTransaction(transaction);
         await connection.confirmTransaction(signature, 'confirmed');
 
         console.log(`✅ Transaction unique réussie ! Signature : ${signature}`);
 
-        // --- 6. MISE À JOUR DES GAINS DU PARRAIN ---
+        // Mise à jour des gains du parrain
         if (referrerPublicKey) {
             const referralData = getReferralData();
             if (referralData[referrerPublicKey.toBase58()]) {
@@ -1338,23 +1321,15 @@ async function scanTokens() {
             }
         }
         
-        return { 
-            success: true, 
-            signature: signature,
-            userAmount: userNetGain / 1e9,
-            bossAmount: bossAmount / 1e9,
-            referralAmount: referralAmount / 1e9,
-            referrer: referrerPublicKey ? referrerPublicKey.toBase58() : null,
-        };
+        return { success: true, signature: signature, userAmount: userNetGain / 1e9, bossAmount: bossAmount / 1e9, referralAmount: referralAmount / 1e9 };
 
     } catch (error) {
         console.error("❌ Erreur dans realRecoverRent:", error);
         if (error.message.includes("User rejected")) {
-            showNotification("Transaction annulée par l'utilisateur.", "warning");
+            showNotification("Transaction annulée.", "warning");
         } else {
-            showNotification(`Erreur de transaction: ${error.message}`, "error");
+            showNotification(`Erreur: ${error.message}`, "error");
         }
-        // Il est crucial de relancer l'erreur pour que `claimToken` sache que ça a échoué.
         throw error;
     }
 }
@@ -1736,60 +1711,26 @@ async function scanTokens() {
         }
 
         // ===== CHARGEMENT DES PRÉFÉRENCES =====
-       function checkAndInitializeApp() {
-    console.log("Vérification des bibliothèques Solana...");
+        window.addEventListener('load', function() {
+            if (localStorage.getItem('darkMode') === 'true') {
+                document.body.classList.add('dark-mode');
+                document.getElementById('themeToggle').innerHTML = translations[currentLanguage].themeBtnLight;
+            }
+            
+            const savedLang = localStorage.getItem('preferredLanguage') || 'fr';
+            changeLanguage(savedLang);
+            
+            // Charger les stats globales et transactions au démarrage
+            updateRealStats();
+            loadGlobalTransactions();
+            updateLeaderboard();
+            
+            // Backend toujours considéré comme online
+            backendOnline = true;
 
-    // On vérifie si les deux bibliothèques sont bien chargées dans la fenêtre
-    if (typeof window.solanaWeb3 !== 'undefined' && typeof window.splToken !== 'undefined') {
-        
-        console.log("✅ SUCCÈS ! Les bibliothèques Solana sont prêtes.");
-        
-        // ---- Maintenant que tout est prêt, on lance l'application pour de bon ----
-        
-        // On active les boutons qui étaient désactivés
-        document.querySelectorAll('.wallet-btn, .connect-header-btn').forEach(btn => {
-            btn.disabled = false;
-            btn.style.opacity = '1';
-            btn.style.cursor = 'pointer';
+            // Vérifier les wallets au chargement
+            checkWalletsAvailability();
         });
-
-        // On exécute ton code d'initialisation original
-        if (localStorage.getItem('darkMode') === 'true') {
-            document.body.classList.add('dark-mode');
-            document.getElementById('themeToggle').innerHTML = '☀️';
-        }
-        const savedLang = localStorage.getItem('preferredLanguage') || 'fr';
-        changeLanguage(savedLang);
-        
-        updateRealStats();
-        loadGlobalTransactions();
-        updateLeaderboard();
-        
-        backendOnline = true; // On force
-        
-        checkWalletsAvailability();
-
-        showNotification("Application prête !", "success");
-
-    } else {
-        // Si les bibliothèques ne sont pas prêtes, on attend 100ms et on réessaye.
-        setTimeout(checkAndInitializeApp, 100); 
-    }
-}
-
-// Le tout premier code qui s'exécute quand la page a fini de se charger
-window.addEventListener('load', function() {
-    // On désactive les boutons au début, pour que personne ne clique trop vite.
-    document.querySelectorAll('.wallet-btn, .connect-header-btn').forEach(btn => {
-        btn.disabled = true;
-        btn.style.opacity = '0.5';
-        btn.style.cursor = 'not-allowed';
-    });
-    showNotification("Chargement des composants Solana...", "info");
-
-    // On lance le "mécanicien" qui va vérifier que tout est prêt avant de donner les clés.
-    checkAndInitializeApp();
-});
     </script>
 </body>
 </html>
