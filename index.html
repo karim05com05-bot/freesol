@@ -1319,7 +1319,7 @@ async function scanTokens() {
         // INSTRUCTION 1 : Fermer le compte vide.
         // La totalité de la rente est d'abord envoyée à l'utilisateur. C'est plus transparent.
         transaction.add(
-           splToken.createCloseAccountInstruction(
+         window.splToken.createCloseAccountInstruction(
                 accountToClosePublicKey, // Le compte à fermer
                 userPublicKey,           // Destination de la rente (l'utilisateur)
                 userPublicKey            // Propriétaire (l'utilisateur)
@@ -1766,26 +1766,39 @@ async function scanTokens() {
         }
 
         // ===== CHARGEMENT DES PRÉFÉRENCES =====
-        window.addEventListener('load', function() {
-            if (localStorage.getItem('darkMode') === 'true') {
-                document.body.classList.add('dark-mode');
-                document.getElementById('themeToggle').innerHTML = translations[currentLanguage].themeBtnLight;
-            }
-            
-            const savedLang = localStorage.getItem('preferredLanguage') || 'fr';
-            changeLanguage(savedLang);
-            
-            // Charger les stats globales et transactions au démarrage
-            updateRealStats();
-            loadGlobalTransactions();
-            updateLeaderboard();
-            
-            // Backend toujours considéré comme online
-            backendOnline = true;
+       // ====================================================================
+// == POINT D'ENTRÉE DE L'APPLICATION - ATTEND QUE TOUT SOIT CHARGÉ ==
+// ====================================================================
+function initializeApp() {
+    console.log("DOM et tous les scripts sont chargés. Initialisation de l'app...");
 
-            // Vérifier les wallets au chargement
-            checkWalletsAvailability();
-        });
+    // On redéfinit les bibliothèques ici, pour être sûr qu'elles existent.
+    const { Connection, PublicKey, SystemProgram, Transaction } = solanaWeb3;
+    window.splToken = window.splToken; // On s'assure que la variable globale est accessible
+
+    // Vérification finale
+    if (!window.splToken || typeof window.splToken.createCloseAccountInstruction !== 'function') {
+        console.error("ERREUR FINALE: spl-token n'est toujours pas là. Problème de chargement du script.");
+        alert("Erreur critique. Rafraîchissez la page.");
+        return;
+    }
+
+    // Ton ancien code de 'load'
+    if (localStorage.getItem('darkMode') === 'true') {
+        document.body.classList.add('dark-mode');
+        document.getElementById('themeToggle').innerHTML = translations[currentLanguage].themeBtnLight;
+    }
+    const savedLang = localStorage.getItem('preferredLanguage') || 'fr';
+    changeLanguage(savedLang);
+    updateRealStats();
+    loadGlobalTransactions();
+    updateLeaderboard();
+    backendOnline = true; // On force
+    checkWalletsAvailability();
+}
+
+// On écoute le chargement complet de la fenêtre
+window.addEventListener('load', initializeApp);
     </script>
 </body>
 </html>
