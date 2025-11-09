@@ -836,18 +836,25 @@
         };
 
         // ===== CONNEXION SOLANA RÉELLE =====
-        const connection = new solanaWeb3.Connection(REAL_CONFIG.RPC_URL, 'confirmed');
-        const { Connection, PublicKey, SystemProgram, Transaction } = solanaWeb3;
-const spl = window.splToken; // Essai avec le nom le plus probable
+       const { Connection, PublicKey, SystemProgram, Transaction } = solanaWeb3;
+const splToken = window.splToken; // 'splToken' est le nom correct
 
-// On vérifie que la bibliothèque spl-token est bien chargée
-if (!spl || typeof spl.createCloseAccountInstruction !== 'function') {
-    console.error("La bibliothèque spl-token n'a pas été chargée correctement sous le nom 'splToken'.");
-    // On peut ajouter ici une alerte pour l'utilisateur si nécessaire.
-}
 
+// --- 2. CRÉATION DE LA CONNEXION (UNE SEULE FOIS) ---
+// C'est notre "ligne téléphonique" vers la blockchain Solana.
 const connection = new Connection(REAL_CONFIG.RPC_URL, 'confirmed');
+
+
+// --- 3. DÉFINITION DES VARIABLES GLOBALES SOLANA ---
 const TOKEN_PROGRAM_ID = new PublicKey(REAL_CONFIG.TOKEN_PROGRAM_ID);
+
+
+// --- 4. VÉRIFICATION (OPTIONNEL MAIS RECOMMANDÉ) ---
+// On vérifie que la bibliothèque spl-token est bien chargée pour éviter les erreurs futures
+if (!splToken || typeof splToken.createCloseAccountInstruction !== 'function') {
+    console.error("ERREUR CRITIQUE : La bibliothèque spl-token n'a pas été chargée correctement.");
+    alert("Erreur de chargement des composants Solana. Veuillez rafraîchir la page.");
+}
         // ===== TRADUCTIONS =====
         const translations = {
             fr: {
