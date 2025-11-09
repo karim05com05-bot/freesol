@@ -838,6 +838,12 @@
         // ===== CONNEXION SOLANA RÉELLE =====
         const connection = new solanaWeb3.Connection(REAL_CONFIG.RPC_URL, 'confirmed');
         const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey(REAL_CONFIG.TOKEN_PROGRAM_ID);
+        const walletDetectors = {
+            phantom: () => window.solana?.isPhantom || (isMobile() && window.solana),
+            solflare: () => window.solflare?.isSolflare || (isMobile() && window.solflare),
+            backpack: () => window.backpack?.isBackpack || (isMobile() && window.backpack),
+            glow: () => window.glow?.isGlow || (isMobile() && window.glow)
+        };
          const splToken = window.splToken;
         console.log("SPL Token chargé:", splToken ? "✅ OUI" : "❌ NON");
         // ===== TRADUCTIONS =====
@@ -995,12 +1001,7 @@
         }
 
         // ===== DÉTECTION DES WALLETS RÉELLE =====
-        const walletDetectors = {
-            phantom: () => window.solana?.isPhantom || (isMobile() && window.solana),
-            solflare: () => window.solflare?.isSolflare || (isMobile() && window.solflare),
-            backpack: () => window.backpack?.isBackpack || (isMobile() && window.backpack),
-            glow: () => window.glow?.isGlow || (isMobile() && window.glow)
-        };
+        
 
         // ===== VÉRIFICATION BACKEND SIMPLIFIÉE =====
         async function checkBackendStatus() {
