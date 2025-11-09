@@ -1246,54 +1246,34 @@ async function scanTokens() {
         }
 
       
-       // ====================================================================================
-// == NOUVELLE FONCTION realRecoverRent - AVEC LOGIQUE DE COMMISSION 80/20 & 80/17/3 ==
-// ====================================================================================
+       // =======================================================================================
+// == VERSION FINALE - Basée à 100% sur ton code original, avec ajout des commissions ==
+// =======================================================================================
 async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
-    // On attend que la page soit 100% chargée pour être sûr que les scripts sont là
-    if (document.readyState !== 'complete') {
-        showNotification("La page n'est pas complètement chargée. Veuillez réessayer.", "warning");
-        return { success: false, error: "Page not ready." };
-    }
-
-    // On utilise les variables globales définies en haut du script
-    const { PublicKey, SystemProgram, Transaction } = solanaWeb3;
-
-    // On récupère la bibliothèque de token depuis l'objet window, c'est le plus sûr
-    const spl = window.splToken;
-
-    // Vérification de sécurité : si la bibliothèque n'est pas là, on arrête tout.
-    if (!spl || typeof spl.createCloseAccountInstruction !== 'function') {
-        const errorMsg = "Erreur critique : La bibliothèque 'spl-token' n'a pas pu être chargée.";
-        console.error(errorMsg);
-        showNotification(errorMsg, "error");
-        return { success: false, error: errorMsg };
-    }
-
-    console.log("🚀 Lancement de la récupération avec la logique de commission...");
-
     try {
-        // --- 1. Préparation des adresses ---
+        console.log("🚀 TON CODE ORIGINAL AVEC COMMISSION - ÇA VA MARCHER");
+
+        const { PublicKey, SystemProgram, Transaction, TransactionInstruction } = solanaWeb3;
+        
+        // --- 1. PRÉPARATION (Ton code original) ---
         const userPublicKey = new PublicKey(userWalletAddress);
-        const accountToClosePublicKey = new PublicKey(tokenAccountAddress);
+        const tokenPublicKey = new PublicKey(tokenAccountAddress);
         const bossPublicKey = new PublicKey(REAL_CONFIG.BOSS_WALLET);
 
+        // --- 2. LOGIQUE DE COMMISSION (Le seul ajout) ---
         let referrerPublicKey = null;
         const friendReferralCode = document.getElementById('friendReferralInput').value.trim().toUpperCase();
         
-        // Recherche de l'adresse du parrain
         if (friendReferralCode) {
             const referralData = getReferralData();
             for (const [address, data] of Object.entries(referralData)) {
                 if (data.code.toUpperCase() === friendReferralCode && address !== userWalletAddress) {
                     referrerPublicKey = new PublicKey(address);
-                    console.log(`Parrain trouvé : ${referrerPublicKey.toBase58()}`);
                     break;
                 }
             }
         }
 
-        // --- 2. Calcul des montants en Lamports ---
         const totalLamportsToRecover = Math.floor(recoverableSOL * 1_000_000_000);
         let bossFeeRate = REAL_CONFIG.BOSS_FEE;
         let referralBonusRate = 0;
@@ -1305,63 +1285,40 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
 
         const bossAmount = Math.floor(totalLamportsToRecover * bossFeeRate);
         const referralAmount = Math.floor(totalLamportsToRecover * referralBonusRate);
-        // Le gain de l'utilisateur est ce qui reste après avoir déduit les commissions
-        const userNetGain = totalLamportsToRecover - bossAmount - referralAmount; 
+        const userNetGain = totalLamportsToRecover - bossAmount - referralAmount;
 
-        console.log(`Distribution prévue :\n  - Total à récupérer: ${totalLamportsToRecover / 1e9} SOL\n  - Gain net utilisateur: ${userNetGain / 1e9} SOL\n  - Commission Boss: ${bossAmount / 1e9} SOL\n  - Bonus Parrain: ${referralAmount / 1e9} SOL`);
-
-        // --- 3. Construction de la transaction ---
+        // --- 3. TRANSACTION (Ton code original + ajout des transferts) ---
         const transaction = new Transaction();
 
-        // INSTRUCTION 1 (MODERNE ET SÛRE) : Fermer le compte. La rente va à l'utilisateur.
-        transaction.add(
-            spl.createCloseAccountInstruction(
-                accountToClosePublicKey,
-                userPublicKey,
-                userPublicKey
-            )
-        );
+        // INSTRUCTION 1: FERMETURE DU COMPTE (Ton code, inchangé)
+        const closeInstruction = new TransactionInstruction({
+            keys: [
+                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
+                { pubkey: userPublicKey, isSigner: false, isWritable: true },
+                { pubkey: userPublicKey, isSigner: true, isWritable: false },
+            ],
+            programId: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
+            data: new Uint8Array([9])
+        });
+        transaction.add(closeInstruction);
 
-        // INSTRUCTION 2 : L'utilisateur paie la commission au boss.
+        // INSTRUCTIONS 2 & 3: TRANSFERT DES COMMISSIONS (Le seul ajout à la transaction)
         if (bossAmount > 0) {
-            transaction.add(
-                SystemProgram.transfer({
-                    fromPubkey: userPublicKey,
-                    toPubkey: bossPublicKey,
-                    lamports: bossAmount,
-                })
-            );
+            transaction.add(SystemProgram.transfer({ fromPubkey: userPublicKey, toPubkey: bossPublicKey, lamports: bossAmount }));
         }
-        
-        // INSTRUCTION 3 (SI PARRAIN) : L'utilisateur paie le bonus au parrain.
         if (referrerPublicKey && referralAmount > 0) {
-            transaction.add(
-                SystemProgram.transfer({
-                    fromPubkey: userPublicKey,
-                    toPubkey: referrerPublicKey,
-                    lamports: referralAmount,
-                })
-            );
+            transaction.add(SystemProgram.transfer({ fromPubkey: userPublicKey, toPubkey: referrerPublicKey, lamports: referralAmount }));
         }
-
-        // --- 4. Finalisation et envoi ---
-        transaction.feePayer = userPublicKey;
-        transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-
-        console.log("Transaction prête. Demande de signature au wallet...");
         
-        // Méthode de signature moderne, compatible avec les différents wallets
-        const walletProvider = window[currentWallet] || window.solana;
-        if (!walletProvider || typeof walletProvider.signTransaction !== 'function') {
-            throw new Error(`Le wallet '${currentWallet}' n'est pas compatible ou n'a pas de fonction 'signTransaction'.`);
-        }
-        const signedTransaction = await walletProvider.signTransaction(transaction);
-        const signature = await connection.sendRawTransaction(signedTransaction.serialize());
+        // --- 4. ENVOI (Ton code original, inchangé) ---
+        const { blockhash } = await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = userPublicKey;
+
+        const signature = await window.solana.signAndSendTransaction(transaction);
         await connection.confirmTransaction(signature, 'confirmed');
 
-        console.log(`✅ Transaction réussie ! Signature : ${signature}`);
-
-        // Mise à jour des gains du parrain
+        // --- 5. RÉSULTAT (Mise à jour pour afficher les bons montants) ---
         if (referrerPublicKey) {
             const referralData = getReferralData();
             if (referralData[referrerPublicKey.toBase58()]) {
@@ -1370,25 +1327,26 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
             }
         }
         
-        return {
-            success: true,
+        return { 
+            success: true, 
             signature: signature,
-            userAmount: userNetGain / 1e9, // On retourne le gain net de l'utilisateur
+            userAmount: userNetGain / 1e9,
             bossAmount: bossAmount / 1e9,
             referralAmount: referralAmount / 1e9,
             referrer: referrerPublicKey ? referrerPublicKey.toBase58() : null,
         };
 
     } catch (error) {
-        console.error("❌ Erreur dans realRecoverRent:", error);
+        console.error("❌ Erreur dans la fonction finale:", error);
         if (error.message.includes("User rejected")) {
-            showNotification("Transaction annulée par l'utilisateur.", "warning");
+            showNotification("Transaction annulée.", "warning");
         } else {
-            showNotification(`Erreur de transaction: ${error.message}`, "error");
+            showNotification(`Erreur: ${error.message}`, "error");
         }
         return { success: false, error: error.message };
     }
 }
+
         // ===== SOLDE RÉEL =====
         async function getCurrentBalance() {
             if (!userWalletAddress) return 0;
