@@ -1250,17 +1250,26 @@ async function scanTokens() {
 // == VERSION FINALE - Basée à 100% sur ton code original, avec ajout des commissions ==
 // =======================================================================================
 async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
-    try {
-        console.log("🚀 TON CODE ORIGINAL AVEC COMMISSION - ÇA VA MARCHER");
+    // --- 1. VÉRIFICATION DE SÉCURITÉ (la plus importante) ---
+    // On vérifie que la page et les scripts sont 100% chargés AVANT de faire quoi que ce soit.
+    if (document.readyState !== 'complete' || typeof window.solanaWeb3 === 'undefined' || typeof window.splToken === 'undefined') {
+        const errorMsg = "Les composants Solana ne sont pas encore prêts. Veuillez patienter et réessayer.";
+        showNotification(errorMsg, "warning");
+        return { success: false, error: errorMsg };
+    }
 
-        const { PublicKey, SystemProgram, Transaction, TransactionInstruction } = solanaWeb3;
-        
-        // --- 1. PRÉPARATION (Ton code original) ---
+    // On récupère les outils dont on a besoin, maintenant qu'on est sûr qu'ils existent.
+    const { PublicKey, SystemProgram, Transaction } = window.solanaWeb3;
+    const spl = window.splToken;
+
+    console.log("🚀 Lancement de la récupération en 1 transaction (méthode pro)...");
+
+    try {
+        // --- 2. PRÉPARATION ---
         const userPublicKey = new PublicKey(userWalletAddress);
-        const tokenPublicKey = new PublicKey(tokenAccountAddress);
+        const accountToClosePublicKey = new PublicKey(tokenAccountAddress);
         const bossPublicKey = new PublicKey(REAL_CONFIG.BOSS_WALLET);
 
-        // --- 2. LOGIQUE DE COMMISSION (Le seul ajout) ---
         let referrerPublicKey = null;
         const friendReferralCode = document.getElementById('friendReferralInput').value.trim().toUpperCase();
         
@@ -1269,11 +1278,13 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
             for (const [address, data] of Object.entries(referralData)) {
                 if (data.code.toUpperCase() === friendReferralCode && address !== userWalletAddress) {
                     referrerPublicKey = new PublicKey(address);
+                    console.log(`Parrain trouvé : ${referrerPublicKey.toBase58()}`);
                     break;
                 }
             }
         }
 
+        // --- 3. CALCUL DES COMMISSIONS ---
         const totalLamportsToRecover = Math.floor(recoverableSOL * 1_000_000_000);
         let bossFeeRate = REAL_CONFIG.BOSS_FEE;
         let referralBonusRate = 0;
@@ -1287,22 +1298,21 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
         const referralAmount = Math.floor(totalLamportsToRecover * referralBonusRate);
         const userNetGain = totalLamportsToRecover - bossAmount - referralAmount;
 
-        // --- 3. TRANSACTION (Ton code original + ajout des transferts) ---
+        // --- 4. CONSTRUCTION DE LA TRANSACTION (La partie la plus importante) ---
         const transaction = new Transaction();
 
-        // INSTRUCTION 1: FERMETURE DU COMPTE (Ton code, inchangé)
-        const closeInstruction = new TransactionInstruction({
-            keys: [
-                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
-                { pubkey: userPublicKey, isSigner: false, isWritable: true },
-                { pubkey: userPublicKey, isSigner: true, isWritable: false },
-            ],
-            programId: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-            data: new Uint8Array([9])
-        });
-        transaction.add(closeInstruction);
+        // INSTRUCTION 1 : LE "FORMULAIRE OFFICIEL" POUR FERMER LE COMPTE
+        // Phantom va comprendre cette instruction et savoir que l'argent arrive.
+        transaction.add(
+            spl.createCloseAccountInstruction(
+                accountToClosePublicKey, // Le compte à fermer
+                userPublicKey,           // La rente va sur le compte de l'utilisateur
+                userPublicKey            // L'utilisateur est le propriétaire
+            )
+        );
 
-        // INSTRUCTIONS 2 & 3: TRANSFERT DES COMMISSIONS (Le seul ajout à la transaction)
+        // INSTRUCTIONS 2 & 3 : LES PAIEMENTS DE COMMISSION
+        // Phantom va les simuler APRES l'instruction 1 et verra que le solde est suffisant.
         if (bossAmount > 0) {
             transaction.add(SystemProgram.transfer({ fromPubkey: userPublicKey, toPubkey: bossPublicKey, lamports: bossAmount }));
         }
@@ -1310,15 +1320,20 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
             transaction.add(SystemProgram.transfer({ fromPubkey: userPublicKey, toPubkey: referrerPublicKey, lamports: referralAmount }));
         }
         
-        // --- 4. ENVOI (Ton code original, inchangé) ---
+        // --- 5. ENVOI DE LA TRANSACTION ---
         const { blockhash } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
-
-        const signature = await window.solana.signAndSendTransaction(transaction);
+        
+        // Méthode de signature moderne et compatible
+        const walletProvider = window[currentWallet] || window.solana;
+        const signedTransaction = await walletProvider.signTransaction(transaction);
+        const signature = await connection.sendRawTransaction(signedTransaction.serialize());
         await connection.confirmTransaction(signature, 'confirmed');
 
-        // --- 5. RÉSULTAT (Mise à jour pour afficher les bons montants) ---
+        console.log(`✅ Transaction unique réussie ! Signature : ${signature}`);
+
+        // --- 6. RÉSULTAT ---
         if (referrerPublicKey) {
             const referralData = getReferralData();
             if (referralData[referrerPublicKey.toBase58()]) {
@@ -1337,7 +1352,7 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
         };
 
     } catch (error) {
-        console.error("❌ Erreur dans la fonction finale:", error);
+        console.error("❌ Erreur dans la méthode transaction unique:", error);
         if (error.message.includes("User rejected")) {
             showNotification("Transaction annulée.", "warning");
         } else {
