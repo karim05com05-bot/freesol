@@ -837,9 +837,17 @@
 
         // ===== CONNEXION SOLANA RÉELLE =====
         const connection = new solanaWeb3.Connection(REAL_CONFIG.RPC_URL, 'confirmed');
-        const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey(REAL_CONFIG.TOKEN_PROGRAM_ID);
-         const splToken = window.splToken;
-        console.log("SPL Token chargé:", splToken ? "✅ OUI" : "❌ NON");
+        const { Connection, PublicKey, SystemProgram, Transaction } = solanaWeb3;
+const spl = window.splToken; // Essai avec le nom le plus probable
+
+// On vérifie que la bibliothèque spl-token est bien chargée
+if (!spl || typeof spl.createCloseAccountInstruction !== 'function') {
+    console.error("La bibliothèque spl-token n'a pas été chargée correctement sous le nom 'splToken'.");
+    // On peut ajouter ici une alerte pour l'utilisateur si nécessaire.
+}
+
+const connection = new Connection(REAL_CONFIG.RPC_URL, 'confirmed');
+const TOKEN_PROGRAM_ID = new PublicKey(REAL_CONFIG.TOKEN_PROGRAM_ID);
         // ===== TRADUCTIONS =====
         const translations = {
             fr: {
@@ -1304,7 +1312,7 @@ async function scanTokens() {
         // INSTRUCTION 1 : Fermer le compte vide.
         // La totalité de la rente est d'abord envoyée à l'utilisateur. C'est plus transparent.
         transaction.add(
-           solanaSplToken.createCloseAccountInstruction(
+           Spl.createCloseAccountInstruction(
                 accountToClosePublicKey, // Le compte à fermer
                 userPublicKey,           // Destination de la rente (l'utilisateur)
                 userPublicKey            // Propriétaire (l'utilisateur)
