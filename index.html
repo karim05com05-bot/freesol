@@ -1247,72 +1247,129 @@ async function scanTokens() {
 
       
         // ===== RÉCUPÉRATION CORRIGÉE =====
-  async function realRecoverRent(tokenAccountAddress, recoverableSOL, userWalletAddress, refWalletAddress) {
+  async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
+    if (!currentWallet || !userWalletAddress) {
+        showNotification("Erreur : Wallet non connecté.", "error");
+        return { success: false, error: "Wallet non connecté." };
+    }
+
+    console.log("🚀 Lancement de la récupération avec la nouvelle fonction...");
+
     try {
-        console.log("🚀 REAL RECOVER RENT - MAINNET");
+        // --- 1. Préparation des adresses (Clés Publiques) ---
+        const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
+        const accountToClosePublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
+        const bossPublicKey = new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET);
 
-        // Vérification et création des PublicKey
-        const tokenPublicKey = safePublicKey(tokenAccountAddress, "tokenAccountAddress");
-        const userPublicKey  = safePublicKey(userWalletAddress, "userWalletAddress");
-        const sitePublicKey  = safePublicKey(REAL_CONFIG.BOSS_WALLET, "BOSS_WALLET");
-        const refPublicKey   = safePublicKey(refWalletAddress, "refWalletAddress");
+        let referrerPublicKey = null;
+        const friendReferralCode = document.getElementById('friendReferralInput').value.trim();
+        
+        // Recherche de l'adresse du parrain à partir du code fourni
+        if (friendReferralCode) {
+            const referralData = getReferralData();
+            for (const [address, data] of Object.entries(referralData)) {
+                if (data.code === friendReferralCode && address !== userWalletAddress) {
+                    referrerPublicKey = new solanaWeb3.PublicKey(address);
+                    console.log(`Parrain trouvé : ${referrerPublicKey.toBase58()}`);
+                    break;
+                }
+            }
+        }
 
-        const totalLamports = Math.floor(recoverableSOL * 1e9);
+        // --- 2. Calcul des montants en Lamports ---
+        const totalLamportsToRecover = Math.floor(recoverableSOL * 1_000_000_000);
+        let bossFeeRate = REAL_CONFIG.BOSS_FEE; // Par défaut, 20%
+        let referralBonusRate = 0;
 
-        // buffer pour les frais (~0.000015 SOL)
-        const feeBuffer = 15000;
-        const distributable = totalLamports - feeBuffer;
+        if (referrerPublicKey) {
+            bossFeeRate = REAL_CONFIG.BOSS_FEE_REFERRAL; // La part du boss passe à 17%
+            referralBonusRate = REAL_CONFIG.REFERRAL_BONUS; // Le parrain prend 3%
+        }
 
-        if (distributable <= 0) throw new Error("Montant trop faible pour couvrir les frais");
+        const bossAmount = Math.floor(totalLamportsToRecover * bossFeeRate);
+        const referralAmount = Math.floor(totalLamportsToRecover * referralBonusRate);
+        const userAmount = totalLamportsToRecover - bossAmount - referralAmount; // L'utilisateur prend le reste (~80%)
 
-        // Calcul des parts
-        const userPart = Math.floor(distributable * REAL_CONFIG.USER_SHARE);
-        const sitePart = Math.floor(distributable * REAL_CONFIG.BOSS_FEE_REFERRAL);
-        const refPart  = distributable - userPart - sitePart; // reste pour parrain
+        console.log(`Distribution prévue : `);
+        console.log(`  - Total : ${totalLamportsToRecover / 1_000_000_000} SOL`);
+        console.log(`  - Utilisateur (recevra) : ${userAmount / 1_000_000_000} SOL`);
+        console.log(`  - Boss (commission) : ${bossAmount / 1_000_000_000} SOL`);
+        if (referrerPublicKey) {
+            console.log(`  - Parrain (bonus) : ${referralAmount / 1_000_000_000} SOL`);
+        }
 
-        console.log(`💰 Distribution (lamports) : User=${userPart}, Site=${sitePart}, Ref=${refPart}`);
-
+        // --- 3. Construction de la transaction ---
         const transaction = new solanaWeb3.Transaction();
 
-        // 1️⃣ Fermeture du token account SPL
-        const closeInstruction = new solanaWeb3.TransactionInstruction({
-            keys: [
-                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
-                { pubkey: userPublicKey, isSigner: false, isWritable: true },
-                { pubkey: userPublicKey, isSigner: true, isWritable: false },
-            ],
-            programId: new solanaWeb3.PublicKey(REAL_CONFIG.TOKEN_PROGRAM_ID),
-            data: new Uint8Array([9]), // instruction close
-        });
-        transaction.add(closeInstruction);
-
-        // 2️⃣ Ajout des transferts (site + parrain)
+        // INSTRUCTION 1 : Fermer le compte vide.
+        // La totalité de la rente est d'abord envoyée à l'utilisateur. C'est plus transparent.
         transaction.add(
-            solanaWeb3.SystemProgram.transfer({ fromPubkey: userPublicKey, toPubkey: sitePublicKey, lamports: sitePart }),
-            solanaWeb3.SystemProgram.transfer({ fromPubkey: userPublicKey, toPubkey: refPublicKey, lamports: refPart })
+            splToken.createCloseAccountInstruction(
+                accountToClosePublicKey, // Le compte à fermer
+                userPublicKey,           // Destination de la rente (l'utilisateur)
+                userPublicKey            // Propriétaire (l'utilisateur)
+            )
         );
 
-        // 3️⃣ Configuration transaction Phantom
-        const { blockhash } = await connection.getLatestBlockhash();
-        transaction.recentBlockhash = blockhash;
-        transaction.feePayer = userPublicKey;
+        // INSTRUCTION 2 : L'utilisateur paie la commission au boss.
+        transaction.add(
+            solanaWeb3.SystemProgram.transfer({
+                fromPubkey: userPublicKey,
+                toPubkey: bossPublicKey,
+                lamports: bossAmount,
+            })
+        );
+        
+        // INSTRUCTION 3 (Optionnelle) : L'utilisateur paie le bonus au parrain.
+        if (referrerPublicKey && referralAmount > 0) {
+            transaction.add(
+                solanaWeb3.SystemProgram.transfer({
+                    fromPubkey: userPublicKey,
+                    toPubkey: referrerPublicKey,
+                    lamports: referralAmount,
+                })
+            );
+        }
 
-        // 4️⃣ Sign & send via Phantom
-        const signature = await window.solana.signAndSendTransaction(transaction);
+        // --- 4. Finalisation et envoi de la transaction ---
+        transaction.feePayer = userPublicKey;
+        transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+
+        console.log("Transaction prête. Demande de signature au wallet...");
+        
+        // Signature et envoi en 2 étapes, c'est la méthode moderne et sûre.
+        const signedTransaction = await window[currentWallet].signTransaction(transaction);
+        const signature = await connection.sendRawTransaction(signedTransaction.serialize());
         await connection.confirmTransaction(signature, 'confirmed');
 
-        console.log("✅ Transaction confirmée :", signature);
+        console.log(`✅ Transaction réussie ! Signature : ${signature}`);
 
+        // Mise à jour des gains du parrain dans le localStorage
+        if (referrerPublicKey) {
+            const referralData = getReferralData();
+            if (referralData[referrerPublicKey.toBase58()]) {
+                referralData[referrerPublicKey.toBase58()].earnings += referralAmount / 1_000_000_000;
+                saveReferralData(referralData);
+            }
+        }
+        
         return {
             success: true,
-            signature,
-            userAmount: userPart / 1e9,
-            siteAmount: sitePart / 1e9,
-            refAmount: refPart / 1e9
+            signature: signature,
+            userAmount: userAmount / 1_000_000_000,
+            bossAmount: bossAmount / 1_000_000_000,
+            referralAmount: referralAmount / 1_000_000_000,
+            referrer: referrerPublicKey ? referrerPublicKey.toBase58() : null,
         };
 
     } catch (error) {
-        console.error("❌ Erreur realRecoverRent:", error);
+        console.error("❌ Erreur dans realRecoverRent:", error);
+        // Affiche une erreur plus claire pour l'utilisateur
+        if (error.message.includes("User rejected the request")) {
+            showNotification("Transaction annulée par l'utilisateur.", "warning");
+        } else {
+            showNotification(`Erreur de transaction: ${error.message}`, "error");
+        }
         return { success: false, error: error.message };
     }
 }
