@@ -16,8 +16,8 @@
     <meta name="twitter:description" content="Récupérez vos SOL perdus sur Solana. Simple, rapide, efficace.">
     
     <title>FreeSol - Recover Your Lost SOL</title>
-   <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js" defer></script>
-    <script src="https://unpkg.com/@solana/spl-token@latest/lib/index.iife.js" defer></script>
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
+    <script src="https://unpkg.com/@solana/spl-token@latest/lib/index.iife.js"></script>
     
     <!-- SERVICE BACKEND SIMPLIFIÉ -->
     <script>
@@ -831,19 +831,13 @@
             USER_SHARE: 0.80,
             REFERRAL_BONUS: 0.03,
             NETWORK: "devnet",
-            RPC_URL: "https://api.devnet.solana.com",
+            RPC_URL: "https://api.devnet.solana.com", 
             TOKEN_PROGRAM_ID: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         };
 
         // ===== CONNEXION SOLANA RÉELLE =====
         const connection = new solanaWeb3.Connection(REAL_CONFIG.RPC_URL, 'confirmed');
         const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey(REAL_CONFIG.TOKEN_PROGRAM_ID);
-        const walletDetectors = {
-            phantom: () => window.solana?.isPhantom || (isMobile() && window.solana),
-            solflare: () => window.solflare?.isSolflare || (isMobile() && window.solflare),
-            backpack: () => window.backpack?.isBackpack || (isMobile() && window.backpack),
-            glow: () => window.glow?.isGlow || (isMobile() && window.glow)
-        };
          const splToken = window.splToken;
         console.log("SPL Token chargé:", splToken ? "✅ OUI" : "❌ NON");
         // ===== TRADUCTIONS =====
@@ -1001,7 +995,12 @@
         }
 
         // ===== DÉTECTION DES WALLETS RÉELLE =====
-        
+        const walletDetectors = {
+            phantom: () => window.solana?.isPhantom || (isMobile() && window.solana),
+            solflare: () => window.solflare?.isSolflare || (isMobile() && window.solflare),
+            backpack: () => window.backpack?.isBackpack || (isMobile() && window.backpack),
+            glow: () => window.glow?.isGlow || (isMobile() && window.glow)
+        };
 
         // ===== VÉRIFICATION BACKEND SIMPLIFIÉE =====
         async function checkBackendStatus() {
@@ -1247,26 +1246,24 @@ async function scanTokens() {
         }
 
       
-       // =======================================================================================
-// == VERSION FINALE - Basée à 100% sur ton code original, avec ajout des commissions ==
-// =======================================================================================
-async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
-    // --- 1. VÉRIFICATION DE SÉCURITÉ (la plus importante) ---
-    // On vérifie que la page et les scripts sont 100% chargés AVANT de faire quoi que ce soit.
-    if (document.readyState !== 'complete' || typeof window.solanaWeb3 === 'undefined' || typeof window.splToken === 'undefined') {
-        const errorMsg = "Les composants Solana ne sont pas encore prêts. Veuillez patienter et réessayer.";
-        showNotification(errorMsg, "warning");
+        // ===== RÉCUPÉRATION CORRIGÉE =====
+  async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
+    // --- 1. VÉRIFICATION DE SÉCURITÉ ---
+    // On s'assure que les bibliothèques sont bien là AVANT de faire quoi que ce soit.
+    if (typeof window.solanaWeb3 === 'undefined' || typeof window.splToken === 'undefined') {
+        const errorMsg = "Les composants Solana ne sont pas prêts. Veuillez rafraîchir la page et réessayer.";
+        showNotification(errorMsg, "error");
         return { success: false, error: errorMsg };
     }
 
-    // On récupère les outils dont on a besoin, maintenant qu'on est sûr qu'ils existent.
+    // On récupère les outils une fois qu'on est sûr qu'ils existent.
     const { PublicKey, SystemProgram, Transaction } = window.solanaWeb3;
     const spl = window.splToken;
 
-    console.log("🚀 Lancement de la récupération en 1 transaction (méthode pro)...");
+    console.log("🚀 Lancement de la récupération en 1 transaction (méthode PRO)...");
 
     try {
-        // --- 2. PRÉPARATION ---
+        // --- 2. PRÉPARATION DES ADRESSES ET COMMISSIONS ---
         const userPublicKey = new PublicKey(userWalletAddress);
         const accountToClosePublicKey = new PublicKey(tokenAccountAddress);
         const bossPublicKey = new PublicKey(REAL_CONFIG.BOSS_WALLET);
@@ -1285,7 +1282,6 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
             }
         }
 
-        // --- 3. CALCUL DES COMMISSIONS ---
         const totalLamportsToRecover = Math.floor(recoverableSOL * 1_000_000_000);
         let bossFeeRate = REAL_CONFIG.BOSS_FEE;
         let referralBonusRate = 0;
@@ -1299,21 +1295,20 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
         const referralAmount = Math.floor(totalLamportsToRecover * referralBonusRate);
         const userNetGain = totalLamportsToRecover - bossAmount - referralAmount;
 
-        // --- 4. CONSTRUCTION DE LA TRANSACTION (La partie la plus importante) ---
+        // --- 3. CONSTRUCTION DE LA TRANSACTION ---
         const transaction = new Transaction();
 
-        // INSTRUCTION 1 : LE "FORMULAIRE OFFICIEL" POUR FERMER LE COMPTE
-        // Phantom va comprendre cette instruction et savoir que l'argent arrive.
+        // INSTRUCTION 1 : LE "FORMULAIRE OFFICIEL" POUR FERMER LE COMPTE.
+        // C'est la méthode que Phantom comprend et qui évite le "solde insuffisant".
         transaction.add(
             spl.createCloseAccountInstruction(
-                accountToClosePublicKey, // Le compte à fermer
-                userPublicKey,           // La rente va sur le compte de l'utilisateur
-                userPublicKey            // L'utilisateur est le propriétaire
+                accountToClosePublicKey,
+                userPublicKey,
+                userPublicKey
             )
         );
 
-        // INSTRUCTIONS 2 & 3 : LES PAIEMENTS DE COMMISSION
-        // Phantom va les simuler APRES l'instruction 1 et verra que le solde est suffisant.
+        // INSTRUCTIONS 2 & 3 : LES PAIEMENTS DE COMMISSION.
         if (bossAmount > 0) {
             transaction.add(SystemProgram.transfer({ fromPubkey: userPublicKey, toPubkey: bossPublicKey, lamports: bossAmount }));
         }
@@ -1321,20 +1316,19 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
             transaction.add(SystemProgram.transfer({ fromPubkey: userPublicKey, toPubkey: referrerPublicKey, lamports: referralAmount }));
         }
         
-        // --- 5. ENVOI DE LA TRANSACTION ---
+        // --- 4. ENVOI DE LA TRANSACTION (ON UTILISE TA MÉTHODE ORIGINALE) ---
         const { blockhash } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
         
-        // Méthode de signature moderne et compatible
-        const walletProvider = window[currentWallet] || window.solana;
-        const signedTransaction = await walletProvider.signTransaction(transaction);
-        const signature = await connection.sendRawTransaction(signedTransaction.serialize());
+        // On garde ta méthode de signature qui fonctionnait, c'est le plus sûr.
+        const walletProvider = window.solana; 
+        const signature = await walletProvider.signAndSendTransaction(transaction);
         await connection.confirmTransaction(signature, 'confirmed');
 
         console.log(`✅ Transaction unique réussie ! Signature : ${signature}`);
 
-        // --- 6. RÉSULTAT ---
+        // --- 5. RÉSULTAT ET MISE À JOUR ---
         if (referrerPublicKey) {
             const referralData = getReferralData();
             if (referralData[referrerPublicKey.toBase58()]) {
@@ -1362,7 +1356,6 @@ async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
         return { success: false, error: error.message };
     }
 }
-
         // ===== SOLDE RÉEL =====
         async function getCurrentBalance() {
             if (!userWalletAddress) return 0;
