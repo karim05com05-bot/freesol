@@ -1734,26 +1734,78 @@ async function scanTokens() {
         }
 
         // ===== CHARGEMENT DES PRÉFÉRENCES =====
-        window.addEventListener('load', function() {
-            if (localStorage.getItem('darkMode') === 'true') {
-                document.body.classList.add('dark-mode');
-                document.getElementById('themeToggle').innerHTML = translations[currentLanguage].themeBtnLight;
-            }
-            
-            const savedLang = localStorage.getItem('preferredLanguage') || 'fr';
-            changeLanguage(savedLang);
-            
-            // Charger les stats globales et transactions au démarrage
-            updateRealStats();
-            loadGlobalTransactions();
-            updateLeaderboard();
-            
-            // Backend toujours considéré comme online
-            backendOnline = true;
+       function checkAndInitializeApp() {
+    console.log("Vérification des bibliothèques Solana...");
 
-            // Vérifier les wallets au chargement
-            checkWalletsAvailability();
-        });
+    // On vérifie si les deux bibliothèques sont bien chargées dans la fenêtre
+    if (typeof window.solanaWeb3 !== 'undefined' && typeof window.splToken !== 'undefined') {
+        
+        console.log("✅ SUCCÈS ! Les bibliothèques Solana sont prêtes.");
+        
+        // Maintenant que tout est prêt, on lance l'application pour de bon
+        
+        if (localStorage.getItem('darkMode') === 'true') {
+            document.body.classList.add('dark-mode');
+            document.getElementById('themeToggle').innerHTML = translations[currentLanguage].themeBtnLight;
+        }
+        
+        const savedLang = localStorage.getItem('preferredLanguage') || 'fr';
+        changeLanguage(savedLang);
+        
+        updateRealStats();
+        loadGlobalTransactions();
+        updateLeaderboard();
+        
+        backendOnline = true; // On force
+        
+        // On active les boutons qui étaient désactivés
+        checkWalletsAvailability(true); // Le 'true' signifie "activer les boutons"
+
+        showNotification("Application prête !", "success");
+
+    } else {
+        // Si les bibliothèques ne sont pas prêtes, on attend 200ms et on réessaye.
+        console.log("Bibliothèques non prêtes, nouvelle tentative dans 200ms...");
+        setTimeout(checkAndInitializeApp, 200); 
+    }
+}
+
+// On modifie légèrement cette fonction pour qu'elle puisse aussi activer/désactiver
+function checkWalletsAvailability(enableButtons = false) {
+    const walletButtons = document.querySelectorAll('.wallet-btn, .connect-header-btn');
+    walletButtons.forEach(btn => {
+        const walletTypeMatch = btn.onclick.toString().match(/connectWallet\('(.+)'\)/);
+        if (!walletTypeMatch) return; // Ignore le bouton du header qui n'a pas de walletType
+        
+        const walletType = walletTypeMatch[1];
+        
+        if (!walletDetectors[walletType]()) {
+            btn.style.opacity = '0.5';
+            btn.style.cursor = 'not-allowed';
+            btn.title = isMobile() ? 'Ouvrez l\'app wallet et revenez' : 'Wallet non installé';
+            btn.disabled = true;
+        } else if (enableButtons) {
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+            btn.title = '';
+            btn.disabled = false;
+        }
+    });
+    // Activer aussi le bouton principal du header
+    if (enableButtons) {
+        document.getElementById('connectHeaderBtn').disabled = false;
+    }
+}
+
+// Le tout premier code qui s'exécute quand la page est chargée
+window.addEventListener('load', function() {
+    // On désactive les boutons au début, pour que personne ne clique trop vite
+    document.querySelectorAll('.wallet-btn, .connect-header-btn').forEach(btn => btn.disabled = true);
+    showNotification("Chargement des composants Solana...", "info");
+
+    // On lance le "mécanicien" qui va vérifier que tout est prêt avant de donner les clés.
+    checkAndInitializeApp();
+});
     </script>
 </body>
 </html>
