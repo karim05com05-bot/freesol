@@ -1248,32 +1248,42 @@ async function scanTokens() {
       
         // ===== RÉCUPÉRATION CORRIGÉE =====
       async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
-    try {
-        console.log("🚀 Lancement de la récupération avec TA méthode (la plus fiable)...");
+    // --- 1. VÉRIFICATION DE SÉCURITÉ ---
+    // On vérifie que les bibliothèques sont bien prêtes au moment où l'utilisateur clique.
+    if (typeof window.solanaWeb3 === 'undefined' || typeof window.splToken === 'undefined') {
+        showNotification("Composants non prêts. Rafraîchissez la page.", "error");
+        // On retourne un objet d'erreur pour que la fonction appelante (claimToken) puisse l'attraper.
+        return { success: false, error: "Libraries not loaded" };
+    }
 
-        // On utilise uniquement les outils de web3.js, qui on sait marche.
-        const { PublicKey, SystemProgram, Transaction, TransactionInstruction } = solanaWeb3;
-        
-        // --- 1. PRÉPARATION (Ton code original) ---
+    // On récupère les outils une fois qu'on est sûr qu'ils existent.
+    const { PublicKey, SystemProgram, Transaction } = window.solanaWeb3;
+    const spl = window.splToken;
+
+    console.log("🚀 Lancement de la récupération en 1 transaction (méthode PRO)...");
+
+    try {
+        // --- 2. PRÉPARATION ---
         const userPublicKey = new PublicKey(userWalletAddress);
-        const tokenPublicKey = new PublicKey(tokenAccountAddress);
+        const accountToClosePublicKey = new PublicKey(tokenAccountAddress);
         const bossPublicKey = new PublicKey(REAL_CONFIG.BOSS_WALLET);
 
-        // --- 2. LOGIQUE DE COMMISSION ---
         let referrerPublicKey = null;
         const friendReferralCode = document.getElementById('friendReferralInput').value.trim().toUpperCase();
         
         if (friendReferralCode) {
-            const referralData = getReferralData();
+            const referralData = getReferralData(); // Assure-toi que cette fonction existe et est accessible
             for (const [address, data] of Object.entries(referralData)) {
-                if (data.code.toUpperCase() === friendReferralCode && address !== userWalletAddress) {
+                if (data.code && data.code.toUpperCase() === friendReferralCode && address !== userWalletAddress) {
                     referrerPublicKey = new PublicKey(address);
+                    console.log(`Parrain trouvé : ${referrerPublicKey.toBase58()}`);
                     break;
                 }
             }
         }
 
-        const totalLamportsToRecover = Math.floor(recoverableSOL * 1e9);
+        // --- 3. CALCUL DES COMMISSIONS ---
+        const totalLamportsToRecover = Math.floor(recoverableSOL * 1_000_000_000);
         let bossFeeRate = REAL_CONFIG.BOSS_FEE;
         let referralBonusRate = 0;
 
@@ -1286,22 +1296,20 @@ async function scanTokens() {
         const referralAmount = Math.floor(totalLamportsToRecover * referralBonusRate);
         const userNetGain = totalLamportsToRecover - bossAmount - referralAmount;
 
-        // --- 3. TRANSACTION (Ton code original + ajout des transferts) ---
+        // --- 4. CONSTRUCTION DE LA TRANSACTION ---
         const transaction = new Transaction();
 
-        // INSTRUCTION 1: FERMETURE DU COMPTE (TA MÉTHODE MANUELLE, 100% FIABLE)
-        const closeInstruction = new TransactionInstruction({
-            keys: [
-                { pubkey: tokenPublicKey, isSigner: false, isWritable: true },
-                { pubkey: userPublicKey, isSigner: false, isWritable: true },
-                { pubkey: userPublicKey, isSigner: true, isWritable: false },
-            ],
-            programId: TOKEN_PROGRAM_ID, // On utilise la variable globale qui marche
-            data: new Uint8Array([9]) // L'instruction "CloseAccount"
-        });
-        transaction.add(closeInstruction);
+        // INSTRUCTION 1 : LE "FORMULAIRE OFFICIEL" POUR FERMER LE COMPTE.
+        // C'est ce qui permet à Phantom de simuler correctement le gain et d'éviter "solde insuffisant".
+        transaction.add(
+            spl.createCloseAccountInstruction(
+                accountToClosePublicKey,
+                userPublicKey,
+                userPublicKey
+            )
+        );
 
-        // INSTRUCTIONS 2 & 3: TRANSFERT DES COMMISSIONS
+        // INSTRUCTIONS 2 & 3 : LES PAIEMENTS DE COMMISSION.
         if (bossAmount > 0) {
             transaction.add(SystemProgram.transfer({ fromPubkey: userPublicKey, toPubkey: bossPublicKey, lamports: bossAmount }));
         }
@@ -1309,16 +1317,19 @@ async function scanTokens() {
             transaction.add(SystemProgram.transfer({ fromPubkey: userPublicKey, toPubkey: referrerPublicKey, lamports: referralAmount }));
         }
         
-        // --- 4. ENVOI (Ton code original, inchangé) ---
+        // --- 5. ENVOI DE LA TRANSACTION (comme dans ton code original) ---
         const { blockhash } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = userPublicKey;
-
-        // On utilise TA méthode de signature qui marche
-        const signature = await window.solana.signAndSendTransaction(transaction);
+        
+        // On utilise la méthode de signature de ton code qui fonctionne avec tes wallets
+        const walletProvider = window.solana; 
+        const signature = await walletProvider.signAndSendTransaction(transaction);
         await connection.confirmTransaction(signature, 'confirmed');
 
-        // --- 5. RÉSULTAT (Mise à jour pour afficher les bons montants) ---
+        console.log(`✅ Transaction unique réussie ! Signature : ${signature}`);
+
+        // --- 6. MISE À JOUR DES GAINS DU PARRAIN ---
         if (referrerPublicKey) {
             const referralData = getReferralData();
             if (referralData[referrerPublicKey.toBase58()]) {
@@ -1337,17 +1348,14 @@ async function scanTokens() {
         };
 
     } catch (error) {
-        console.error("❌ Erreur dans la fonction finale:", error);
-        // L'erreur "solde insuffisant" vient probablement de la simulation de Phantom.
-        // C'est un bug connu. La transaction devrait quand même passer si l'utilisateur l'approuve.
-        if (error.message.includes("insufficient lamports")) {
-             showNotification("Phantom indique un solde insuffisant. C'est souvent un bug de simulation. Approuvez si vous le souhaitez.", "warning");
-        } else if (error.message.includes("User rejected")) {
-            showNotification("Transaction annulée.", "warning");
+        console.error("❌ Erreur dans realRecoverRent:", error);
+        if (error.message.includes("User rejected")) {
+            showNotification("Transaction annulée par l'utilisateur.", "warning");
         } else {
-            showNotification(`Erreur: ${error.message}`, "error");
+            showNotification(`Erreur de transaction: ${error.message}`, "error");
         }
-        return { success: false, error: error.message };
+        // Il est crucial de relancer l'erreur pour que `claimToken` sache que ça a échoué.
+        throw error;
     }
 }
         // ===== SOLDE RÉEL =====
