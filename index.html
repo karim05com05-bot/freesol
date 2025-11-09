@@ -1319,7 +1319,7 @@ async function scanTokens() {
         // INSTRUCTION 1 : Fermer le compte vide.
         // La totalité de la rente est d'abord envoyée à l'utilisateur. C'est plus transparent.
         transaction.add(
-           Spl.createCloseAccountInstruction(
+           splToken.createCloseAccountInstruction(
                 accountToClosePublicKey, // Le compte à fermer
                 userPublicKey,           // Destination de la rente (l'utilisateur)
                 userPublicKey            // Propriétaire (l'utilisateur)
