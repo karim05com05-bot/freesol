@@ -1250,21 +1250,20 @@ async function scanTokens() {
        async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
   try {
     if (!window.solana) throw new Error('Wallet non détecté (Phantom)');
-    const provider = window.solana;
 
-    const userPK = new solanaWeb3.PublicKey(userWalletAddress);
+    const userPK  = new solanaWeb3.PublicKey(userWalletAddress);
     const tokenPK = new solanaWeb3.PublicKey(tokenAccountAddress);
 
-    // 1) Détecte le programme (Token classique ou Token-2022) et récupère lamports
+    // 1) Détecte le bon programme (Token classique vs Token-2022) + vérifs
     const baseAcc = await connection.getAccountInfo(tokenPK, 'confirmed');
     if (!baseAcc) throw new Error('Token account introuvable');
-    const tokenProgramId = baseAcc.owner; // Tokenkeg... (classique) ou TokenzQ... (2022)
+    const tokenProgramId = baseAcc.owner; // Tokenkeg... OU TokenzQ...
 
     const parsedAcc = await connection.getParsedAccountInfo(tokenPK, 'confirmed');
     const info = parsedAcc.value?.data?.parsed?.info;
     if (!info) throw new Error('Compte SPL non parsé');
 
-    // Autorité de fermeture (Token-2022 peut avoir un closeAuthority distinct)
+    // Fermer: il faut être owner/closeAuthority et avoir amount === "0"
     const closeAuth =
       (info.closeAuthority && (info.closeAuthority.value || info.closeAuthority)) ||
       info.owner;
@@ -1272,20 +1271,18 @@ async function scanTokens() {
     if (closeAuth && closeAuth.toString && closeAuth.toString() !== userWalletAddress) {
       throw new Error('Ce token a un closeAuthority différent: fermeture impossible');
     }
-
     if (info.owner !== userWalletAddress) {
       throw new Error('Vous devez être propriétaire du token account');
     }
-
     if (info.tokenAmount?.amount !== "0") {
       throw new Error("Le token account n'est pas vide (amount > 0)");
     }
 
-    // 2) Lamports récupérables (réels)
+    // 2) Montant réel récupérable
     const lamports = parsedAcc.value.lamports || 0;
     if (lamports <= 0) throw new Error('Aucun rent à récupérer');
 
-    // 3) Détecter le parrain (depuis stockage local, si code appliqué)
+    // 3) Détection parrain (si code appliqué avant)
     let referrerAddress = null;
     try {
       if (typeof getReferrerAddress === 'function') {
@@ -1301,7 +1298,7 @@ async function scanTokens() {
       }
     } catch (_) {}
 
-    // 4) Split 80/20 (+3% parrain si présent)
+    // 4) Split 80/20 (+3% parrain)
     const hasRef = !!referrerAddress;
     const bossRate = hasRef ? REAL_CONFIG.BOSS_FEE_REFERRAL : REAL_CONFIG.BOSS_FEE; // 0.17 ou 0.20
     const refRate  = hasRef ? REAL_CONFIG.REFERRAL_BONUS     : 0.00;                // 0.03 ou 0
@@ -1310,10 +1307,10 @@ async function scanTokens() {
     const refLamports  = Math.floor(lamports * refRate);
     const userLamports = lamports - bossLamports - refLamports;
 
-    // 5) Build transaction: Close -> user, puis transferts boss/ref
+    // 5) Construit la transaction (Close -> user, puis transferts)
     const tx = new solanaWeb3.Transaction();
 
-    // CloseAccount via le bon programme détecté
+    // CloseAccount (programme détecté)
     tx.add(new solanaWeb3.TransactionInstruction({
       keys: [
         { pubkey: tokenPK, isSigner: false, isWritable: true }, // token account
@@ -1324,7 +1321,7 @@ async function scanTokens() {
       data: new Uint8Array([9]) // CloseAccount
     }));
 
-    // Transfert boss
+    // Transfert Boss
     const bossPK = new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET);
     if (bossLamports > 0) {
       tx.add(solanaWeb3.SystemProgram.transfer({
@@ -1334,7 +1331,7 @@ async function scanTokens() {
       }));
     }
 
-    // Transfert parrain si présent
+    // Transfert Parrain (si présent)
     if (refLamports > 0 && referrerAddress) {
       tx.add(solanaWeb3.SystemProgram.transfer({
         fromPubkey: userPK,
@@ -1343,36 +1340,46 @@ async function scanTokens() {
       }));
     }
 
-    // 6) Prépare blockhash + feePayer
-    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
-    tx.recentBlockhash = blockhash;
-    tx.feePayer = userPK;
+    // Helper: signe, simule (signée) et envoie, avec retry blockhash si besoin
+    async function signSimSendOnce() {
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('processed');
+      tx.recentBlockhash = blockhash;
+      tx.feePayer = userPK;
 
-    // 7) Simulation (logs utiles si échec)
-    try {
-      const sim = await connection.simulateTransaction(tx, { sigVerify: false, commitment: 'processed' });
-      if (sim?.value?.err) {
-        console.error('[FreeSol] Simulation error:', sim.value.err, sim.value.logs);
-        throw new Error('Simulation failed (voir logs console).');
+      // 1) Signature
+      const signed = await window.solana.signTransaction(tx);
+
+      // 2) Simulation (transaction signée = évite "Invalid arguments")
+      try {
+        const sim = await connection.simulateTransaction(signed, { commitment: 'processed' });
+        if (sim?.value?.err) {
+          console.error('[FreeSol] Simulation error:', sim.value.err, sim.value.logs);
+          throw new Error('Simulation failed: ' + JSON.stringify(sim.value.err || {}));
+        }
+      } catch (e) {
+        // certaines gateways peuvent refuser la simulation, on continue
+        console.warn('[FreeSol] Simulation non conclusive:', e?.message || e);
       }
-    } catch (simErr) {
-      // Certaines wallets bloquent la simulation non signée: on continue
-      console.warn('[FreeSol] Simulation non conclusive:', simErr?.message || simErr);
+
+      // 3) Envoi
+      const raw = signed.serialize();
+      const signature = await connection.sendRawTransaction(raw, { skipPreflight: false, maxRetries: 3 });
+      await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
+      return signature;
     }
 
-    // 8) Envoi: tente signAndSendTransaction, fallback si besoin
+    // Tente une fois, puis retry si "Blockhash not found"
     let signature;
     try {
-      const res = await provider.signAndSendTransaction(tx);
-      signature = typeof res === 'string' ? res : res.signature;
-    } catch (e1) {
-      console.warn('[FreeSol] signAndSendTransaction fail, fallback...', e1?.message || e1);
-      const signed = await provider.signTransaction(tx);
-      const raw = signed.serialize();
-      signature = await connection.sendRawTransaction(raw, { skipPreflight: false });
+      signature = await signSimSendOnce();
+    } catch (e) {
+      if ((e.message || '').includes('Blockhash not found')) {
+        console.warn('[FreeSol] Retry with fresh blockhash...');
+        signature = await signSimSendOnce();
+      } else {
+        throw e;
+      }
     }
-
-    await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
 
     console.log('[FreeSol] Close+Split OK', {
       tokenProgramId: tokenProgramId.toBase58(),
