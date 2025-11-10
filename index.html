@@ -1121,6 +1121,15 @@
       // Wallets disponibles
       checkWalletsAvailability();
     });
+    // Expose les fonctions au scope global pour les onclick=""
+window.connectWallet = connectWallet;
+window.changeLanguage = changeLanguage;
+window.toggleDarkMode = toggleDarkMode;
+window.showWalletSelector = showWalletSelector;
+window.claimToken = claimToken;
+window.copyReferralCode = copyReferralCode;
+window.applyReferralCode = applyReferralCode;
+window.disconnectWallet = disconnectWallet;
   </script>
 </body>
 </html>
