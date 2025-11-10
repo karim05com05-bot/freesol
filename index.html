@@ -1249,64 +1249,55 @@ async function scanTokens() {
         // ===== RÉCUPÉRATION CORRIGÉE =====
       async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
   try {
-    if (!window.solana) throw new Error('Wallet non détecté');
+    if (!window.solana) throw new Error('Wallet non détecté (Phantom)');
     const provider = window.solana;
 
     const userPK  = new solanaWeb3.PublicKey(userWalletAddress);
     const tokenPK = new solanaWeb3.PublicKey(tokenAccountAddress);
 
-    // Helper: normalise une destination pour qu’elle soit un wallet (System Program)
+    // Helper: s’assurer qu’on envoie à une adresse wallet (System Program)
     const resolveToWallet = async (address) => {
       try {
         const pk = new solanaWeb3.PublicKey(address);
         const info = await connection.getAccountInfo(pk, 'processed');
-        if (!info) return pk; // pas d’account => transfert OK (compte système implicite, data=0)
-        // Si déjà SystemProgram (wallet), c’est bon
-        if (info.owner.equals(solanaWeb3.SystemProgram.programId)) return pk;
+        if (!info) return pk; // pas d’account => OK (compte système implicite)
+        if (info.owner.equals(solanaWeb3.SystemProgram.programId)) return pk; // déjà un wallet
 
-        // Essaye de parser (SPL Token, Token-2022…) pour extraire le "owner" (le wallet)
+        // Essaye de parser un token account pour remonter son owner (le wallet)
         const parsed = await connection.getParsedAccountInfo(pk, 'processed');
         const ownerStr = parsed?.value?.data?.parsed?.info?.owner;
-        if (ownerStr) {
-          return new solanaWeb3.PublicKey(ownerStr); // on envoie au wallet owner, pas au token account
-        }
+        if (ownerStr) return new solanaWeb3.PublicKey(ownerStr);
 
-        // Sinon on renvoie tel quel, mais ça peut replanter si c’est un compte à données non rent-exempt
-        console.warn('[FreeSol] Destination non-system avec données, risque rent:', address, 'owner:', info.owner.toBase58());
-        return pk;
+        console.warn('[FreeSol] Destination non-system (risque rent):', address, 'owner:', info.owner.toBase58());
+        return pk; // on tente quand même (rare)
       } catch {
         return new solanaWeb3.PublicKey(address);
       }
     };
 
-    // 1) Détecte le bon programme (Token classique vs Token-2022) + vérifs
+    // 1) Détection programme SPL (classique ou Token-2022) + vérifs
     const baseAcc = await connection.getAccountInfo(tokenPK, 'confirmed');
     if (!baseAcc) throw new Error('Token account introuvable');
-    const tokenProgramId = baseAcc.owner; // Tokenkeg... (classique) ou Tokenz... (2022)
+    const tokenProgramId = baseAcc.owner; // Tokenkeg... ou Tokenz...
 
     const parsedAcc = await connection.getParsedAccountInfo(tokenPK, 'confirmed');
     const info = parsedAcc.value?.data?.parsed?.info;
     if (!info) throw new Error('Compte SPL non parsé');
 
-    // Autorité de fermeture (Token-2022 peut avoir closeAuthority distincte)
     const closeAuth =
       (info.closeAuthority && (info.closeAuthority.value || info.closeAuthority)) ||
       info.owner;
     if (closeAuth && closeAuth.toString && closeAuth.toString() !== userWalletAddress) {
       throw new Error('CloseAuthority différent: fermeture impossible');
     }
-    if (info.owner !== userWalletAddress) {
-      throw new Error('Vous devez être propriétaire du token account');
-    }
-    if (info.tokenAmount?.amount !== "0") {
-      throw new Error("Le token account n'est pas vide (amount > 0)");
-    }
+    if (info.owner !== userWalletAddress) throw new Error('Vous devez être propriétaire du token account');
+    if (info.tokenAmount?.amount !== "0") throw new Error("Le token account n'est pas vide (amount > 0)");
 
-    // 2) Montant réel récupérable (lamports du token account)
+    // 2) Lamports récupérables
     const lamports = parsedAcc.value.lamports || 0;
     if (lamports <= 0) throw new Error('Aucun rent à récupérer');
 
-    // 3) Détection parrain (si code appliqué)
+    // 3) Détecter le parrain (si code appliqué dans ton UI)
     let referrerAddress = null;
     try {
       if (typeof getReferrerAddress === 'function') {
@@ -1321,7 +1312,7 @@ async function scanTokens() {
       }
     } catch (_) {}
 
-    // 4) Split 80/20 (+3% parrain) sur le rent
+    // 4) Split 80/20 (+3%) sur le rent
     const hasRef = !!referrerAddress;
     const bossRate = hasRef ? REAL_CONFIG.BOSS_FEE_REFERRAL : REAL_CONFIG.BOSS_FEE; // 0.17 ou 0.20
     const refRate  = hasRef ? REAL_CONFIG.REFERRAL_BONUS     : 0.00;                // 0.03 ou 0
@@ -1329,7 +1320,7 @@ async function scanTokens() {
     const refLamports  = Math.floor(lamports * refRate);
     const userLamports = lamports - bossLamports - refLamports;
 
-    // 5) TX1 = CLOSE SEULEMENT
+    // 5) Prépare TX1 (Close) et TX2 (transferts)
     const tx1 = new solanaWeb3.Transaction().add(
       new solanaWeb3.TransactionInstruction({
         keys: [
@@ -1342,28 +1333,6 @@ async function scanTokens() {
       })
     );
 
-    const signAndSend = async (tx) => {
-      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('processed');
-      tx.recentBlockhash = blockhash;
-      tx.feePayer = userPK;
-
-      const signed = await provider.signTransaction(tx);
-      const raw = signed.serialize();
-      const sig = await connection.sendRawTransaction(raw, { skipPreflight: false, maxRetries: 3 });
-      await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
-      return sig;
-    };
-
-    let sig1;
-    try {
-      sig1 = await signAndSend(tx1);
-    } catch (e) {
-      if ((e.message || '').includes('Blockhash not found')) sig1 = await signAndSend(tx1);
-      else throw e;
-    }
-    console.log('[FreeSol] Close OK:', sig1);
-
-    // 6) TX2 = Transferts vers boss + parrain (destinations normalisées)
     const bossDestPK = await resolveToWallet(REAL_CONFIG.BOSS_WALLET);
     const refDestPK  = referrerAddress ? await resolveToWallet(referrerAddress) : null;
 
@@ -1383,10 +1352,17 @@ async function scanTokens() {
       }));
     }
 
+    // S’il n’y a rien à transférer (très petit rent), on n’envoie que TX1
     if (tx2.instructions.length === 0) {
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('processed');
+      tx1.recentBlockhash = blockhash; tx1.feePayer = userPK;
+      const signed1 = await provider.signTransaction(tx1);
+      const sig1 = await connection.sendRawTransaction(signed1.serialize(), { skipPreflight: false, maxRetries: 3 });
+      await connection.confirmTransaction({ signature: sig1, blockhash, lastValidBlockHeight }, 'confirmed');
+      console.log('[FreeSol] Close OK (no split):', sig1);
       return {
         success: true,
-        signature: sig1, // close only
+        signature: sig1,
         userAmount: userLamports / 1e9,
         bossAmount: bossLamports / 1e9,
         referralAmount: refLamports / 1e9,
@@ -1394,24 +1370,68 @@ async function scanTokens() {
       };
     }
 
-    let sig2;
-    try {
-      sig2 = await signAndSend(tx2);
-    } catch (e) {
-      if ((e.message || '').includes('Blockhash not found')) sig2 = await signAndSend(tx2);
-      else throw e;
+    // 6) Une seule demande de signature pour TX1 + TX2
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('processed');
+    tx1.recentBlockhash = blockhash; tx1.feePayer = userPK;
+    tx2.recentBlockhash = blockhash; tx2.feePayer = userPK;
+
+    let sig1, sig2;
+
+    if (provider.signAllTransactions) {
+      // Un seul popup Phantom
+      const [signed1, signed2] = await provider.signAllTransactions([tx1, tx2]);
+
+      // Envoie TX1, puis TX2
+      sig1 = await connection.sendRawTransaction(signed1.serialize(), { skipPreflight: false, maxRetries: 3 });
+      await connection.confirmTransaction({ signature: sig1, blockhash, lastValidBlockHeight }, 'confirmed');
+      console.log('[FreeSol] Close OK:', sig1);
+
+      // Petite pause pour laisser Phantom finir d’afficher/fermer le 1er toast
+      await new Promise(r => setTimeout(r, 250));
+
+      try {
+        sig2 = await connection.sendRawTransaction(signed2.serialize(), { skipPreflight: false, maxRetries: 3 });
+        await connection.confirmTransaction({ signature: sig2, blockhash, lastValidBlockHeight }, 'confirmed');
+      } catch (e) {
+        // Si le blockhash a expiré entre-temps, on re-signe TX2 seul avec un nouveau blockhash
+        if ((e.message || '').includes('Blockhash not found')) {
+          const fresh = await connection.getLatestBlockhash('processed');
+          tx2.recentBlockhash = fresh.blockhash; tx2.feePayer = userPK;
+          const reSigned2 = await provider.signTransaction(tx2); // 2e popup seulement en cas de retry
+          sig2 = await connection.sendRawTransaction(reSigned2.serialize(), { skipPreflight: false, maxRetries: 3 });
+          await connection.confirmTransaction({ signature: sig2, blockhash: fresh.blockhash, lastValidBlockHeight: fresh.lastValidBlockHeight }, 'confirmed');
+        } else {
+          throw e;
+        }
+      }
+    } else {
+      // Fallback: 2 popups (comme avant), mais avec petite pause pour éviter le “reject” rapide
+      const signed1 = await provider.signTransaction(tx1);
+      sig1 = await connection.sendRawTransaction(signed1.serialize(), { skipPreflight: false, maxRetries: 3 });
+      await connection.confirmTransaction({ signature: sig1, blockhash, lastValidBlockHeight }, 'confirmed');
+      console.log('[FreeSol] Close OK:', sig1);
+
+      await new Promise(r => setTimeout(r, 400)); // laisse souffler Phantom
+      const signed2 = await provider.signTransaction(tx2);
+      sig2 = await connection.sendRawTransaction(signed2.serialize(), { skipPreflight: false, maxRetries: 3 });
+      await connection.confirmTransaction({ signature: sig2, blockhash, lastValidBlockHeight }, 'confirmed');
     }
+
     console.log('[FreeSol] Split OK:', sig2);
 
     return {
       success: true,
-      signature: sig2, // signature des transferts
+      signature: sig2, // on retourne la TX2 (split)
       userAmount: userLamports / 1e9,
       bossAmount: bossLamports / 1e9,
       referralAmount: refLamports / 1e9,
       referrer: referrerAddress || null
     };
   } catch (error) {
+    // Si l’utilisateur clique “Reject”, Phantom renvoie exactement cette erreur
+    if ((error.message || '').toLowerCase().includes('user rejected')) {
+      showNotification('❌ Signature refusée dans Phantom. Accepte la demande pour finaliser.', 'error');
+    }
     console.error('[FreeSol] realRecoverRent error:', error);
     return { success: false, error: error.message || 'Unexpected error' };
   }
