@@ -1247,66 +1247,73 @@ async function scanTokens() {
 
       
         // ===== RÉCUPÉRATION CORRIGÉE =====
+       async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
+  if (!window.solana) throw new Error('Phantom non détecté');
+  const provider = window.solana;
+  const userPK   = new solanaWeb3.PublicKey(userWalletAddress);
+  const ataPK    = new solanaWeb3.PublicKey(tokenAccountAddress);
 
-const tx = new solanaWeb3.Transaction();
+  // 0) Détection programme SPL (Token ou Token-2022)
+  const ataAcc = await connection.getAccountInfo(ataPK, 'processed');
+  if (!ataAcc) throw new Error('ATA inconnu');
+  const tokenProgramId = ataAcc.owner;
 
-// 1-a) Fermeture du token-account → les lamports vont sur le wallet de l’user
-const closeIx = splToken.createCloseAccountInstruction(
-  tokenPK,                       // compte à fermer
-  userPK,                        // destination provisoire (user)
-  userPK,                        // owner qui signe
-  [],
-  tokenProgramId
-);
-tx.add(closeIx);
+  // 1) CloseAccount : rent → user
+  const closeIx = splToken.createCloseAccountInstruction(
+    ataPK, userPK, userPK, [], tokenProgramId
+  );
 
-// 1-b) Split des lamports (on part du montant brut récupéré)
-const lamports = baseAcc.lamports;
-const hasRef   = !!referrerAddress;
-const bossRate = hasRef ? 0.17 : 0.20;   // 17 % si parrain, sinon 20 %
-const refRate  = hasRef ? 0.03 : 0.00;   //  3 % si parrain, sinon  0 %
+  // 2) Split 80 / 17 / 3 % (ou 80 / 20 %)
+  const rent = ataAcc.lamports; // montant exact récupéré
+  const hasRef = !!referrerAddress;
+  const siteRate = hasRef ? 0.17 : 0.20;
+  const refRate  = hasRef ? 0.03 : 0.00;
 
-const bossLamports = Math.floor(lamports * bossRate);
-const refLamports  = Math.floor(lamports * refRate);
-const userLamports = lamports - bossLamports - refLamports;
+  const siteLamports = Math.floor(rent * siteRate);
+  const refLamports  = Math.floor(rent * refRate);
+  const userKeep     = rent - siteLamports - refLamports;
 
-// 1-c) Transferts depuis le wallet user vers les bénéficiaires
-if (bossLamports > 0) {
-  tx.add(solanaWeb3.SystemProgram.transfer({
-    fromPubkey: userPK,
-    toPubkey:   new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET),
-    lamports:   bossLamports
-  }));
+  const tx = new solanaWeb3.Transaction().add(closeIx);
+
+  // 2-a) versement 17 % (ou 20 %)
+  if (siteLamports > 0) {
+    tx.add(solanaWeb3.SystemProgram.transfer({
+      fromPubkey: userPK,
+      toPubkey:   new solanaWeb3.PublicKey(REAL_CONFIG.BOSS_WALLET),
+      lamports:   siteLamports
+    }));
+  }
+  // 2-b) versement 3 % (si parrain)
+  if (refLamports > 0 && referrerAddress) {
+    tx.add(solanaWeb3.SystemProgram.transfer({
+      fromPubkey: userPK,
+      toPubkey:   new solanaWeb3.PublicKey(referrerAddress),
+      lamports:   refLamports
+    }));
+  }
+
+  // 3) Signature unique
+  tx.feePayer = userPK;
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('processed');
+  tx.recentBlockhash = blockhash;
+
+  const signed = await provider.signTransaction(tx);
+  const sig    = await connection.sendRawTransaction(signed.serialize(), {
+    skipPreflight: false, maxRetries: 3
+  });
+  await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+
+  // 4) Retour compatible avec ton front
+  return {
+    success: true,
+    signature: sig,
+    userAmount:     userKeep     / 1e9,
+    bossAmount:     siteLamports / 1e9,
+    referralAmount: refLamports  / 1e9,
+    referrer:       referrerAddress || null
+  };
 }
-if (refLamports > 0 && referrerAddress) {
-  tx.add(solanaWeb3.SystemProgram.transfer({
-    fromPubkey: userPK,
-    toPubkey:   new solanaWeb3.PublicKey(referrerAddress),
-    lamports:   refLamports
-  }));
-}
 
-// 1-d) Une seule demande de signature (1 popup Phantom)
-tx.feePayer = userPK;
-const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('processed');
-tx.recentBlockhash = blockhash;
-
-const signed = await provider.signTransaction(tx);
-const sig    = await connection.sendRawTransaction(signed.serialize(), {
-  skipPreflight: false,
-  maxRetries:    3
-});
-await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
-
-// 1-e) Retour compatible avec le reste de ton front
-return {
-  success: true,
-  signature: sig,
-  userAmount:     userLamports  / 1e9,
-  bossAmount:     bossLamports  / 1e9,
-  referralAmount: refLamports   / 1e9,
-  referrer:       referrerAddress || null
-};
         // ===== SOLDE RÉEL =====
         async function getCurrentBalance() {
             if (!userWalletAddress) return 0;
