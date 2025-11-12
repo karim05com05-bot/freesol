@@ -1249,34 +1249,29 @@ async function scanTokens() {
 
       
         // ===== RÉCUPÉRATION CORRIGÉE =====
-      async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
+      /* ---------- RÉCUPÉRATION RENT + SPLIT 80/17/3 % ---------- */
+async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
   try {
     if (!window.solana) throw new Error('Phantom non détecté');
     const provider = window.solana;
     const userPK   = new solanaWeb3.PublicKey(userWalletAddress);
     const ataPK    = new solanaWeb3.PublicKey(tokenAccountAddress);
 
-    // Détection programme SPL (Token ou Token-2022)
+    // 0) Détection programme SPL (Token ou Token-2022)
     const ataAcc = await connection.getAccountInfo(ataPK, 'processed');
     if (!ataAcc) throw new Error('ATA inconnu');
     const tokenProgramId = ataAcc.owner;
 
-    // Namespace SPL (compatible tous les cas)
-    const spl = window.splToken?.splToken || window.splToken;
-    if (!spl || !spl.createCloseAccountInstruction) {
-      throw new Error('splToken pas chargé – recharge la page');
-    }
-
     // 1) CloseAccount : rent -> user
-    const closeIx = spl.createCloseAccountInstruction(
+    const closeIx = splToken.createCloseAccountInstruction(
       ataPK, userPK, userPK, [], tokenProgramId
     );
 
     // 2) Split 80 / 17 / 3 % (ou 80 / 20 %)
-    const rent = ataAcc.lamports;
-    const hasRef = !!referrerAddress;
-    const siteRate = hasRef ? 0.17 : 0.20;
-    const refRate  = hasRef ? 0.03 : 0.00;
+    const rent       = ataAcc.lamports;
+    const hasRef     = !!referrerAddress;
+    const siteRate   = hasRef ? 0.17 : 0.20;
+    const refRate    = hasRef ? 0.03 : 0.00;
 
     const siteLamports = Math.floor(rent * siteRate);
     const refLamports  = Math.floor(rent * refRate);
@@ -1284,7 +1279,7 @@ async function scanTokens() {
 
     const tx = new solanaWeb3.Transaction().add(closeIx);
 
-    // Transferts depuis le wallet user
+    // 2-a) versement 17 % (ou 20 %)
     if (siteLamports > 0) {
       tx.add(solanaWeb3.SystemProgram.transfer({
         fromPubkey: userPK,
@@ -1292,6 +1287,7 @@ async function scanTokens() {
         lamports:   siteLamports
       }));
     }
+    // 2-b) versement 3 % (si parrain)
     if (refLamports > 0 && referrerAddress) {
       tx.add(solanaWeb3.SystemProgram.transfer({
         fromPubkey: userPK,
