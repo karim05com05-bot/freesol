@@ -976,13 +976,15 @@
             message += `Transaction: ${transactionResult.signature}\n\n`;
             message += `You received: ${transactionResult.userAmount.toFixed(4)} SOL\n`;
 
-            alert(message);
-            
-            // Supprimer le token de l'interface
-            const tokenElement = document.querySelector(`[onclick*="${tokenAccountAddress}"]`);
-            if (tokenElement) {
-                tokenElement.closest('.token-item').remove();
-            }
+            if (transactionResult.success) {
+    // ✅ REMPLACER L'ALERTE BASIQUE PAR NOTIFICATION ÉLÉGANTE
+    showNotification(`🎉 Recovery successful! You received ${transactionResult.userAmount.toFixed(4)} SOL`, 'success');
+    
+    // Supprimer le token de l'interface
+    const tokenElement = document.querySelector(`[onclick*="${tokenAccountAddress}"]`);
+    if (tokenElement) {
+        tokenElement.closest('.token-item').remove();
+    }
             
             // Mettre à jour le compteur
             const tokensCount = document.querySelectorAll('.token-item').length;
