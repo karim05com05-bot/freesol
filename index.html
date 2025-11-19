@@ -971,51 +971,59 @@
             try {
                 const transactionResult = await realRecoverRent(tokenAccountAddress, recoverableSOL);
                 
-                if (transactionResult.success) {
-                    let message = `🎉 RECOVERY SUCCESSFUL!\n\n`;
-                    message += `Transaction: ${transactionResult.signature}\n\n`;
-                    message += `You received: ${transactionResult.userAmount.toFixed(4)} SOL\n`;
+               if (transactionResult.success) {
+    let message = `🎉 RECOVERY SUCCESSFUL!\n\n`;
+    message += `Transaction: ${transactionResult.signature}\n\n`;
+    message += `You received: ${transactionResult.userAmount.toFixed(4)} SOL\n`;
 
-                    alert(message);
-                    
-                    const txData = {
-                        txId: transactionResult.signature,
-                        account: tokenAccountAddress,
-                        userReceived: transactionResult.userAmount,
-                        timestamp: new Date().toISOString(),
-                        verified: backendOnline
-                    };
+    alert(message);
+    
+    // ✅ SUPPRIMER IMMÉDIATEMENT LE TOKEN DE L'INTERFACE
+    const tokenElement = document.querySelector(`[onclick*="${tokenAccountAddress}"]`);
+    if (tokenElement) {
+        tokenElement.closest('.token-item').remove();
+    }
+    
+    // ✅ METTRE À JOUR LE COMPTEUR
+    const tokensCount = document.querySelectorAll('.token-item').length;
+    if (tokensCount === 0) {
+        document.getElementById('tokensContainer').innerHTML = 
+            '<div style="text-align: center; padding: 20px;">🎉 All tokens recovered!</div>';
+    }
+    
+    const txData = {
+        txId: transactionResult.signature,
+        account: tokenAccountAddress,
+        userReceived: transactionResult.userAmount,
+        timestamp: new Date().toISOString(),
+        verified: backendOnline
+    };
 
-                    saveTransaction(txData);
-                    
-                    try {
-                        await backendService.addGlobalTransaction({
-                            txId: transactionResult.signature,
-                            userReceived: transactionResult.userAmount,
-                            userWallet: userWalletAddress.substring(0, 8) + '...',
-                        });
-                        
-                        loadGlobalTransactions();
-                        updateRealStats();
-                    } catch (globalError) {
-                        console.log('Global save error:', globalError);
-                    }
-                    
-                    loadTransactionHistory();
-                    userBalance = await getCurrentBalance();
-                    showBalanceWarning();
-                    
-                    setTimeout(() => scanTokens(), 2000);
-                    
-                } else {
-                    throw new Error(transactionResult.error);
-                }
-                
-            } catch (error) {
-                console.error('Claim error:', error);
-                showNotification('❌ Error: ' + error.message, 'error');
-            }
-        }
+    saveTransaction(txData);
+    
+    try {
+        await backendService.addGlobalTransaction({
+            txId: transactionResult.signature,
+            userReceived: transactionResult.userAmount,
+            userWallet: userWalletAddress.substring(0, 8) + '...',
+        });
+        
+        loadGlobalTransactions();
+        updateRealStats();
+    } catch (globalError) {
+        console.log('Global save error:', globalError);
+    }
+    
+    loadTransactionHistory();
+    userBalance = await getCurrentBalance();
+    showBalanceWarning();
+    
+    // Rescan après 2 secondes pour être sûr
+    setTimeout(() => scanTokens(), 2000);
+    
+} else {
+    throw new Error(transactionResult.error);
+}
 
         // ===== CORRECTED RECOVERY FUNCTION =====
         async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
