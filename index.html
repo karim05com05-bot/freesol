@@ -957,7 +957,7 @@
         }
 
         // ===== CLAIM TOKEN FUNCTION =====
-        async function claimToken(tokenAccountAddress, recoverableSOL) {
+       async function claimToken(tokenAccountAddress, recoverableSOL) {
     if (!currentWallet) {
         showNotification('❌ Please connect your wallet first!', 'error');
         return;
@@ -972,19 +972,14 @@
         const transactionResult = await realRecoverRent(tokenAccountAddress, recoverableSOL);
         
         if (transactionResult.success) {
-            let message = `🎉 RECOVERY SUCCESSFUL!\n\n`;
-            message += `Transaction: ${transactionResult.signature}\n\n`;
-            message += `You received: ${transactionResult.userAmount.toFixed(4)} SOL\n`;
-
-            if (transactionResult.success) {
-    // ✅ REMPLACER L'ALERTE BASIQUE PAR NOTIFICATION ÉLÉGANTE
-    showNotification(`🎉 Recovery successful! You received ${transactionResult.userAmount.toFixed(4)} SOL`, 'success');
-    
-    // Supprimer le token de l'interface
-    const tokenElement = document.querySelector(`[onclick*="${tokenAccountAddress}"]`);
-    if (tokenElement) {
-        tokenElement.closest('.token-item').remove();
-    }
+            // ✅ NOTIFICATION ÉLÉGANTE AU LIEU DE ALERT()
+            showNotification(`🎉 Recovery successful! You received ${transactionResult.userAmount.toFixed(4)} SOL`, 'success');
+            
+            // Supprimer le token de l'interface
+            const tokenElement = document.querySelector(`[onclick*="${tokenAccountAddress}"]`);
+            if (tokenElement) {
+                tokenElement.closest('.token-item').remove();
+            }
             
             // Mettre à jour le compteur
             const tokensCount = document.querySelectorAll('.token-item').length;
