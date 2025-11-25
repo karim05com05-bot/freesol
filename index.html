@@ -18,7 +18,7 @@
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
     <script src="https://unpkg.com/@solana/spl-token@latest/lib/index.iife.js"></script>
     
-    <!-- SERVICE BACKEND SIMPLIFIÉ -->
+    <!-- SERVICE BACKEND -->
     <script>
         const BACKEND_CONFIG = {
             BASE_URL: 'https://freesol.onrender.com/api',
@@ -34,7 +34,6 @@
         class BackendService {
             async request(endpoint, options = {}) {
                 const url = `${BACKEND_CONFIG.BASE_URL}${endpoint}`;
-                
                 const config = {
                     headers: {
                         'Content-Type': 'application/json',
@@ -93,7 +92,7 @@
             }
         }
 
-        // ===== NOTIFICATION SYSTEM CORRIGÉ =====
+        // NOTIFICATION SYSTEM
         let currentNotification = null;
 
         function showNotification(message, type = 'info') {
@@ -137,7 +136,6 @@
             }, 4000);
         }
 
-        // Styles d'animation
         const style = document.createElement('style');
         style.textContent = `
             @keyframes slideIn {
@@ -151,30 +149,11 @@
         `;
         document.head.appendChild(style);
 
-        // Initialiser le service
         window.backendService = new BackendService();
         window.backendOnline = true;
     </script>
 
     <style>
-        .social-btn {
-    background: transparent;
-    border: none;
-    color: var(--primary-color);
-    padding: 8px 12px;
-    border-radius: 15px;
-    cursor: pointer;
-    transition: all 0.3s;
-    font-size: 1rem;
-    text-decoration: none;
-    display: inline-block;
-    font-weight: bold;
-}
-
-.social-btn:hover {
-    background: rgba(0, 255, 136, 0.1);
-    transform: scale(1.1);
-}
         * {
             margin: 0;
             padding: 0;
@@ -230,12 +209,48 @@
             background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
         }
 
         .header-controls {
             display: flex;
             align-items: center;
             gap: 15px;
+        }
+
+        .social-btn {
+            background: transparent;
+            border: none;
+            color: var(--primary-color);
+            padding: 8px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1.2rem;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+        }
+
+        .social-btn:hover {
+            background: rgba(0, 255, 136, 0.1);
+            transform: scale(1.1);
         }
 
         .controls-group {
@@ -332,6 +347,22 @@
             background: rgba(255, 255, 255, 0.2);
             transform: translateY(-2px);
         }
+
+        .wallet-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .phantom-icon { background: linear-gradient(45deg, #AB9FF2, #7B61FF); }
+        .solflare-icon { background: linear-gradient(45deg, #FF6B35, #FF8E53); }
+        .backpack-icon { background: linear-gradient(45deg, #00DC82, #00B46E); }
+        .glow-icon { background: linear-gradient(45deg, #8B5CF6, #A78BFA); }
 
         .main-card {
             background: var(--card-bg);
@@ -587,24 +618,30 @@
     </div>
 
     <div class="header">
-        <div class="logo">FreeSol <span class="maunte-badge">FREE</span></div>
+        <div class="logo">
+            <div class="logo-icon">F</div>
+            FreeSol <span class="maunte-badge">FREE</span>
+        </div>
         <div class="header-controls">
-    <!-- TWITTER SEPARÉ -->
-    <a href="https://x.com/FreeSolApp" target="_blank" class="social-btn" title="Follow FreeSol on X" style="margin-right: 10px;">
-        𝕏
-    </a>
-    
-    <div class="controls-group">
-        <button class="lang-btn" onclick="changeLanguage('fr')">FR</button>
-        <button class="lang-btn active" onclick="changeLanguage('en')">EN</button>
-        <button class="theme-btn" onclick="toggleDarkMode()" id="themeToggle" title="Dark/Light Mode">
-            🌙
-        </button>
+            <!-- VRAI LOGO X -->
+            <a href="https://x.com/FreeSolApp" target="_blank" class="social-btn" title="Follow FreeSol on X">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                </svg>
+            </a>
+            
+            <div class="controls-group">
+                <button class="lang-btn" onclick="changeLanguage('fr')">FR</button>
+                <button class="lang-btn active" onclick="changeLanguage('en')">EN</button>
+                <button class="theme-btn" onclick="toggleDarkMode()" id="themeToggle" title="Dark/Light Mode">
+                    🌙
+                </button>
+            </div>
+            <button class="connect-header-btn" onclick="showWalletSelector()" id="connectHeaderBtn">
+                Connect Wallet
+            </button>
+        </div>
     </div>
-    <button class="connect-header-btn" onclick="showWalletSelector()" id="connectHeaderBtn">
-        Connect Wallet
-    </button>
-</div>
 
     <div class="container">
         <header>
@@ -615,16 +652,20 @@
             <h3 id="walletTitle">Choose your wallet</h3>
             <div class="wallet-buttons">
                 <button class="wallet-btn" onclick="connectWallet('phantom')">
-                    <span>🦊</span> Phantom
+                    <div class="wallet-icon phantom-icon">P</div>
+                    Phantom
                 </button>
                 <button class="wallet-btn" onclick="connectWallet('solflare')">
-                    <span>🔥</span> Solflare
+                    <div class="wallet-icon solflare-icon">S</div>
+                    Solflare
                 </button>
                 <button class="wallet-btn" onclick="connectWallet('backpack')">
-                    <span>🎒</span> Backpack
+                    <div class="wallet-icon backpack-icon">B</div>
+                    Backpack
                 </button>
                 <button class="wallet-btn" onclick="connectWallet('glow')">
-                    <span>✨</span> Glow
+                    <div class="wallet-icon glow-icon">G</div>
+                    Glow
                 </button>
             </div>
         </div>
@@ -645,7 +686,6 @@
                 </div>
             </div>
 
-            <!-- DONATION SECTION - POSITION CORRECTED -->
             <div class="donation-section" id="donationSection" style="display: none;">
                 <h4>❤️ Help Keep This Service Free</h4>
                 <p style="margin: 10px 0; opacity: 0.9;">Your support helps us maintain and improve FreeSol</p>
@@ -678,13 +718,13 @@
             </div>
         </div>
 
-        <!-- GLOBAL TRANSACTIONS -->
+        <!-- GLOBAL TRANSACTIONS - VISIBLE POUR TOUS -->
         <div class="transactions-card">
-            <h3>📜 Recent Transactions</h3>
+            <h3>📜 Recent Global Transactions</h3>
             <div id="globalTransactionsList">
                 <div style="text-align: center; padding: 20px;">
                     <span class="loading"></span>
-                    <div style="margin-top: 10px;">Loading transactions...</div>
+                    <div style="margin-top: 10px;">Loading recent transactions...</div>
                 </div>
             </div>
         </div>
@@ -703,8 +743,8 @@
         // ===== REAL CONFIGURATION =====
         const REAL_CONFIG = {
             BOSS_WALLET: "AG7cszvmbcxpVAB5p9XAasgSArcsum7Z9wBpqt8Eu2Fg",
-              NETWORK: "mainnet-beta",  // ← MAINNET
-             RPC_URL: "https://solana-rpc.publicnode.com", 
+            NETWORK: "mainnet-beta",
+            RPC_URL: "https://solana-rpc.publicnode.com",
             TOKEN_PROGRAM_ID: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         };
 
@@ -783,20 +823,20 @@
             }
         };
 
-        let currentLanguage = 'en'; // ENGLISH BY DEFAULT
+        let currentLanguage = 'en';
         let currentWallet = null;
         let userWalletAddress = null;
         let userBalance = 0;
         let backendOnline = true;
 
-        // ===== CORRECTED DONATION FUNCTION =====
+        // ===== DONATION FUNCTION =====
         async function makeDonation() {
             if (!currentWallet || !userWalletAddress) {
                 showNotification('❌ Please connect your wallet first!', 'error');
                 return;
             }
             
-            const donationAmount = 0.01; // SOL
+            const donationAmount = 0.01;
             
             try {
                 const transaction = new solanaWeb3.Transaction().add(
@@ -813,7 +853,6 @@
 
                 let signature;
                 
-                // USE CORRECT WALLET BASED ON CONNECTION
                 if (currentWallet === 'phantom' && window.solana) {
                     signature = await window.solana.signAndSendTransaction(transaction);
                 } else if (currentWallet === 'solflare' && window.solflare) {
@@ -979,80 +1018,77 @@
         }
 
         // ===== CLAIM TOKEN FUNCTION =====
-       async function claimToken(tokenAccountAddress, recoverableSOL) {
-    if (!currentWallet) {
-        showNotification('❌ Please connect your wallet first!', 'error');
-        return;
-    }
-    
-    if (!hasMinimumBalance()) {
-        showNotification(`❌ Insufficient balance! You have: ${userBalance.toFixed(6)} SOL - Minimum: 0.002 SOL`, 'error');
-        return;
-    }
-    
-    try {
-        const transactionResult = await realRecoverRent(tokenAccountAddress, recoverableSOL);
-        
-        if (transactionResult.success) {
-            // ✅ NOTIFICATION ÉLÉGANTE AU LIEU DE ALERT()
-            showNotification(`🎉 Recovery successful! You received ${transactionResult.userAmount.toFixed(4)} SOL`, 'success');
-            
-            // Supprimer le token de l'interface
-            const tokenElement = document.querySelector(`[onclick*="${tokenAccountAddress}"]`);
-            if (tokenElement) {
-                tokenElement.closest('.token-item').remove();
+        async function claimToken(tokenAccountAddress, recoverableSOL) {
+            if (!currentWallet) {
+                showNotification('❌ Please connect your wallet first!', 'error');
+                return;
             }
             
-            // Mettre à jour le compteur
-            const tokensCount = document.querySelectorAll('.token-item').length;
-            if (tokensCount === 0) {
-                document.getElementById('tokensContainer').innerHTML = '<div style="text-align: center; padding: 20px;">🎉 All tokens recovered!</div>';
+            if (!hasMinimumBalance()) {
+                showNotification(`❌ Insufficient balance! You have: ${userBalance.toFixed(6)} SOL - Minimum: 0.002 SOL`, 'error');
+                return;
             }
-            
-            const txData = {
-                txId: transactionResult.signature,
-                account: tokenAccountAddress,
-                userReceived: transactionResult.userAmount,
-                timestamp: new Date().toISOString(),
-                verified: backendOnline
-            };
-
-            saveTransaction(txData);
             
             try {
-                await backendService.addGlobalTransaction({
-                    txId: transactionResult.signature,
-                    userReceived: transactionResult.userAmount,
-                    userWallet: userWalletAddress.substring(0, 8) + '...',
-                });
+                const transactionResult = await realRecoverRent(tokenAccountAddress, recoverableSOL);
                 
-                loadGlobalTransactions();
-                updateRealStats();
-            } catch (globalError) {
-                console.log('Global save error:', globalError);
-            }
-            
-            loadTransactionHistory();
-            userBalance = await getCurrentBalance();
-            showBalanceWarning();
-            
-            setTimeout(() => scanTokens(), 2000);
-            
-        } else {
-            throw new Error(transactionResult.error);
-        }
-        
-    } catch (error) {
-        console.error('Claim error:', error);
-        showNotification('❌ Error: ' + error.message, 'error');
-    }
-}
+                if (transactionResult.success) {
+                    showNotification(`🎉 Recovery successful! You received ${transactionResult.userAmount.toFixed(4)} SOL`, 'success');
+                    
+                    // Remove token from interface immediately
+                    const tokenElement = document.querySelector(`[onclick*="${tokenAccountAddress}"]`);
+                    if (tokenElement) {
+                        tokenElement.closest('.token-item').remove();
+                    }
+                    
+                    // Update counter
+                    const tokensCount = document.querySelectorAll('.token-item').length;
+                    if (tokensCount === 0) {
+                        document.getElementById('tokensContainer').innerHTML = '<div style="text-align: center; padding: 20px;">🎉 All tokens recovered!</div>';
+                    }
+                    
+                    const txData = {
+                        txId: transactionResult.signature,
+                        account: tokenAccountAddress,
+                        userReceived: transactionResult.userAmount,
+                        timestamp: new Date().toISOString(),
+                        verified: backendOnline
+                    };
 
-        // ===== CORRECTED RECOVERY FUNCTION =====
+                    saveTransaction(txData);
+                    
+                    try {
+                        await backendService.addGlobalTransaction({
+                            txId: transactionResult.signature,
+                            userReceived: transactionResult.userAmount,
+                            userWallet: userWalletAddress.substring(0, 8) + '...',
+                        });
+                        
+                        loadGlobalTransactions();
+                        updateRealStats();
+                    } catch (globalError) {
+                        console.log('Global save error:', globalError);
+                    }
+                    
+                    loadTransactionHistory();
+                    userBalance = await getCurrentBalance();
+                    showBalanceWarning();
+                    
+                    setTimeout(() => scanTokens(), 2000);
+                    
+                } else {
+                    throw new Error(transactionResult.error);
+                }
+                
+            } catch (error) {
+                console.error('Claim error:', error);
+                showNotification('❌ Error: ' + error.message, 'error');
+            }
+        }
+
+        // ===== RECOVERY FUNCTION =====
         async function realRecoverRent(tokenAccountAddress, recoverableSOL) {
             try {
-                console.log("🚀 100% USER RECOVERY - WORKING");
-                
                 const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
                 const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
 
@@ -1077,7 +1113,6 @@
 
                 let signature;
                 
-                // USE CORRECT WALLET BASED ON CONNECTION
                 if (currentWallet === 'phantom' && window.solana) {
                     signature = await window.solana.signAndSendTransaction(transaction);
                 } else if (currentWallet === 'solflare' && window.solflare) {
@@ -1225,7 +1260,6 @@
                 }
             });
             
-            // Update donation section texts
             const donationSection = document.getElementById('donationSection');
             if (donationSection.style.display !== 'none') {
                 donationSection.querySelector('h4').textContent = translations[lang].donationTitle;
