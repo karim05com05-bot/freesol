@@ -157,6 +157,24 @@
     </script>
 
     <style>
+        .social-btn {
+    background: transparent;
+    border: none;
+    color: var(--primary-color);
+    padding: 8px 12px;
+    border-radius: 15px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-size: 1rem;
+    text-decoration: none;
+    display: inline-block;
+    font-weight: bold;
+}
+
+.social-btn:hover {
+    background: rgba(0, 255, 136, 0.1);
+    transform: scale(1.1);
+}
         * {
             margin: 0;
             padding: 0;
@@ -571,18 +589,22 @@
     <div class="header">
         <div class="logo">FreeSol <span class="maunte-badge">FREE</span></div>
         <div class="header-controls">
-            <div class="controls-group">
-                <button class="lang-btn" onclick="changeLanguage('fr')">FR</button>
-                <button class="lang-btn active" onclick="changeLanguage('en')">EN</button>
-                <button class="theme-btn" onclick="toggleDarkMode()" id="themeToggle" title="Dark/Light Mode">
-                    🌙
-                </button>
-            </div>
-            <button class="connect-header-btn" onclick="showWalletSelector()" id="connectHeaderBtn">
-                Connect Wallet
-            </button>
-        </div>
+    <!-- TWITTER SEPARÉ -->
+    <a href="https://x.com/FreeSolApp" target="_blank" class="social-btn" title="Follow FreeSol on X" style="margin-right: 10px;">
+        𝕏
+    </a>
+    
+    <div class="controls-group">
+        <button class="lang-btn" onclick="changeLanguage('fr')">FR</button>
+        <button class="lang-btn active" onclick="changeLanguage('en')">EN</button>
+        <button class="theme-btn" onclick="toggleDarkMode()" id="themeToggle" title="Dark/Light Mode">
+            🌙
+        </button>
     </div>
+    <button class="connect-header-btn" onclick="showWalletSelector()" id="connectHeaderBtn">
+        Connect Wallet
+    </button>
+</div>
 
     <div class="container">
         <header>
