@@ -876,34 +876,39 @@
         }
 
         // ===== LOAD GLOBAL TRANSACTIONS =====
-        async function loadGlobalTransactions() {
-            const transactionsList = document.getElementById('globalTransactionsList');
-            
-            try {
-                const result = await backendService.getGlobalTransactions();
-                
-                if (result.success && result.transactions.length > 0) {
-                    transactionsList.innerHTML = result.transactions.map(tx => `
-                        <div class="transaction-item">
-                            <div>
-                                <strong>+${tx.userReceived.toFixed(4)} SOL</strong><br>
-                                <small>${tx.userWallet} • ${new Date(tx.timestamp).toLocaleDateString()}</small>
-                            </div>
-                            <div>
-                               <a href="https://solscan.io/tx/${getTransactionSignature(tx.txId)}" target="_blank" class="tx-link">
-                                    🔗 View
-                                </a>
-                            </div>
-                        </div>
-                    `).join('');
-                } else {
-                    transactionsList.innerHTML = '<div style="text-align: center; opacity: 0.7;">No global transactions yet</div>';
-                }
-            } catch (error) {
-                console.error('Error loading global transactions:', error);
-                transactionsList.innerHTML = '<div style="text-align: center; opacity: 0.7;">Loading transactions...</div>';
-            }
+       async function loadGlobalTransactions() {
+    const transactionsList = document.getElementById('globalTransactionsList');
+    
+    try {
+        console.log("🔄 Chargement transactions...");
+        const result = await backendService.getGlobalTransactions();
+        console.log("📦 Résultat backend:", result);
+        
+        if (result.success && result.transactions && result.transactions.length > 0) {
+            console.log("✅ Transactions trouvées:", result.transactions.length);
+            transactionsList.innerHTML = result.transactions.map(tx => `
+                <div class="transaction-item">
+                    <div>
+                        <strong>+${tx.userReceived.toFixed(4)} SOL</strong><br>
+                        <small>${tx.userWallet} • ${new Date(tx.timestamp).toLocaleDateString()}</small>
+                    </div>
+                    <div>
+                        <a href="https://solscan.io/tx/${getTransactionSignature(tx.txId)}" target="_blank" class="tx-link">
+                            🔗 View
+                        </a>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            console.log("❌ Aucune transaction:", result);
+            transactionsList.innerHTML = '<div style="text-align: center; opacity: 0.7;">No transactions yet</div>';
         }
+        
+    } catch (error) {
+        console.error('❌ Erreur chargement transactions:', error);
+        transactionsList.innerHTML = '<div style="text-align: center; opacity: 0.7;">Loading failed</div>';
+    }
+}
 
         // ===== REAL GLOBAL STATS =====
         async function updateRealStats() {
