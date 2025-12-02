@@ -816,19 +816,20 @@
         let userWalletAddress = null;
         let userBalance = 0;
         let backendOnline = true;
+        
         function getTransactionSignature(txId) {
-    console.log("Debug txId:", txId);
-    
-    if (typeof txId === 'string') {
-        return txId;
-    } else if (txId.signature) {
-        return txId.signature;
-    } else if (txId.txId) {
-        return txId.txId;
-    } else {
-        return String(txId);
-    }
-}
+            console.log("Debug txId:", txId);
+            
+            if (typeof txId === 'string') {
+                return txId;
+            } else if (txId.signature) {
+                return txId.signature;
+            } else if (txId.txId) {
+                return txId.txId;
+            } else {
+                return String(txId);
+            }
+        }
 
         // ===== DÉTECTION MOBILE =====
         function isMobile() {
@@ -943,14 +944,6 @@
                 document.getElementById('totalTokens').textContent = totalTokensClosed;
             }
         }
-
-        // ===== REAL WALLET DETECTION =====
-        const walletDetectors = {
-            phantom: () => window.solana?.isPhantom,
-            solflare: () => window.solflare?.isSolflare,
-            backpack: () => window.backpack?.isBackpack,
-            glow: () => window.glow?.isGlow
-        };
 
         // ===== DIRECT SOLANA SCAN =====
         async function scanTokens() {
@@ -1279,7 +1272,7 @@
             themeBtn.innerHTML = isDarkMode ? translations[currentLanguage].themeBtnLight : translations[currentLanguage].themeBtnDark;
         }
 
-        // ===== WALLET CONNECTION (CORRIGÉ POUR MOBILE COMME CLAIMYOURSOL.COM) =====
+        // ===== WALLET CONNECTION (CORRIGÉ POUR MOBILE ET DESKTOP) =====
         async function connectWallet(walletType) {
             const walletSelector = document.getElementById('walletSelector');
             const walletStatus = document.getElementById('walletStatus');
@@ -1300,45 +1293,60 @@
                     };
                     
                     if (mobileLinks[walletType]) {
-                        // Ouvre l'app wallet directement (comme claimyoursol.com)
+                        // Ouvre l'app wallet directement
                         window.location.href = mobileLinks[walletType];
                         showNotification('📱 Opening wallet app...', 'info');
-                        return; // On arrête ici, l'utilisateur va se connecter dans l'app
+                        return; // On arrête ici
                     }
                 }
                 // ===== FIN PARTIE MOBILE =====
                 
-                // ===== PARTIE DESKTOP (TON CODE EXISTANT) =====
-                if (!walletDetectors[walletType]()) {
-                    throw new Error(translations[currentLanguage].connectError + ': ' + walletType + ' not installed');
-                }
-
+                // ===== PARTIE DESKTOP =====
+                // Vérifie si le wallet est installé
+                let walletInstalled = false;
                 let address = null;
                 
                 switch (walletType) {
                     case 'phantom':
+                        if (!window.solana) {
+                            // Si Phantom pas installé, ouvre le site pour l'installer
+                            window.open('https://phantom.app/', '_blank');
+                            throw new Error('Install Phantom wallet first');
+                        }
                         await window.solana.connect();
                         await new Promise(resolve => setTimeout(resolve, 500));
                         address = window.solana.publicKey.toString();
                         break;
+                        
                     case 'solflare':
+                        if (!window.solflare) {
+                            window.open('https://solflare.com/', '_blank');
+                            throw new Error('Install Solflare wallet first');
+                        }
                         await window.solflare.connect();
                         await new Promise(resolve => setTimeout(resolve, 500));
                         address = window.solflare.publicKey.toString();
                         break;
+                        
                     case 'backpack':
+                        if (!window.backpack) {
+                            window.open('https://backpack.app/', '_blank');
+                            throw new Error('Install Backpack wallet first');
+                        }
                         await window.backpack.connect();
                         await new Promise(resolve => setTimeout(resolve, 500));
                         address = window.backpack.publicKey.toString();
                         break;
+                        
                     case 'glow':
-                        if (window.glow) {
-                            const response = await window.glow.request({ method: "connect" });
-                            address = response.publicKey;
-                        } else {
-                            throw new Error('Glow wallet not available');
+                        if (!window.glow) {
+                            window.open('https://glow.app/', '_blank');
+                            throw new Error('Install Glow wallet first');
                         }
+                        const response = await window.glow.request({ method: "connect" });
+                        address = response.publicKey;
                         break;
+                        
                     default:
                         throw new Error('Wallet not supported');
                 }
@@ -1373,14 +1381,7 @@
 
             } catch (error) {
                 console.error('Connection error:', error);
-                
-                // Message d'erreur amélioré pour mobile
-                let errorMsg = error.message;
-                if (isMobile()) {
-                    errorMsg = 'Open your wallet app first, then return to this site.\nOr try opening the site directly in your wallet browser.';
-                }
-                
-                showNotification('❌ ' + errorMsg, 'error');
+                showNotification('❌ ' + error.message, 'error');
             }
         }
 
@@ -1397,7 +1398,6 @@
         function showWalletSelector() {
             const walletSelector = document.getElementById('walletSelector');
             walletSelector.style.display = 'block';
-            checkWalletsAvailability();
         }
 
         function disconnectWallet() {
@@ -1422,30 +1422,6 @@
             userBalance = 0;
         }
 
-        function checkWalletsAvailability() {
-            const walletButtons = document.querySelectorAll('.wallet-btn');
-            walletButtons.forEach(btn => {
-                const onclickText = btn.getAttribute('onclick');
-                if (!onclickText) return;
-                
-                const match = onclickText.match(/connectWallet\('(.+)'\)/);
-                if (!match) return;
-                
-                const walletType = match[1];
-                
-                if (!walletDetectors[walletType]()) {
-                    btn.style.opacity = '0.5';
-                    btn.style.cursor = 'not-allowed';
-                    btn.setAttribute('onclick', '');
-                    
-                    const errorMsg = isMobile() 
-                        ? 'Open the wallet app and return' 
-                        : translations[currentLanguage].connectError + ': Wallet not installed';
-                    btn.title = errorMsg;
-                }
-            });
-        }
-
         // ===== LOAD PREFERENCES =====
         window.addEventListener('load', function() {
             if (localStorage.getItem('darkMode') === 'true') {
@@ -1460,8 +1436,6 @@
             loadGlobalTransactions();
             
             backendOnline = true;
-
-            checkWalletsAvailability();
         });
     </script>
 </body>
