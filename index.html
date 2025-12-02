@@ -18,6 +18,9 @@
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
     <script src="https://unpkg.com/@solana/spl-token@latest/lib/index.iife.js"></script>
     
+    <!-- WALLETCONNECT POUR MOBILE -->
+    <script src="https://unpkg.com/@walletconnect/solana-provider@1.2.0/dist/index.min.js"></script>
+    
     <!-- SERVICE BACKEND -->
     <script>
         const BACKEND_CONFIG = {
@@ -575,6 +578,22 @@
             display: none;
         }
 
+        /* STYLE POUR WALLETCONNECT */
+        .walletconnect-btn {
+            background: linear-gradient(45deg, #3b99fc, #5d9afc);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .mobile-warning {
+            background: rgba(255, 193, 7, 0.2);
+            border: 1px solid #ffc107;
+            padding: 12px;
+            border-radius: 10px;
+            margin: 10px 0;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
         @media (max-width: 768px) {
             .header {
                 padding: 15px 20px;
@@ -638,6 +657,12 @@
 
         <div class="wallet-selector" id="walletSelector">
             <h3 id="walletTitle">Choose your wallet</h3>
+            
+            <!-- MESSAGE MOBILE -->
+            <div id="mobileWarning" style="display: none;" class="mobile-warning">
+                📱 On mobile? Use <strong>WalletConnect</strong> or open in your wallet browser
+            </div>
+            
             <div class="wallet-buttons">
                 <button class="wallet-btn" onclick="connectWallet('phantom')">
                 <div style="width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 14px;">👻</div>
@@ -654,6 +679,11 @@
                 <button class="wallet-btn" onclick="connectWallet('glow')">
                  <div style="width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 14px;">✨</div>
                     Glow
+                </button>
+                <!-- NOUVEAU : WALLETCONNECT POUR MOBILE -->
+                <button class="wallet-btn walletconnect-btn" onclick="connectWallet('walletconnect')">
+                    <div style="width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 14px;">🔗</div>
+                    WalletConnect
                 </button>
             </div>
         </div>
@@ -774,7 +804,8 @@
                 claimDisabled: "⚠️ Insufficient balance",
                 donationTitle: "❤️ Help Keep This Service Free",
                 donationText: "Your support helps us maintain and improve FreeSol",
-                donationButton: "Make a Donation"
+                donationButton: "Make a Donation",
+                mobileWarning: "📱 On mobile? Use <strong>WalletConnect</strong> or open in your wallet browser"
             },
             fr: {
                 tagline: "Récupérez vos SOL perdus dans les tokens abandonnés",
@@ -807,7 +838,8 @@
                 claimDisabled: "⚠️ Solde insuffisant",
                 donationTitle: "❤️ Aidez à garder ce service gratuit",
                 donationText: "Votre soutien nous aide à maintenir et améliorer FreeSol",
-                donationButton: "Faire un don"
+                donationButton: "Faire un don",
+                mobileWarning: "📱 Sur mobile ? Utilisez <strong>WalletConnect</strong> ou ouvrez dans le navigateur de votre wallet"
             }
         };
 
@@ -816,19 +848,41 @@
         let userWalletAddress = null;
         let userBalance = 0;
         let backendOnline = true;
+        let walletConnectProvider = null; // Pour WalletConnect
+        
         function getTransactionSignature(txId) {
-    console.log("Debug txId:", txId);
-    
-    if (typeof txId === 'string') {
-        return txId;
-    } else if (txId.signature) {
-        return txId.signature;
-    } else if (txId.txId) {
-        return txId.txId;
-    } else {
-        return String(txId);
-    }
-}
+            console.log("Debug txId:", txId);
+            
+            if (typeof txId === 'string') {
+                return txId;
+            } else if (txId.signature) {
+                return txId.signature;
+            } else if (txId.txId) {
+                return txId.txId;
+            } else {
+                return String(txId);
+            }
+        }
+
+        // ===== DÉTECTION MOBILE =====
+        function isMobile() {
+            return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        }
+
+        // ===== DEEP LINKS POUR MOBILE =====
+        function getMobileDeepLink(walletType) {
+            const baseUrl = window.location.href;
+            switch(walletType) {
+                case 'phantom':
+                    return `https://phantom.app/ul/browse/${encodeURIComponent(baseUrl)}?ref=${encodeURIComponent('FreeSol')}`;
+                case 'solflare':
+                    return `solflare://wc?uri=${encodeURIComponent('https://solflare.com/connect')}`;
+                case 'backpack':
+                    return `https://backpack.app/connect?url=${encodeURIComponent(baseUrl)}`;
+                default:
+                    return baseUrl;
+            }
+        }
 
         // ===== DONATION FUNCTION =====
         async function makeDonation() {
@@ -863,6 +917,9 @@
                 } else if (currentWallet === 'glow' && window.glow) {
                     const response = await window.glow.signAndSendTransaction(transaction);
                     signature = response.signature;
+                } else if (currentWallet === 'walletconnect' && walletConnectProvider) {
+                    const { signature: wcSignature } = await walletConnectProvider.signAndSendTransaction(transaction);
+                    signature = wcSignature;
                 } else {
                     throw new Error('Wallet not available');
                 }
@@ -939,17 +996,13 @@
             }
         }
 
-        // ===== MOBILE DETECTION =====
-        function isMobile() {
-            return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        }
-
         // ===== REAL WALLET DETECTION =====
         const walletDetectors = {
-            phantom: () => window.solana?.isPhantom || (isMobile() && window.solana),
-            solflare: () => window.solflare?.isSolflare || (isMobile() && window.solflare),
-            backpack: () => window.backpack?.isBackpack || (isMobile() && window.backpack),
-            glow: () => window.glow?.isGlow || (isMobile() && window.glow)
+            phantom: () => window.solana?.isPhantom,
+            solflare: () => window.solflare?.isSolflare,
+            backpack: () => window.backpack?.isBackpack,
+            glow: () => window.glow?.isGlow,
+            walletconnect: () => true // Toujours disponible
         };
 
         // ===== DIRECT SOLANA SCAN =====
@@ -1093,8 +1146,6 @@
                 const userPublicKey = new solanaWeb3.PublicKey(userWalletAddress);
                 const tokenPublicKey = new solanaWeb3.PublicKey(tokenAccountAddress);
 
-                const totalLamports = Math.floor(recoverableSOL * 1000000000);
-
                 const transaction = new solanaWeb3.Transaction();
 
                 const closeInstruction = new solanaWeb3.TransactionInstruction({
@@ -1123,6 +1174,9 @@
                 } else if (currentWallet === 'glow' && window.glow) {
                     const response = await window.glow.signAndSendTransaction(transaction);
                     signature = response.signature;
+                } else if (currentWallet === 'walletconnect' && walletConnectProvider) {
+                    const { signature: wcSignature } = await walletConnectProvider.signAndSendTransaction(transaction);
+                    signature = wcSignature;
                 } else {
                     throw new Error('Wallet not available');
                 }
@@ -1261,6 +1315,12 @@
                 }
             });
             
+            // Mettre à jour le message mobile
+            const mobileWarning = document.getElementById('mobileWarning');
+            if (mobileWarning) {
+                mobileWarning.innerHTML = translations[lang].mobileWarning;
+            }
+            
             const donationSection = document.getElementById('donationSection');
             if (donationSection.style.display !== 'none') {
                 donationSection.querySelector('h4').textContent = translations[lang].donationTitle;
@@ -1281,7 +1341,7 @@
             themeBtn.innerHTML = isDarkMode ? translations[currentLanguage].themeBtnLight : translations[currentLanguage].themeBtnDark;
         }
 
-        // ===== WALLET CONNECTION =====
+        // ===== WALLET CONNECTION (CORRIGÉ POUR MOBILE) =====
         async function connectWallet(walletType) {
             const walletSelector = document.getElementById('walletSelector');
             const walletStatus = document.getElementById('walletStatus');
@@ -1289,41 +1349,91 @@
             const txHistory = document.getElementById('txHistory');
             const connectHeaderBtn = document.getElementById('connectHeaderBtn');
             const donationSection = document.getElementById('donationSection');
+            const mobileWarning = document.getElementById('mobileWarning');
             
             try {
-                if (!walletDetectors[walletType]()) {
-                    const errorMsg = isMobile() 
-                        ? translations[currentLanguage].connectError + ': ' + walletType + ' - Open the app and return'
-                        : translations[currentLanguage].connectError + ': ' + walletType + ' not installed';
-                    throw new Error(errorMsg);
+                // Afficher warning mobile si besoin
+                if (isMobile() && walletType !== 'walletconnect') {
+                    mobileWarning.style.display = 'block';
+                } else {
+                    mobileWarning.style.display = 'none';
                 }
-
+                
                 let address = null;
                 
                 switch (walletType) {
                     case 'phantom':
+                        if (isMobile()) {
+                            // Sur mobile, rediriger vers Phantom via deep link
+                            const deepLink = getMobileDeepLink('phantom');
+                            window.location.href = deepLink;
+                            showNotification('📱 Opening Phantom app...', 'info');
+                            return;
+                        }
+                        
+                        if (!window.solana?.isPhantom) {
+                            throw new Error('Phantom wallet not installed');
+                        }
+                        
                         await window.solana.connect();
                         await new Promise(resolve => setTimeout(resolve, 500));
                         address = window.solana.publicKey.toString();
                         break;
+                        
                     case 'solflare':
+                        if (isMobile()) {
+                            // Deep link pour Solflare
+                            const deepLink = getMobileDeepLink('solflare');
+                            window.location.href = deepLink;
+                            showNotification('📱 Opening Solflare app...', 'info');
+                            return;
+                        }
+                        
+                        if (!window.solflare?.isSolflare) {
+                            throw new Error('Solflare wallet not installed');
+                        }
+                        
                         await window.solflare.connect();
                         await new Promise(resolve => setTimeout(resolve, 500));
                         address = window.solflare.publicKey.toString();
                         break;
+                        
                     case 'backpack':
+                        if (!window.backpack?.isBackpack) {
+                            throw new Error('Backpack wallet not installed');
+                        }
+                        
                         await window.backpack.connect();
                         await new Promise(resolve => setTimeout(resolve, 500));
                         address = window.backpack.publicKey.toString();
                         break;
+                        
                     case 'glow':
-                        if (window.glow) {
-                            const response = await window.glow.request({ method: "connect" });
-                            address = response.publicKey;
-                        } else {
+                        if (!window.glow) {
                             throw new Error('Glow wallet not available');
                         }
+                        
+                        const response = await window.glow.request({ method: "connect" });
+                        address = response.publicKey;
                         break;
+                        
+                    case 'walletconnect':
+                        // WALLETCONNECT POUR MOBILE
+                        try {
+                            walletConnectProvider = new window.SolanaProvider({
+                                rpc: {
+                                    mainnet: REAL_CONFIG.RPC_URL
+                                }
+                            });
+                            
+                            await walletConnectProvider.connect();
+                            const accounts = await walletConnectProvider.getAccounts();
+                            address = accounts[0];
+                        } catch (wcError) {
+                            throw new Error('WalletConnect failed: ' + wcError.message);
+                        }
+                        break;
+                        
                     default:
                         throw new Error('Wallet not supported');
                 }
@@ -1358,7 +1468,14 @@
 
             } catch (error) {
                 console.error('Connection error:', error);
-                showNotification('❌ ' + error.message, 'error');
+                
+                // Si on est sur mobile, donner une meilleure instruction
+                let errorMsg = error.message;
+                if (isMobile() && walletType !== 'walletconnect') {
+                    errorMsg = translations[currentLanguage].mobileWarning + '\nOr use WalletConnect option.';
+                }
+                
+                showNotification('❌ ' + errorMsg, 'error');
             }
         }
 
@@ -1367,7 +1484,8 @@
                 phantom: 'Phantom',
                 solflare: 'Solflare',
                 backpack: 'Backpack',
-                glow: 'Glow'
+                glow: 'Glow',
+                walletconnect: 'WalletConnect'
             };
             return names[walletType] || walletType;
         }
@@ -1375,6 +1493,15 @@
         function showWalletSelector() {
             const walletSelector = document.getElementById('walletSelector');
             walletSelector.style.display = 'block';
+            
+            // Afficher warning mobile
+            const mobileWarning = document.getElementById('mobileWarning');
+            if (isMobile()) {
+                mobileWarning.style.display = 'block';
+            } else {
+                mobileWarning.style.display = 'none';
+            }
+            
             checkWalletsAvailability();
         }
 
@@ -1386,6 +1513,16 @@
             const connectHeaderBtn = document.getElementById('connectHeaderBtn');
             const balanceWarning = document.getElementById('balanceWarningContainer');
             const donationSection = document.getElementById('donationSection');
+
+            // Déconnecter WalletConnect si utilisé
+            if (currentWallet === 'walletconnect' && walletConnectProvider) {
+                try {
+                    walletConnectProvider.disconnect();
+                } catch (e) {
+                    console.log('WalletConnect disconnect error:', e);
+                }
+                walletConnectProvider = null;
+            }
 
             walletSelector.style.display = 'block';
             walletStatus.style.display = 'none';
@@ -1403,11 +1540,22 @@
         function checkWalletsAvailability() {
             const walletButtons = document.querySelectorAll('.wallet-btn');
             walletButtons.forEach(btn => {
-                const walletType = btn.onclick.toString().match(/connectWallet\('(.+)'\)/)[1];
+                const onclickText = btn.getAttribute('onclick');
+                if (!onclickText) return;
+                
+                const match = onclickText.match(/connectWallet\('(.+)'\)/);
+                if (!match) return;
+                
+                const walletType = match[1];
+                
+                // WalletConnect est toujours disponible
+                if (walletType === 'walletconnect') return;
+                
                 if (!walletDetectors[walletType]()) {
                     btn.style.opacity = '0.5';
                     btn.style.cursor = 'not-allowed';
-                    btn.onclick = null;
+                    btn.setAttribute('onclick', '');
+                    
                     const errorMsg = isMobile() 
                         ? 'Open the wallet app and return' 
                         : translations[currentLanguage].connectError + ': Wallet not installed';
@@ -1432,6 +1580,11 @@
             backendOnline = true;
 
             checkWalletsAvailability();
+            
+            // Afficher warning mobile au chargement
+            if (isMobile()) {
+                document.getElementById('mobileWarning').style.display = 'block';
+            }
         });
     </script>
 </body>
