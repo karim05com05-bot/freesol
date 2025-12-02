@@ -1200,39 +1200,58 @@
             `).join('');
         }
 
-        // ===== SAVE TRANSACTIONS =====
-        function saveTransaction(txData) {
-            const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
-            transactions.unshift(txData);
-            localStorage.setItem('freesol_transactions', JSON.stringify(transactions));
-        }
-
-        // ===== TRANSACTION HISTORY =====
-        function loadTransactionHistory() {
-            const transactionsList = document.getElementById('transactionsList');
-            const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
-            
-            if (transactions.length === 0) {
-                transactionsList.innerHTML = '<div style="text-align: center; opacity: 0.7;">' + translations[currentLanguage].noTransactions + '</div>';
-                return;
-            }
-            
-            transactionsList.innerHTML = transactions.map(tx => `
-                <div class="tx-item">
-                    <div>
-                        <strong>${tx.account.substring(0, 12)}...</strong><br>
-                        <small>${currentLanguage === 'en' ? 'Received' : 'Reçu'}: ${tx.userReceived.toFixed(4)} SOL</small>
-                        ${tx.verified ? `<br><small style="color: #00ff88;">✅ Server verified</small>` : ''}
-                    </div>
-                    <div>
-                        <small>${new Date(tx.timestamp).toLocaleDateString()}</small><br>
-                       <a href="https://solscan.io/tx/${getTransactionSignature(tx.txId)}" target="_blank" class="tx-link">
-                            ${translations[currentLanguage].viewTransaction}
-                        </a>
-                    </div>
-                </div>
-            `).join('');
-        }
+        
+        // ===== SAVE TRANSACTIONS (MAX 50) =====
+    function saveTransaction(txData) {
+    const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
+    transactions.unshift(txData); // Ajoute au début
+    
+    // Garde seulement les 50 dernières transactions
+    if (transactions.length > 50) {
+        transactions.splice(50); // Supprime au-delà de 50
+    }
+    
+    localStorage.setItem('freesol_transactions', JSON.stringify(transactions));
+}
+       // ===== TRANSACTION HISTORY (10 DERNIÈRES MAX) =====
+function loadTransactionHistory() {
+    const transactionsList = document.getElementById('transactionsList');
+    const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
+    
+    // Prendre seulement les 10 dernières transactions
+    const recentTransactions = transactions.slice(0, 10);
+    
+    if (recentTransactions.length === 0) {
+        transactionsList.innerHTML = '<div style="text-align: center; opacity: 0.7;">' + translations[currentLanguage].noTransactions + '</div>';
+        return;
+    }
+    
+    transactionsList.innerHTML = recentTransactions.map(tx => `
+        <div class="tx-item">
+            <div>
+                <strong>${tx.account.substring(0, 12)}...</strong><br>
+                <small>${currentLanguage === 'en' ? 'Received' : 'Reçu'}: ${tx.userReceived.toFixed(4)} SOL</small>
+                ${tx.verified ? `<br><small style="color: #00ff88;">✅ Server verified</small>` : ''}
+            </div>
+            <div>
+                <small>${new Date(tx.timestamp).toLocaleDateString()}</small><br>
+               <a href="https://solscan.io/tx/${getTransactionSignature(tx.txId)}" target="_blank" class="tx-link">
+                    ${translations[currentLanguage].viewTransaction}
+                </a>
+            </div>
+        </div>
+    `).join('');
+    
+    // Si plus de 10 transactions, ajouter un message
+    if (transactions.length > 10) {
+        const remaining = transactions.length - 10;
+        transactionsList.innerHTML += `
+            <div style="text-align: center; margin-top: 10px; opacity: 0.7; font-size: 0.9rem;">
+                + ${remaining} ${currentLanguage === 'en' ? 'more transactions' : 'autres transactions'}
+            </div>
+        `;
+    }
+}
 
         // ===== LANGUAGE CHANGE =====
         function changeLanguage(lang) {
