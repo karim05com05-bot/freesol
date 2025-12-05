@@ -72,6 +72,18 @@ app.post('/api/transactions/add', (req, res) => {
         stats: globalStats
     });
 });
+// AJOUTE APRÈS LES AUTRES ROUTES
+app.get('/api/transactions/global', (req, res) => {
+    console.log('📊 Transactions globales demandées');
+    
+    // Données de TEST + vraies données
+    const allTransactions = [...transactionsDB];
+    
+    res.json({
+        success: true,
+        transactions: allTransactions.slice(0, 10)
+    });
+});
 
 // 5. Scan tokens (mock - pour l'instant)
 app.post('/api/tokens/scan', (req, res) => {
