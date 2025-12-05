@@ -818,18 +818,23 @@
         let backendOnline = true;
         
         function getTransactionSignature(txId) {
-            console.log("Debug txId:", txId);
-            
-            if (typeof txId === 'string') {
-                return txId;
-            } else if (txId.signature) {
-                return txId.signature;
-            } else if (txId.txId) {
-                return txId.txId;
-            } else {
-                return String(txId);
-            }
-        }
+    // Si c'est déjà une string (signature)
+    if (typeof txId === 'string') {
+        return txId;
+    }
+    // Si c'est un objet avec une signature
+    else if (txId && txId.signature) {
+        return txId.signature;
+    }
+    // Si c'est un objet avec txId
+    else if (txId && txId.txId) {
+        return txId.txId;
+    }
+    // Sinon, convertit en string
+    else {
+        return String(txId);
+    }
+}
 
         // ===== DÉTECTION MOBILE =====
         function isMobile() {
