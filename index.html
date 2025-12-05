@@ -25,7 +25,7 @@
             ENDPOINTS: {
                 SCAN_TOKENS: '/tokens/scan',
                 VERIFY_TX: '/transactions/verify',
-                GLOBAL_TRANSACTIONS: '/global-transactions
+                GLOBAL_TRANSACTIONS: '/transactions/global',
                 ADD_TRANSACTION: '/transactions/add',
                 GLOBAL_STATS: '/global-stats'
             }
@@ -731,8 +731,8 @@
         // ===== REAL CONFIGURATION =====
         const REAL_CONFIG = {
             BOSS_WALLET: "AG7cszvmbcxpVAB5p9XAasgSArcsum7Z9wBpqt8Eu2Fg",
-          NETWORK: "devnet",  // Change mainnet-beta par devnet
-             RPC_URL: "https://api.devnet.solana.com",
+             NETWORK: "mainnet-beta",
+             RPC_URL: "https://solana-rpc.publicnode.com",
             TOKEN_PROGRAM_ID: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         };
 
@@ -818,23 +818,18 @@
         let backendOnline = true;
         
         function getTransactionSignature(txId) {
-    // Si c'est déjà une string (signature)
-    if (typeof txId === 'string') {
-        return txId;
-    }
-    // Si c'est un objet avec une signature
-    else if (txId && txId.signature) {
-        return txId.signature;
-    }
-    // Si c'est un objet avec txId
-    else if (txId && txId.txId) {
-        return txId.txId;
-    }
-    // Sinon, convertit en string
-    else {
-        return String(txId);
-    }
-}
+            console.log("Debug txId:", txId);
+            
+            if (typeof txId === 'string') {
+                return txId;
+            } else if (txId.signature) {
+                return txId.signature;
+            } else if (txId.txId) {
+                return txId.txId;
+            } else {
+                return String(txId);
+            }
+        }
 
         // ===== DÉTECTION MOBILE =====
         function isMobile() {
@@ -1218,25 +1213,6 @@
     
     localStorage.setItem('freesol_transactions', JSON.stringify(transactions));
 }
-       // AJOUTE ÇA DANS TON SCRIPT EXISTANT
-function loadTransactionHistory() {
-    try {
-        const transactionsList = document.getElementById('transactionsList');
-        if (!transactionsList) return;
-        
-        const transactions = JSON.parse(localStorage.getItem('freesol_transactions') || '[]');
-        
-        if (transactions.length === 0) {
-            transactionsList.innerHTML = '<div style="text-align: center; opacity: 0.7;">No transactions yet</div>';
-            return;
-        }
-        
-        // Ton code d'affichage ici...
-        // [COLLER TON CODE D'AFFICHAGE DES TRANSACTIONS ICI]
-    } catch (error) {
-        console.log("Error in loadTransactionHistory:", error);
-    }
-} 
        // ===== TRANSACTION HISTORY (10 DERNIÈRES MAX) =====
 function loadTransactionHistory() {
     const transactionsList = document.getElementById('transactionsList');
